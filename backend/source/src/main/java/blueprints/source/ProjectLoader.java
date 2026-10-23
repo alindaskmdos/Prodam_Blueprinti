@@ -59,13 +59,21 @@ public final class ProjectLoader {
         List<String> mains = new ArrayList<>();
         for (String path : sources) {
             byte[] bytes = entries.get(path);
-            ParseResult<CompilationUnit> pr = parser.parse(new String(bytes, StandardCharsets.UTF_8));
-            if (!pr.isSuccessful() || pr.getResult().isEmpty()) {
-                String why = pr.getProblems().isEmpty() ? "ошибка разбора" : pr.getProblems().get(0).getVerboseMessage();
-                throw new LoadException("PARSE_ERROR", path + ": " + why);
+            String text = new String(bytes, StandardCharsets.UTF_8);
+            ParseResult<CompilationUnit> pr = parser.parse(text);
+            CompilationUnit cu = pr.isSuccessful() ? pr.getResult().orElse(null) : null;
+            JavacOutline.Outline outline = null;
+            if (cu == null) {
+                // JavaParser не разбирает часть Java 21 (локальные enum/interface): если javac согласен, файл — текстом без блоков
+                outline = JavacOutline.parse(path, text).orElse(null);
+                if (outline == null) {
+                    String why = pr.getProblems().isEmpty() ? "ошибка разбора" : pr.getProblems().get(0).getVerboseMessage();
+                    throw new LoadException("PARSE_ERROR", path + ": " + why);
+                }
+                warnings.add(new LoadWarning("UNPARSED_FILE", path,
+                        "конструкция не поддерживается разбором — файл открыт только как текст, без нод и анализа"));
             }
-            CompilationUnit cu = pr.getResult().get();
-            String pkg = cu.getPackageDeclaration().map(d -> d.getNameAsString()).orElse("");
+            String pkg = cu != null ? cu.getPackageDeclaration().map(d -> d.getNameAsString()).orElse("") : outline.pkg();
             files.add(new SourceFile(path, pkg, bytes));
 
             // сверяем с полным путём: обёртка может быть первым сегментом пакета (com/demo/A.java)
@@ -77,6 +85,11 @@ public final class ProjectLoader {
             if (!pkg.isEmpty() && !(dir.equals(pkgDir) || dir.endsWith("/" + pkgDir))) {
                 warnings.add(new LoadWarning("PACKAGE_MISMATCH", path,
                         "package " + pkg + " не совпадает с папкой " + (dir.isEmpty() ? "(корень)" : dir)));
+            }
+            if (cu == null) {
+                for (String t : outline.topLevel()) byFqn.computeIfAbsent(Names.fqn(pkg, t), k -> new ArrayList<>()).add(path);
+                for (String m : outline.mainBinaries()) mains.add(Names.fqn(pkg, m));
+                continue;
             }
             for (TypeDeclaration<?> t : cu.getTypes()) {
                 byFqn.computeIfAbsent(Names.fqn(pkg, t.getNameAsString()), k -> new ArrayList<>()).add(path);

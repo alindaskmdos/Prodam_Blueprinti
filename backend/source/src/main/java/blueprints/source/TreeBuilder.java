@@ -2,7 +2,6 @@ package blueprints.source;
 
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParserConfiguration;
-import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Modifier;
 import com.github.javaparser.ast.body.AnnotationDeclaration;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
@@ -32,9 +31,12 @@ public final class TreeBuilder {
         JavaParser parser = new JavaParser(new ParserConfiguration().setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21));
         Map<String, List<FileNode>> byPkg = new TreeMap<>();
         for (SourceFile f : p.files()) {
-            CompilationUnit cu = parser.parse(f.text()).getResult().orElseThrow();
+            var pr = parser.parse(f.text());
             List<ClassNode> classes = new ArrayList<>();
-            for (TypeDeclaration<?> t : cu.getTypes()) addType(t, f, classes);
+            // файл, который JavaParser не разбирает (загружен как текст), — без классов и методов
+            if (pr.isSuccessful() && pr.getResult().isPresent()) {
+                for (TypeDeclaration<?> t : pr.getResult().get().getTypes()) addType(t, f, classes);
+            }
             byPkg.computeIfAbsent(f.pkg(), k -> new ArrayList<>()).add(new FileNode(f.path(), classes));
         }
         List<PackageNode> out = new ArrayList<>();
