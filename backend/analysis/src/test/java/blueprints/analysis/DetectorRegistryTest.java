@@ -25,5 +25,6 @@ class DetectorRegistryTest {
     @Test
     void defaultsRegisterDetectors() {
         assertTrue(DetectorRegistry.defaults().detectors().stream().anyMatch(d -> d instanceof NestedLoopSameCollection));
+        assertTrue(DetectorRegistry.defaults().detectors().stream().anyMatch(d -> d instanceof LinearSearchInLoop));
     }
 }

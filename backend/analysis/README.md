@@ -26,5 +26,10 @@ before, after)` — общая сборка Issue: id `rule:methodId:строк�
 
 Детекторы: `NestedLoopSameCollection` — вложенные циклы с общим символом размера (span — внутренний цикл,
 while/do или нераспознанный (fresh) символ → confidence low; общий курсор вложенных while не считается; одноимённые коллекции разных классов не совпадают — символы квалифицированы).
+`LinearSearchInLoop` — `contains/indexOf/lastIndexOf/remove(obj)` у списка (`JdkCosts.isList`) в цикле не константного
+размера; span — вызов, severity medium; Set/Map/String/классы проекта не сообщаются, `remove` — только если аргумент
+точно не индекс (new, строка, переменная не int/short/byte/char); неизвестный тип получателя (кроме `remove`),
+`Collection` (`JdkCosts.isAbstractCollection`), remove(переменная неизвестного типа), fresh-размер списка или while/do → confidence low.
+Отступление от §8.2: нераспознанное (fresh) число итераций и fresh-размер списка, выросшего от того же цикла, confidence не понижают — поиск по списку линеен в любом случае.
 
 Зависит от: model, source. Тесты: `./gradlew :analysis:test` (в т.ч. прогон по `samples/demo` и `samples/roundtrip`).

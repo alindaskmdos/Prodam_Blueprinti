@@ -78,6 +78,16 @@ public final class JdkCosts {
         };
     }
 
+    /** Список/очередь: поиск по значению линейный. */
+    static boolean isList(String type) {
+        return LISTS.contains(type);
+    }
+
+    /** Супертип, за которым может стоять и список, и Set: стоимость поиска по нему не известна точно. */
+    static boolean isAbstractCollection(String type) {
+        return "Collection".equals(type);
+    }
+
     /** Статический вызов утилиты (получатель — первый аргумент). */
     static boolean isStaticUtility(String type) {
         return STATIC.keySet().stream().anyMatch(k -> k.startsWith(type + "."));
