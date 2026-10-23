@@ -8,7 +8,7 @@
 ## Backend
 
 **Готово:** BE-01, BE-02, BE-03, BE-04, BE-08, BE-09, BE-11; CT-01 (+ arrow-switch в Block)
-**В работе:** BE-05 (напарник) — правки по ревью (final-модификаторы в fields.type, комментарии перед case/catch, сигнатура метода, тест контракта, arrow-switch по новому контракту).
+**В работе:** BE-10 (Станислав); BE-05 (напарник) — правки по ревью (final-модификаторы в fields.type, комментарии перед case/catch, сигнатура метода, тест контракта, arrow-switch по новому контракту).
 **Висящие ветки/worktree:** be-05 (напарник). Папки старых worktree в .claude/worktrees не удаляются из-за длинных путей Windows, стирать вручную.
 **Заблокировано:** —
 **Следующие шаги:** влить BE-05 → BE-06 (BlocksToJava + RoundTripCorpusTest, Станислав) и BE-12 (анализ); BE-10 — доступна (в BE-10: warning «N тестов пропущено» по decisions.md); BE-07 — после BE-06 и BE-04. В бриф BE-07 передать: ApiErrorHandler — добавить HttpMessageNotReadableException и MultipartException в bad() (сейчас 500 вместо 400).
