@@ -302,7 +302,7 @@ components:
       name: methodId
       in: path
       required: true
-      description: "FQN класса + имя + ~ + индекс перегрузки, напр. com.demo.service.OrderService.merge~0. Вложенный класс — через $ (Outer$Inner.run~0), анонимный/лямбда отдельного id не имеют (часть блоков метода-хозяина)."
+      description: "FQN класса + имя + ~ + индекс перегрузки, напр. com.demo.service.OrderService.merge~0. Конструктор — имя <init>: com.demo.model.Order.<init>~0. Вложенный класс — через $ (Outer$Inner.run~0), анонимный/лямбда отдельного id не имеют (часть блоков метода-хозяина). Фронт кодирует id в пути через encodeURIComponent ($, <, > и т.п.)."
       schema: { type: string }
     FilePath: { name: path, in: query, required: true, description: "Путь файла как в архиве", schema: { type: string } }
 
@@ -344,7 +344,7 @@ components:
       type: object
       required: [path, package]
       properties:
-        path: { type: string, description: "Как в архиве — для экспорта" }
+        path: { type: string, description: "Путь как в архиве, но без общей верхней папки-обёртки (§11). Экспорт .zip добавляет обёртку обратно. Этим путём файл адресуется в ?path= и Span.file" }
         package: { type: string, description: "Пустая строка — пакет по умолчанию" }
 
     LoadWarning:
@@ -442,10 +442,14 @@ components:
           method: body | if: then, else | while/dowhile/for/foreach: body | switch: cases | case: body
           try: body, catches, finally | catch: body.
         Поля fields по kind: var{type,name,init?} assign{target,op,value} expr{text} if{cond} while{cond} dowhile{cond}
-          for{init,cond,update} foreach{type,var,iterable} switch{selector} case{label} catch{type,var} return{value?} throw{value}
+          for{init,cond,update} foreach{type,var,iterable} switch{selector} case{label,arrow?} catch{type,var} return{value?} throw{value}
           comment{text} raw{text} method{signature}; break/continue{label?}.
-        Необязательное поле (init?, value?, label?) при отсутствии — ключа нет в fields.
+        Необязательное поле (init?, value?, label?, arrow?) при отсутствии — ключа нет в fields.
         else if — это if внутри слота else (единственный элемент). default в switch — case с label="default".
+        case.label — текст метки как в коде: "1, 2", "Circle c when c.r() > 0", "null, default".
+        case.arrow = "true" — форма `case X ->` (в одном switch все case одной формы). Тело стрелки — слот body:
+          `-> expr;` и `-> throw ...;` — один блок expr/throw; `-> { ... }` — операторы блока. Генерация: ровно один
+          expr/throw в body → `-> x;`, иначе `-> { ... }`. Switch-выражения (`x = switch ...`) — текст внутри выражения.
         try-with-resources: ресурсы — fields.resources в try (текст, через «;»). Всё прочее неподдержанное — raw.
         Во входе PUT blocks у вновь созданных нод id и span могут отсутствовать/быть пустыми — бэк пересчитывает их сам.
       required: [id, kind, fields, slots]

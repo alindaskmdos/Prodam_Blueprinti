@@ -3,15 +3,15 @@
 > Пишет только оркестратор. Это «сохранение игры»: после /clear новая сессия начинает отсюда.
 > Обновлять полностью после каждых ~5 закрытых задач или крупного этапа.
 
-Обновлено: —
+Обновлено: 2026-10-23
 
 ## Backend
 
-**Готово:** BE-01, BE-02, BE-03, BE-08, BE-09
-**В работе:** BE-11 (Станислав); BE-04, BE-05 (напарник)
-**Висящие ветки/worktree:** —
+**Готово:** BE-01, BE-02, BE-03, BE-04, BE-08, BE-09; CT-01 (+ arrow-switch в Block)
+**В работе:** BE-11 (Станислав, ветка be-11 — на проверке); BE-05 (напарник) — правки по ревью (final-модификаторы в fields.type, комментарии перед case/catch, сигнатура метода, тест контракта, arrow-switch по новому контракту).
+**Висящие ветки/worktree:** be-05 (напарник); be-11 (Станислав). Папки старых worktree в .claude/worktrees не удаляются из-за длинных путей Windows, стирать вручную.
 **Заблокировано:** —
-**Следующие шаги:** BE-10 — после BE-11 (оба в testing; в BE-10: warning «N тестов пропущено» по decisions.md); BE-06 — после BE-05; BE-07 — после BE-06 и BE-04.
+**Следующие шаги:** влить BE-05 → BE-06 (BlocksToJava + RoundTripCorpusTest, Станислав) и BE-12 (анализ); после BE-11 — BE-10 (в BE-10: warning «N тестов пропущено» по decisions.md); BE-07 — после BE-06 и BE-04. В бриф BE-07 передать: ApiErrorHandler — добавить HttpMessageNotReadableException и MultipartException в bad() (сейчас 500 вместо 400).
 
 ## Frontend
 
@@ -24,6 +24,9 @@
 ## Известные проблемы
 
 - samples/demo: `ReportService.java:80` — `String.format("%.2f")` без Locale, под ru_RU 4/6 IO-тестов demo падают (под en — 6/6).
+- app: битый JSON / битый multipart → 500 INTERNAL вместо 400 (чинится в BE-07).
+- app: export jar → 501 (заглушка до BE-36, кода 501 нет в контракте).
+- CLAUDE.md и .claude/ в .gitignore — правила и агенты не переносятся на другие устройства через git.
 
 - testing: TestResult/IoTestCase пока свои типы в `testing` — после BE-05 заменить на `model` адаптером.
 - Фронт: у `passed` IO-теста `error` может быть непустым — это пояснение («оригинал не проходит этот тест — правка его исправила»), не ошибка.
@@ -35,4 +38,5 @@
 - BE-08: Runner (javax.tools, docker run --network none, лимиты, таймаут 10 с, seed-переписывание регулярками). Env: BLUEPRINTS_RUN_DIR, BLUEPRINTS_RUN_IMAGE; путь рабочей папки одинаков на хосте и в сервере.
 - CT-01: contract/openapi.yaml v1 (13 путей, methodId вида Class.method~N) + 11 фикстур.
 - BE-03: корпус samples/roundtrip (20 файлов-конструкций, expected .out/.exit, run-tests.sh; вывод не зависит от локали).
+- BE-04: загрузка (zip slip/bomb, обёртка root, source root по package, дубликаты FQN, tests/), дерево по пакетам, экспорт zip байт в байт, ProjectStore.update + 409, ContractConformanceTest.
 - BE-09: IoTestSource (tests/*.json, импорт .in/.out, original/manual, ignoreLines, сравнение §10.3), Runner.runBatch — один контейнер на прогон (текущая + оригинал), RunResult.aborted.

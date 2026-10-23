@@ -12,7 +12,7 @@
 - [x] BE-01 Скелет: Gradle Kotlin DSL, wrapper, `settings.gradle.kts` со всеми модулями, `build-logic` (convention-плагин: toolchain 21, JUnit 5), `libs.versions.toml`, `app` со Spring Boot + health, интерфейсы-заглушки точек расширения, CI GitHub Actions (`./gradlew build`), `gradle.properties`: `org.gradle.parallel=true`, `org.gradle.caching=true`, `org.gradle.jvmargs=-Xmx1g` (несколько worktree = несколько демонов) | backend/* | — | §2, §3
 - [x] BE-02 Демо-монолит `samples/demo/` ~1000 строк с заложенными дефектами + IO-тесты к нему | samples/demo | — | §13
 - [x] BE-03 Корпус `samples/roundtrip/`: по файлу на каждую конструкцию слайда 7 | samples/roundtrip | — | §5
-- [ ] BE-04 Загрузка .java/.zip/.jar (только с исходниками), защита от zip slip и zip bomb, отрезание обёртки, source root по `package`, предупреждение о несовпадении пакета, отказ на дубликатах FQN, импорт `tests/`, экспорт с исходной структурой; хранение в памяти, дерево по пакетам, версия + 409 | app, source | BE-01, CT-01 | §11, §12
+- [x] BE-04 Загрузка .java/.zip/.jar (только с исходниками), защита от zip slip и zip bomb, отрезание обёртки, source root по `package`, предупреждение о несовпадении пакета, отказ на дубликатах FQN, импорт `tests/`, экспорт с исходной структурой; хранение в памяти, дерево по пакетам, версия + 409 | app, source | BE-01, CT-01 | §11, §12
 - [ ] BE-05 Модели `model` по контракту + AstToBlocks для всех kind, включая `comment` и `raw` | model, blocks | BE-01, CT-01 | §4, §5
 - [ ] BE-06 BlocksToJava + замена тела метода + `RoundTripCorpusTest` | blocks | BE-05, BE-03 | §5
 - [ ] BE-07 Валидация текста нод (parseExpression/parseStatement), эндпоинты PUT blocks / PUT files | blocks, app | BE-06, BE-04 | §5, §12
