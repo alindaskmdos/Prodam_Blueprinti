@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "packages": [
+    {
+      "name": "com.demo.service",
+      "files": [
+        {
+          "path": "src/com/demo/service/OrderService.java",
+          "classes": [
+            {
+              "name": "OrderService",
+              "kind": "class",
+              "span": { "file": "src/com/demo/service/OrderService.java", "startLine": 10, "endLine": 140 },
+              "fields": [ { "name": "orders", "type": "List<Order>", "modifiers": ["private", "final"] } ],
+              "constructors": [],
+              "methods": [
+                { "id": "com.demo.service.OrderService.merge~0", "name": "merge", "signature": "public int merge()", "complexity": "O(n²)", "issueCount": 1 }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "id": "p-1",
+  "version": 1,
+  "files": [
+    { "path": "src/com/demo/Main.java", "package": "com.demo" },
+    { "path": "src/com/demo/service/OrderService.java", "package": "com.demo.service" },
+    { "path": "src/com/demo/util/Texts.java", "package": "com.demo.text" }
+  ],
+  "warnings": [
+    { "code": "PACKAGE_MISMATCH", "file": "src/com/demo/util/Texts.java", "message": "package com.demo.text не совпадает с папкой src/com/demo/util" }
+  ],
+  "tests": [
+    { "name": "merge", "type": "io", "stdin": "CUSTOMER 1 Alice gold\n", "mode": "original", "expected": null, "ignoreLines": [] }
+  ],
+  "mainClasses": ["com.demo.Main"]
+}

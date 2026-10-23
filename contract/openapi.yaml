@@ -1,0 +1,601 @@
+# ЧЕРНОВИК CT-01 — на согласование людьми. Источник формата данных фронт ↔ бэк (CLAUDE.md).
+# Отличия от черновика API в ТЗ §12 (для обсуждения):
+#  - все пути под /projects/{projectId}/..., т.к. проектов в памяти может быть несколько;
+#  - файлы адресуются query-параметром ?path=, т.к. в пути есть «/»;
+#  - добавлены export, ошибки и предупреждения загрузки (§11);
+#  - нумерация строк везде с 1 (span, ignoreLines, noisyLines);
+#  - необязательное поле блока (var.init, return.value, break.label…) при отсутствии — ключа нет в fields, не пустая строка;
+#  - любое изменение проекта (в т.ч. тестов) возвращает новую version;
+#  - вне MVP-контракта (пока не описаны): рефакторинги, LLM-подсказки, декомпиляция, удаление проекта/TTL.
+openapi: 3.0.3
+info:
+  title: Java Blueprints API
+  version: 1.0.0-draft
+servers:
+  - url: /api
+
+paths:
+  /health:
+    get:
+      summary: Проверка живости
+      operationId: health
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, docker, llm]
+                properties:
+                  status: { type: string, example: UP }
+                  docker: { type: boolean, description: "Доступен ли Docker: без него run/verify/Quality Gate недоступны, UI отключает кнопки" }
+                  llm: { type: boolean, description: "Задан ли LLM_API_KEY" }
+
+  /projects:
+    post:
+      summary: Загрузка .java / .zip / .jar (с исходниками) или набора файлов папки
+      operationId: uploadProject
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [files]
+              properties:
+                files:
+                  type: array
+                  items: { type: string, format: binary }
+                paths:
+                  type: array
+                  description: Относительные пути файлов в том же порядке (для webkitdirectory). Для архива не нужен.
+                  items: { type: string }
+      responses:
+        "201":
+          description: Проект создан (возможно с предупреждениями)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Project" }
+        "400": { $ref: "#/components/responses/Error" }
+        "413":
+          description: Превышен лимит (распакованный размер 20 МБ или 2000 файлов), code=LIMIT_EXCEEDED
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: Отказ (jar без исходников, дубликаты FQN, zip slip)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /projects/{projectId}:
+    parameters: [ { $ref: "#/components/parameters/ProjectId" } ]
+    get:
+      summary: Состояние проекта (версия, файлы, предупреждения, тесты)
+      operationId: getProject
+      responses:
+        "200":
+          description: ok
+          content: { application/json: { schema: { $ref: "#/components/schemas/Project" } } }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /projects/{projectId}/tree:
+    parameters: [ { $ref: "#/components/parameters/ProjectId" } ]
+    get:
+      summary: Дерево проекта по пакетам
+      operationId: getTree
+      responses:
+        "200":
+          description: ok
+          content: { application/json: { schema: { $ref: "#/components/schemas/ProjectTree" } } }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /projects/{projectId}/export:
+    parameters: [ { $ref: "#/components/parameters/ProjectId" } ]
+    get:
+      summary: Экспорт .zip (исходная структура) или исполняемого .jar (только чистый код)
+      operationId: exportProject
+      parameters:
+        - { name: format, in: query, required: true, schema: { type: string, enum: [zip, jar] } }
+        - { name: includeSettings, in: query, description: "Только zip: .blueprints/ и tests/", schema: { type: boolean, default: true } }
+        - { name: mainClass, in: query, description: "Только jar: точка входа", schema: { type: string } }
+      responses:
+        "200":
+          description: Файл
+          headers:
+            Content-Disposition: { schema: { type: string }, description: 'attachment; filename="<проект>.zip|.jar"' }
+          content: { application/octet-stream: { schema: { type: string, format: binary } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "422":
+          description: Проект не компилируется (jar) — в message причина
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
+  /projects/{projectId}/methods/{methodId}/blocks:
+    parameters:
+      - { $ref: "#/components/parameters/ProjectId" }
+      - { $ref: "#/components/parameters/MethodId" }
+    get:
+      summary: Дерево блоков метода
+      operationId: getMethodBlocks
+      responses:
+        "200":
+          description: ok
+          content: { application/json: { schema: { $ref: "#/components/schemas/MethodView" } } }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      summary: Новое полное дерево метода → код + анализ
+      operationId: putMethodBlocks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version, root]
+              properties:
+                version: { type: integer, description: Версия проекта, с которой работал фронт }
+                root: { $ref: "#/components/schemas/Block" }
+      responses:
+        "200": { $ref: "#/components/responses/Mutation" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422":
+          description: Текст в ноде не разобрался; code=PARSE_ERROR, blockId и message
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
+  /projects/{projectId}/files:
+    parameters: [ { $ref: "#/components/parameters/ProjectId" } ]
+    get:
+      summary: Текст файла
+      operationId: getFile
+      parameters: [ { $ref: "#/components/parameters/FilePath" } ]
+      responses:
+        "200":
+          description: ok
+          content: { application/json: { schema: { $ref: "#/components/schemas/FileText" } } }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      summary: Новый полный текст файла → блоки + анализ
+      operationId: putFile
+      parameters: [ { $ref: "#/components/parameters/FilePath" } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version, text]
+              properties:
+                version: { type: integer }
+                text: { type: string }
+      responses:
+        "200": { $ref: "#/components/responses/Mutation" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422":
+          description: Синтаксическая ошибка; граф остаётся прежним, code=PARSE_ERROR, line и message
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
+  /projects/{projectId}/analysis:
+    parameters: [ { $ref: "#/components/parameters/ProjectId" } ]
+    get:
+      summary: Проблемы, предупреждения (confidence=low), метрики
+      operationId: getAnalysis
+      parameters:
+        - { name: n, in: query, description: "Размер входа для оценки «≈ операций»", schema: { type: integer, default: 10000 } }
+      responses:
+        "200":
+          description: ok
+          content: { application/json: { schema: { $ref: "#/components/schemas/Analysis" } } }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /projects/{projectId}/issues/{issueId}/fix:
+    parameters:
+      - { $ref: "#/components/parameters/ProjectId" }
+      - { name: issueId, in: path, required: true, schema: { type: string } }
+    post:
+      summary: Применить фикс → Quality Gate (компиляция + все тесты, иначе откат)
+      description: issueId действителен только для version, с которой получен анализ; при расхождении версий — 409.
+      operationId: applyFix
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version, fixId]
+              properties:
+                version: { type: integer }
+                fixId: { type: string }
+      responses:
+        "200":
+          description: Фикс применён или отклонён Quality Gate (при отклонении версия не меняется)
+          content: { application/json: { schema: { $ref: "#/components/schemas/FixResult" } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /projects/{projectId}/tests:
+    parameters: [ { $ref: "#/components/parameters/ProjectId" } ]
+    get:
+      summary: Список тестов (источник правды; Project.tests — копия на момент загрузки)
+      operationId: listTests
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/TestCase" } }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /projects/{projectId}/tests/{name}:
+    parameters:
+      - { $ref: "#/components/parameters/ProjectId" }
+      - { name: name, in: path, required: true, schema: { type: string } }
+    get:
+      summary: Один тест
+      operationId: getTest
+      responses:
+        "200": { description: ok, content: { application/json: { schema: { $ref: "#/components/schemas/TestCase" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      summary: Создать или заменить тест (меняет version проекта)
+      operationId: putTest
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/TestCase" } } }
+      responses:
+        "200": { description: ok, content: { application/json: { schema: { $ref: "#/components/schemas/TestMutationResult" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "422":
+          description: Тест некорректен (пустое имя, name не совпадает с путём, JUnit-текст не разбирается)
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    delete:
+      summary: Удалить тест (меняет version проекта)
+      operationId: deleteTest
+      responses:
+        "200":
+          description: deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [version]
+                properties:
+                  version: { type: integer }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /projects/{projectId}/run:
+    parameters: [ { $ref: "#/components/parameters/ProjectId" } ]
+    post:
+      summary: Запуск программы (одноразовый контейнер, таймаут 10 с)
+      operationId: runProject
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mainClass: { type: string, description: "Обязателен, если main-классов несколько" }
+                stdin: { type: string, default: "" }
+      responses:
+        "200": { description: ok, content: { application/json: { schema: { $ref: "#/components/schemas/RunResult" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "422":
+          description: Несколько main без mainClass
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
+  /projects/{projectId}/verify:
+    parameters: [ { $ref: "#/components/parameters/ProjectId" } ]
+    post:
+      summary: Прогон всех тестов всех источников, «поведение совпадает»
+      description: Синхронный; оригинал гоняется дважды, общий таймаут 120 с — по превышении тест получает status=failed с error="timeout".
+      operationId: verifyProject
+      responses:
+        "200": { description: ok, content: { application/json: { schema: { $ref: "#/components/schemas/VerifyResult" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+
+components:
+  parameters:
+    ProjectId: { name: projectId, in: path, required: true, schema: { type: string } }
+    MethodId:
+      name: methodId
+      in: path
+      required: true
+      description: "FQN класса + имя + ~ + индекс перегрузки, напр. com.demo.service.OrderService.merge~0. Вложенный класс — через $ (Outer$Inner.run~0), анонимный/лямбда отдельного id не имеют (часть блоков метода-хозяина)."
+      schema: { type: string }
+    FilePath: { name: path, in: query, required: true, description: "Путь файла как в архиве", schema: { type: string } }
+
+  responses:
+    Error:
+      description: Ошибка
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Conflict:
+      description: Версия устарела — фронт перезагружает состояние (GET /projects/{id})
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Mutation:
+      description: Изменение принято, версия увеличена
+      content: { application/json: { schema: { $ref: "#/components/schemas/MutationResult" } } }
+
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [VERSION_CONFLICT, NOT_FOUND, PARSE_ERROR, DUPLICATE_FQN, ZIP_SLIP, LIMIT_EXCEEDED, NO_SOURCES, COMPILE_ERROR, AMBIGUOUS_MAIN, INVALID_REQUEST, INTERNAL]
+        message: { type: string }
+        blockId: { type: string, description: "PARSE_ERROR при PUT blocks" }
+        line: { type: integer, description: "PARSE_ERROR при PUT files, с 1" }
+        files: { type: array, items: { type: string }, description: "DUPLICATE_FQN: конфликтующие файлы" }
+        details: { type: object, additionalProperties: true, description: "Прочее, напр. clientVersion/serverVersion при VERSION_CONFLICT" }
+
+    Span:
+      type: object
+      description: Строки нумеруются с 1, обе границы включительно.
+      required: [file, startLine, endLine]
+      properties:
+        file: { type: string }
+        startLine: { type: integer, minimum: 1 }
+        endLine: { type: integer, minimum: 1 }
+
+    ProjectFile:
+      type: object
+      required: [path, package]
+      properties:
+        path: { type: string, description: "Как в архиве — для экспорта" }
+        package: { type: string, description: "Пустая строка — пакет по умолчанию" }
+
+    LoadWarning:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string, enum: [PACKAGE_MISMATCH, IGNORED_FILE, TESTS_IMPORTED] }
+        file: { type: string }
+        message: { type: string }
+
+    Project:
+      type: object
+      required: [id, version, files, warnings, tests]
+      properties:
+        id: { type: string }
+        version: { type: integer }
+        files: { type: array, items: { $ref: "#/components/schemas/ProjectFile" } }
+        warnings: { type: array, items: { $ref: "#/components/schemas/LoadWarning" } }
+        tests: { type: array, items: { $ref: "#/components/schemas/TestCase" } }
+        mainClasses: { type: array, items: { type: string }, description: "Найденные классы с main" }
+
+    ProjectTree:
+      type: object
+      required: [version, packages]
+      properties:
+        version: { type: integer }
+        packages:
+          type: array
+          items:
+            type: object
+            required: [name, files]
+            properties:
+              name: { type: string }
+              files:
+                type: array
+                items:
+                  type: object
+                  required: [path, classes]
+                  properties:
+                    path: { type: string }
+                    classes:
+                      type: array
+                      items: { $ref: "#/components/schemas/ClassNode" }
+
+    ClassNode:
+      type: object
+      required: [name, kind, fields, constructors, methods]
+      properties:
+        name: { type: string }
+        kind: { type: string, enum: [class, interface, enum, record] }
+        span: { $ref: "#/components/schemas/Span" }
+        fields:
+          type: array
+          items:
+            type: object
+            required: [name, type]
+            properties:
+              name: { type: string }
+              type: { type: string }
+              modifiers: { type: array, items: { type: string } }
+        constructors:
+          type: array
+          items: { $ref: "#/components/schemas/MethodNode" }
+        methods:
+          type: array
+          items: { $ref: "#/components/schemas/MethodNode" }
+
+    MethodNode:
+      type: object
+      required: [id, name, signature, issueCount]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        signature: { type: string }
+        complexity: { type: string, example: "O(n²)", description: "Упрощённая форма для бейджа" }
+        issueCount: { type: integer }
+
+    FileText:
+      type: object
+      required: [path, text, version]
+      properties:
+        path: { type: string }
+        text: { type: string }
+        version: { type: integer }
+
+    BlockKind:
+      type: string
+      enum: [method, var, assign, expr, if, while, dowhile, for, foreach, switch, case, try, catch, return, throw, break, continue, comment, raw]
+
+    Block:
+      type: object
+      description: |
+        Узел дерева метода. Выражения — текст внутри fields. Неподдержанное — kind=raw, fields.text = исходный текст.
+        Слоты по kind (значения — упорядоченные списки блоков):
+          method: body | if: then, else | while/dowhile/for/foreach: body | switch: cases | case: body
+          try: body, catches, finally | catch: body.
+        Поля fields по kind: var{type,name,init?} assign{target,op,value} expr{text} if{cond} while{cond} dowhile{cond}
+          for{init,cond,update} foreach{type,var,iterable} switch{selector} case{label} catch{type,var} return{value?} throw{value}
+          comment{text} raw{text} method{signature}; break/continue{label?}.
+        Необязательное поле (init?, value?, label?) при отсутствии — ключа нет в fields.
+        else if — это if внутри слота else (единственный элемент). default в switch — case с label="default".
+        try-with-resources: ресурсы — fields.resources в try (текст, через «;»). Всё прочее неподдержанное — raw.
+        Во входе PUT blocks у вновь созданных нод id и span могут отсутствовать/быть пустыми — бэк пересчитывает их сам.
+      required: [id, kind, fields, slots]
+      properties:
+        id: { type: string, example: "com.demo.service.OrderService.merge~0/body/1" }
+        kind: { $ref: "#/components/schemas/BlockKind" }
+        fields: { type: object, additionalProperties: { type: string } }
+        slots:
+          type: object
+          additionalProperties:
+            type: array
+            items: { $ref: "#/components/schemas/Block" }
+        span: { $ref: "#/components/schemas/Span" }
+        issues: { type: array, items: { type: string }, description: "id проблем" }
+        collapsed: { type: boolean, default: false }
+
+    MethodView:
+      type: object
+      required: [methodId, signature, root, complexity]
+      properties:
+        methodId: { type: string }
+        signature: { type: string }
+        complexity: { type: string }
+        root: { $ref: "#/components/schemas/Block" }
+
+    MutationResult:
+      type: object
+      required: [version, fileText, tree, analysis]
+      properties:
+        version: { type: integer }
+        fileText: { type: string, description: "Новый текст изменённого файла" }
+        method: { $ref: "#/components/schemas/MethodView", description: "Только для PUT blocks; для PUT files его нет" }
+        tree: { $ref: "#/components/schemas/ProjectTree", description: "Обновлённое дерево: новые методы, issueCount" }
+        analysis: { $ref: "#/components/schemas/Analysis" }
+
+    TestMutationResult:
+      type: object
+      required: [version, test]
+      properties:
+        version: { type: integer }
+        test: { $ref: "#/components/schemas/TestCase" }
+
+    Severity: { type: string, enum: [high, medium, low] }
+    Confidence: { type: string, enum: [high, low] }
+
+    Issue:
+      type: object
+      required: [id, rule, severity, confidence, span, blockId, message, fixes]
+      properties:
+        id: { type: string, description: "Действителен только для version анализа, в котором получен" }
+        rule: { type: string, example: NestedLoopSameCollection }
+        severity: { $ref: "#/components/schemas/Severity" }
+        confidence: { $ref: "#/components/schemas/Confidence" }
+        source: { type: string, default: blueprints, description: "blueprints | PMD" }
+        span: { $ref: "#/components/schemas/Span" }
+        methodId: { type: string }
+        blockId: { type: string }
+        message: { type: string }
+        recommendation: { type: string }
+        complexity:
+          type: object
+          properties:
+            before: { type: string, example: "O(n·n)" }
+            after: { type: string, example: "O(n)" }
+            opsBefore: { type: number, description: "При заданном n" }
+            opsAfter: { type: number }
+        fixes: { type: array, items: { type: string }, description: "Пусто при confidence=low" }
+
+    MethodMetrics:
+      type: object
+      required: [methodId, complexity, lines, maxNesting]
+      properties:
+        methodId: { type: string }
+        complexity: { type: string }
+        lines: { type: integer }
+        maxNesting: { type: integer }
+
+    Analysis:
+      type: object
+      required: [version, n, issues, metrics]
+      properties:
+        version: { type: integer }
+        n: { type: integer }
+        issues: { type: array, items: { $ref: "#/components/schemas/Issue" }, description: "Вкладка «Предупреждения» = confidence low" }
+        metrics: { type: array, items: { $ref: "#/components/schemas/MethodMetrics" } }
+
+    FixResult:
+      type: object
+      required: [applied, version]
+      properties:
+        applied: { type: boolean }
+        reason: { type: string, description: "При applied=false: «исправление не подтверждено» + причина" }
+        version: { type: integer }
+        diff: { type: string, description: "Unified diff" }
+        mutation: { $ref: "#/components/schemas/MutationResult" }
+        verify: { $ref: "#/components/schemas/VerifyResult" }
+
+    TestCase:
+      type: object
+      required: [name, type]
+      properties:
+        name: { type: string }
+        type: { type: string, enum: [io, junit] }
+        stdin: { type: string, description: "io" }
+        mode: { type: string, enum: [original, manual], default: original, description: "io" }
+        expected: { type: string, nullable: true, description: "io" }
+        ignoreLines: { type: array, items: { type: integer }, description: "io; строки вывода с 1" }
+        source: { type: string, description: "junit: текст tests/*.java" }
+
+    TestStatus: { type: string, enum: [passed, failed, compile_error, original_fails] }
+
+    TestResult:
+      type: object
+      required: [name, type, status, durationMs]
+      properties:
+        name: { type: string }
+        type: { type: string, enum: [io, junit] }
+        status: { $ref: "#/components/schemas/TestStatus" }
+        durationMs: { type: integer }
+        error: { type: string }
+        expected: { type: string }
+        actual: { type: string }
+        noisyLines: { type: array, items: { type: integer }, description: "Строки вывода с 1; различия между двумя прогонами оригинала — серым" }
+
+    VerifyResult:
+      type: object
+      required: [status, results]
+      properties:
+        status:
+          type: string
+          enum: [green, red, incomplete, blocked]
+          description: "green = поведение совпадает; incomplete = >50% шумных строк; blocked = читает stdin, но IO-тестов нет"
+        results: { type: array, items: { $ref: "#/components/schemas/TestResult" } }
+        warnings: { type: array, items: { type: string } }
+
+    RunResult:
+      type: object
+      required: [stdout, stderr, exitCode, timedOut, durationMs]
+      properties:
+        stdout: { type: string }
+        stderr: { type: string }
+        exitCode: { type: integer }
+        timedOut: { type: boolean }
+        durationMs: { type: integer }
+        compileErrors:
+          type: array
+          items:
+            type: object
+            required: [file, line, message]
+            properties:
+              file: { type: string }
+              line: { type: integer }
+              message: { type: string }

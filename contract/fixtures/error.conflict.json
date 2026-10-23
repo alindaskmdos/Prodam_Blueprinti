@@ -1,0 +1,5 @@
+{
+  "code": "VERSION_CONFLICT",
+  "message": "Версия проекта устарела: клиент 2, сервер 3",
+  "details": { "clientVersion": 2, "serverVersion": 3 }
+}
