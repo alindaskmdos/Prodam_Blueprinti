@@ -3,15 +3,15 @@
 > Пишет только оркестратор. Это «сохранение игры»: после /clear новая сессия начинает отсюда.
 > Обновлять полностью после каждых ~5 закрытых задач или крупного этапа.
 
-Обновлено: 2026-10-23
+Обновлено: 2026-10-24
 
 ## Backend
 
-**Готово:** BE-01, BE-02, BE-03, BE-04, BE-05, BE-08, BE-09, BE-10, BE-11; CT-01 (+ arrow-switch в Block, `<init>~N`)
+**Готово:** BE-01, BE-02, BE-03, BE-04, BE-05, BE-08, BE-09, BE-10, BE-11, BE-12; CT-01 (+ arrow-switch в Block, `<init>~N`)
 **В работе:** BE-06 (Станислав).
 **Висящие ветки/worktree:** —. Папки старых worktree в .claude/worktrees не удаляются из-за длинных путей Windows, стирать вручную. На origin висит устаревшая ветка be-5 (остатки отменённого merge BE-09) — удалить: `git push origin --delete be-5`.
 **Заблокировано:** —
-**Следующие шаги:** BE-06 (BlocksToJava + RoundTripCorpusTest, Станислав; первым шагом — локальные enum/interface, см. decisions.md; учесть: текст полей блоков сохраняет `\r\n` у CRLF-файлов, комментарий внутри типа уходит блоком перед оператором/в слот catches) и BE-12 (анализ); BE-18 Quality Gate — после BE-10 ✓ и BE-11 ✓, доступна (текст «нет тестов» — по decisions.md); BE-07 — после BE-06 и BE-04. В бриф BE-07 передать: ApiErrorHandler — добавить HttpMessageNotReadableException и MultipartException в bad() (сейчас 500 вместо 400).
+**Следующие шаги:** BE-06 (BlocksToJava + RoundTripCorpusTest, Станислав; первым шагом — локальные enum/interface, см. decisions.md; учесть: текст полей блоков сохраняет `\r\n` у CRLF-файлов, комментарий внутри типа уходит блоком перед оператором/в слот catches) ; BE-13..BE-17 (детекторы, после BE-12 ✓; blockId подставляет app по диапазону строк — decisions.md); BE-18 Quality Gate — после BE-10 ✓ и BE-11 ✓, доступна (текст «нет тестов» — по decisions.md); BE-07 — после BE-06 и BE-04. В бриф BE-07 передать: ApiErrorHandler — добавить HttpMessageNotReadableException и MultipartException в bad() (сейчас 500 вместо 400).
 
 ## Frontend
 
@@ -47,3 +47,4 @@
 - BE-10: BehaviorVerifier (один runBatch: IO текущей + оригинал ×2 + JUnit; шумные строки → noisyLines; >50% шума, нестабильный выход оригинала, нет тестов → incomplete; stdin без входных тестов → blocked; warning о пропущенных). Приоритет blocked > red > incomplete > green.
 - BE-05: model (record'ы по контракту, без зависимостей) + AstToBlocks (все kind, модификаторы префиксом в type, комментарии comment-блоками, тексты из TokenRange, arrow/pattern-switch).
 - BE-11 (Windows): command-job через файл-скрипт /app/jobs/<k>.sh (read-only, аргументы в одинарных кавычках), .gitattributes с LF. Полная сборка main зелёная на Windows с Docker (2 пропуска fakeDocker).
+- BE-12: analysis — ProjectAnalysis.of(files) → MethodAnalysis (complexity/confidence, size, loopSize, callCost), BigO (бейдж n,m,k по старшей степени), JdkCosts, CallGraph (Тарьян). Символы квалифицированы (FQN|поле, methodId|имя). Detector.detect(MethodAnalysis, ProjectAnalysis) абстрактный. Типы — текстом, без Symbol Solver; перегрузки одной арности не различаются; стримы только через forEach.

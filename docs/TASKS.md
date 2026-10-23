@@ -21,7 +21,7 @@
 - [x] BE-09 IoTestSource: `tests/*.json`, импорт `*.in/*.out`, режимы original/manual, ignoreLines | testing | BE-08 | §10.1
 - [x] BE-10 BehaviorVerifier: двойной прогон, шумные строки, правило сравнения, блок при отсутствии stdin-тестов | testing | BE-09 | §10.3–10.5
 - [x] BE-11 JUnitTestSource: console launcher, XML-отчёт, private→package-private, статус «не компилируется» | testing | BE-08 | §10.2
-- [ ] BE-12 Символы размера коллекций + алгебра Big O + таблица JDK + граф вызовов | analysis | BE-04 | §8.1, §8.2
+- [x] BE-12 Символы размера коллекций + алгебра Big O + таблица JDK + граф вызовов | analysis | BE-04 | §8.1, §8.2
 - [ ] BE-13 Детектор NestedLoopSameCollection | analysis | BE-12 | §8.3
 - [ ] BE-14 Детектор LinearSearchInLoop | analysis | BE-12 | §8.3
 - [ ] BE-15 Детектор ExpensiveCallInLoop | analysis | BE-12 | §8.3
