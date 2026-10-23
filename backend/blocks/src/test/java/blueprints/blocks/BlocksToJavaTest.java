@@ -392,6 +392,25 @@ class BlocksToJavaTest {
         compiles("T", out);
     }
 
+    /**
+     * Комментарий с \\u-escape внутри выражения и raw остаётся в их тексте; новый comment-блок с тем же текстом —
+     * новый, а не «исходный»: генератор его не выводит.
+     */
+    @Test
+    void commentInsideExpressionIsNotAnOriginalForNewBlock() {
+        String file = "class T {\n    void m(int x) {\n        foo(x // a \\u0041\n        );\n"
+                + "        synchronized (this) { x++; /* b \\u0042 */ }\n    }\n    void foo(int x) {}\n}\n";
+        CompilationUnit cu = StaticJavaParser.parse(file);
+        CallableDeclaration<?> d = MethodLocator.find(cu, "T.m~0").orElseThrow();
+        Block m = AstToBlocks.convert(d, "T.m~0", "T.java");
+        assertEquals(List.of("expr", "raw"), m.slots().get("body").stream().map(Block::kind).toList());
+        for (String text : List.of("a \\u0041", "b \\u0042")) {
+            List<Block> body = new ArrayList<>(m.slots().get("body"));
+            body.add(leaf("comment", "text", text));
+            assertThrows(UnsafeCommentException.class, () -> BlocksToJava.splice(file, d, with(m, "body", body), m), text);
+        }
+    }
+
     @Test
     void newCommentsWithoutEscapesCompile() throws Exception {
         String file = "class T {\n    void m() {\n    }\n}\n";

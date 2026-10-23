@@ -106,7 +106,7 @@ public final class BlocksToJava {
         int bodyEnd = offset(last) + last.getText().length();
         int from = sigChanged ? declStart : bodyStart;
         String head = sigChanged ? newSig + " " : "";
-        return fileText.substring(0, from) + head + body(tree, st, originals(body)) + fileText.substring(bodyEnd);
+        return fileText.substring(0, from) + head + body(tree, st, originals(decl)) + fileText.substring(bodyEnd);
     }
 
     /** Совпадают ли деревья по смыслу: kind, fields, slots (id, span, issues, collapsed не важны). */
@@ -125,11 +125,12 @@ public final class BlocksToJava {
 
     /**
      * Комментарии тела как в исходнике ({@code //}, {@code /* *\/}, {@code /** *\/} с текстом без изменений):
-     * блок comment с тем же текстом выводится ровно в исходном виде.
+     * блок comment с тем же текстом выводится ровно в исходном виде. Только комментарии, ставшие блоками comment:
+     * совпавший по тексту комментарий из выражения или raw не делает новый блок «исходным» (иначе \\u-escape в нём прошёл бы без проверки).
      */
-    private static Map<String, ArrayDeque<String>> originals(BlockStmt body) {
+    private static Map<String, ArrayDeque<String>> originals(CallableDeclaration<?> decl) {
         Map<Position, Comment> byBegin = new TreeMap<>();
-        for (Comment c : body.getAllContainedComments()) c.getRange().ifPresent(r -> byBegin.putIfAbsent(r.begin, c));
+        for (Comment c : AstToBlocks.blockComments(decl)) c.getRange().ifPresent(r -> byBegin.putIfAbsent(r.begin, c));
         Map<String, ArrayDeque<String>> out = new LinkedHashMap<>();
         for (Comment c : byBegin.values()) {
             out.computeIfAbsent(c.getContent().strip(), k -> new ArrayDeque<>()).add(c.getHeader() + c.getContent() + c.getFooter());
@@ -313,7 +314,7 @@ public final class BlocksToJava {
         ArrayDeque<String> q = originals.get(text);
         if (q != null && !q.isEmpty()) {
             line(d, q.poll());
-        } else if (text.contains("\\u")) {
+        } else if (NodeValidator.hasUnicodeEscape(text)) {
             // javac раскрывает \\u000a и в комментарии — хвост стал бы кодом; экранировать не будем
             throw new UnsafeCommentException(b.id(), text);
         } else if (!text.contains("\n") && !text.contains("\r")) {

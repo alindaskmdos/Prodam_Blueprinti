@@ -84,6 +84,7 @@ class RoundTripCorpusTest {
         String out = text;
         for (CallableDeclaration<?> d : ms) {
             Block tree = AstToBlocks.convert(d, id(cu, d), file);
+            NodeValidator.validate(tree, tree); // каждая нода корпуса проходит проверку текста нод
             // неизменённое дерево — файл байт в байт
             assertEquals(text, BlocksToJava.replaceMethod(text, id(cu, d), tree), () -> file + " " + id(cu, d));
             out = BlocksToJava.splice(out, d, tree, tree);

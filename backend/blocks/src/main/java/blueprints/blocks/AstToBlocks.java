@@ -64,6 +64,8 @@ public final class AstToBlocks {
     private final List<Comment> pool;
     /** Уже попавшие в дерево: блоком comment, в текст выражения или в raw. */
     private final Set<Comment> handled = Collections.newSetFromMap(new IdentityHashMap<>());
+    /** Ставшие блоками comment, в порядке дерева. */
+    private final List<Comment> emitted = new ArrayList<>();
 
     private AstToBlocks(String file, List<Comment> pool) {
         this.file = file;
@@ -83,6 +85,16 @@ public final class AstToBlocks {
         List<Block> blocks = body == null ? List.of() : c.seq(body.getStatements(), range(body));
         Block root = new Block(null, "method", f("signature", signature(decl, body)), slots("body", blocks), c.span(decl));
         return assignIds(root, methodId);
+    }
+
+    /** Комментарии тела, которые {@link #convert} делает блоками comment (без попавших в текст выражений и raw). */
+    static List<Comment> blockComments(CallableDeclaration<?> decl) {
+        BlockStmt body = decl instanceof MethodDeclaration m ? m.getBody().orElse(null)
+                : ((ConstructorDeclaration) decl).getBody();
+        if (body == null) return List.of();
+        AstToBlocks c = new AstToBlocks("", comments(body));
+        c.seq(body.getStatements(), range(body));
+        return c.emitted;
     }
 
     /**
@@ -148,6 +160,7 @@ public final class AstToBlocks {
 
     private Block comment(Comment c) {
         handled.add(c);
+        emitted.add(c);
         return leaf("comment", f("text", c.getContent().strip()), c);
     }
 

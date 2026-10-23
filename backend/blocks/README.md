@@ -33,7 +33,15 @@ arrow-case с одним expr/throw — в строку; comment из исход
 `MethodLocator.find(cu, "pkg.Outer$Inner.m~N" | "...<init>~N")` — метод по id дерева проекта (как `TreeBuilder`).
 Файлы, которые JavaParser не разбирает (локальные enum/interface, 3.26–3.28), остаются текстом без блоков (см. source).
 
-Дальше: BE-07 валидация текста нод.
+`NodeValidator.validate(tree, current)` — проверка текста нод перед генерацией (§5), `current` — дерево метода из исходника.
+Каждая нода печатается тем же генератором (без детей) в теле `class __V { __V() { ... } }` и разбирается JavaParser:
+ошибка синтаксиса, `//` в выражении (съел бы `;`), текст, вылезающий за свой оператор (`a(); b()`, `x) {} if (y`), —
+`InvalidNodeException(blockId, message)`. Также: kind по месту (case — только в switch.cases, catch — в try.catches, method —
+только корень), слоты по kind (содержимое чужого слота потерялось бы), изменённая signature — ровно один метод/конструктор.
+Новый/изменённый текст с unicode-escape (`NodeValidator.hasUnicodeEscape`: `\` с чётным числом `\` перед ним и `u`) отклоняется,
+совпавший с исходным текстом метода — нет; для comment — `UnsafeCommentException` (подкласс `InvalidNodeException`).
+blockId — id ноды, у новой без id — позиционный `<id родителя>/<слот>/<i>`. `BlocksToJava` сам не валидирует — зовёт вызывающий (app).
+Комментарий из выражения/raw не считается «исходным» для нового comment-блока (исходные — только ставшие блоками comment).
 
 Зависит от: model, source.
 
@@ -41,4 +49,5 @@ arrow-case с одним expr/throw — в строку; comment из исход
 `samples/demo` — тела всех методов заново из блоков -> javac -> тот же stdout/код выхода (`expected/`, `tests/*.out`),
 повторный разбор даёт то же дерево, неизменённое дерево — файл байт в байт; `BlocksToJavaTest` — каждый kind, комментарии,
 сигнатура, CRLF, табы, правка одного метода не трогает остальные. `AstToBlocksTest` — эталон `contract/fixtures/method-view.merge.json` (без issues/collapsed),
-каждый kind, raw, arrow/pattern switch, комментарии, корпус `samples/`.
+каждый kind, raw, arrow/pattern switch, комментарии, корпус `samples/`. `NodeValidatorTest` — валидные/невалидные ноды,
+структура, unicode-escape, позиционные id; весь корпус проходит валидацию (в `RoundTripCorpusTest`).
