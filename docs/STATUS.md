@@ -7,11 +7,11 @@
 
 ## Backend
 
-**Готово:** BE-01, BE-02, BE-03, BE-04, BE-05, BE-06, BE-08, BE-09, BE-10, BE-11, BE-12, BE-13, BE-14, BE-15, BE-16, BE-17; CT-01 (+ arrow-switch в Block, `<init>~N`)
+**Готово:** BE-01, BE-02, BE-03, BE-04, BE-05, BE-06, BE-08, BE-09, BE-10, BE-11, BE-12, BE-13, BE-14, BE-15, BE-16, BE-17, BE-07; CT-01 (+ arrow-switch в Block, `<init>~N`)
 **В работе:** —
-**Висящие ветки/worktree:** —. Локальный main впереди origin (BE-12..BE-17 + merge BE-06) — нужен push. Папки старых worktree в .claude/worktrees не удаляются из-за длинных путей Windows, стирать вручную. На origin висит устаревшая ветка be-5 (остатки отменённого merge BE-09) — удалить: `git push origin --delete be-5`.
+**Висящие ветки/worktree:** —. Локальный main впереди origin (BE-12..BE-17, BE-07 + merge BE-06) — нужен push. Папки старых worktree в .claude/worktrees не удаляются из-за длинных путей Windows, стирать вручную. На origin висит устаревшая ветка be-5 (остатки отменённого merge BE-09) — удалить: `git push origin --delete be-5`.
 **Заблокировано:** —
-**Следующие шаги:** детекторы MVP закрыты (в брифах: не вливать main в ветку, не трогать docs/; Node.equals у JavaParser по содержимому — ключевать узлы по идентичности); app должен отдавать Analysis.metrics из MethodAnalysis.lines()/maxNesting(); BE-19/20/21 (фиксы, нужен BE-18; BE-19 берёт переменные через публичный StringConcatInLoop.concats); app ещё не отдаёт анализ (подстановка blockId по диапазону строк — decisions.md); BE-18 Quality Gate — после BE-10 ✓ и BE-11 ✓, доступна (текст «нет тестов» — по decisions.md); BE-07 — после BE-06 и BE-04. В бриф BE-07 передать: ApiErrorHandler — добавить HttpMessageNotReadableException и MultipartException в bad() (сейчас 500 вместо 400); UnsafeCommentException из BlocksToJava → 400 валидации; `\u` внутри текста полей expr/var/raw ловит валидация нод; закрыть дыру: в BlocksToJava `originals` строить только из комментариев, ставших comment-блоками (сейчас новый comment-блок с текстом, совпавшим с `// … \u000a …` внутри выражения/raw, выводится без проверки). Фронту: перегенерировать TS-типы (UNPARSED_FILE в LoadWarning.code).
+**Следующие шаги:** детекторы MVP закрыты (в брифах: не вливать main в ветку, не трогать docs/; Node.equals у JavaParser по содержимому — ключевать узлы по идентичности); app должен отдавать Analysis.metrics из MethodAnalysis.lines()/maxNesting(); BE-19/20/21 (фиксы, нужен BE-18; BE-19 берёт переменные через публичный StringConcatInLoop.concats); app ещё не отдаёт анализ (подстановка blockId по диапазону строк — decisions.md); BE-18 Quality Gate — после BE-10 ✓ и BE-11 ✓, доступна (текст «нет тестов» — по decisions.md); BE-18 Quality Gate — доступна. Нет GET blocks / GET files / GET analysis (нужны фронту) — завести задачу. Фронту: перегенерировать TS-типы (UNPARSED_FILE в LoadWarning.code).
 
 ## Frontend
 
@@ -25,16 +25,18 @@
 
 - analysis/ExpensiveCallInLoop: `for (;;)` / `while (true)` с обходом коллекции и break внутри вызываемого считаются дешёвыми (редкий N+1 пропускается).
 - samples/demo: `ReportService.java:80` — `String.format("%.2f")` без Locale, под ru_RU 4/6 IO-тестов demo падают (под en — 6/6).
-- app: битый JSON / битый multipart → 500 INTERNAL вместо 400 (чинится в BE-07).
 - app: export jar → 501 (заглушка до BE-36, кода 501 нет в контракте).
 - CLAUDE.md и .claude/ в .gitignore — правила и агенты не переносятся на другие устройства через git.
 - JavaParser (3.26.2, и 3.28.2 тоже) не разбирает локальные enum/interface: такие файлы (samples/roundtrip/NestedClasses.java) грузятся текстом без блоков с предупреждением UNPARSED_FILE; в RoundTripCorpusTest их тела не перегенерируются из блоков.
-- blocks: новый comment-блок, текст которого совпал с `//`-комментарием с `\u` внутри выражения/raw, выводится без проверки на `\u` (надуманный случай, чинится в BE-07).
 - Windows: после пуля с .gitattributes уже склонированные копии нужно один раз перевыписать (`git ls-files -z | xargs -0 rm -f && git checkout -- .` при чистом дереве), иначе .out останутся с CRLF и IO-тесты упадут.
 - Windows: 2 теста RunnerTest (fakeDocker) пропускаются — нужен /bin/bash.
 - testing: TestResult/IoTestCase пока свои типы в `testing` — после BE-05 заменить на `model` адаптером.
 - testing/JUnit: причина compile_error («тесты» vs «программа») определяется по простому имени файла — при совпадении имён может быть неверной.
 - Фронт: у `passed` IO- и JUnit-теста (пропущенный @Disabled) `error` может быть непустым — это пояснение («оригинал не проходит этот тест — правка его исправила»), не ошибка.
+
+- app/PUT files: не пересчитывает предупреждения загрузки, mainClasses, дубликаты FQN; UNPARSED_FILE через PUT files не правится (422); при переименовании метода сигнатурой поля method в ответе нет.
+- app/ProjectView: Issue без methodId → blockId null (по контракту обязателен; сейчас детекторы methodId всегда ставят); DetectorRegistry.defaults() вызывается напрямую, а не бином.
+- blocks/NodeValidator: исходный текст с \u разрешён в любом не-comment поле — можно перенести в ноду другого kind (крайний случай).
 
 ## Журнал (одна строка на закрытую задачу)
 
@@ -56,3 +58,4 @@
 - BE-15: ExpensiveCallInLoop (вызов с callCost ≥ O(n) в цикле; без дублей BE-14; данные элемента for-each без промежуточных циклов, длины строк/int-параметры и счётные циклы от них — дешёвые; нераспознанное → low). 4 круга ревью. Demo: 4 high (reserve/rollback findProduct, subtotal lineTotal, fullReport findCustomer), 8 low.
 - BE-16: StringConcatInLoop (`s += x` / `s = s + x` для String в цикле, который строка переживает, включая init for; одна Issue на цикл; prepend не сообщается). Публичный concats(method) для BE-19. Demo: ReportService.fullReport, Texts.join — high.
 - BE-17: LongMethod (> 50 строк объявления, low) и DeepNesting (> 4, тело метода — уровень 1, else-if не углубляет, лямбда прозрачна, тело анонимного/локального класса не считается; одна Issue на метод, span — самая глубокая конструкция). MethodAnalysis.lines()/maxNesting() для MethodMetrics. Demo: fullReport (56), hotProducts (7); merge 19/4 как в фикстуре.
+- BE-07: NodeValidator (печать ноды + разбор в обёртке: синтаксис, // в выражении, вылезший текст, kind не на месте, лишние слоты, новый \u), PUT blocks / PUT files с analysis (metrics, blockId по строкам, issueCount/complexity в дереве), 409, ошибки нод → 422 PARSE_ERROR (по контракту), битый JSON/multipart → 400, дыра originals закрыта.
