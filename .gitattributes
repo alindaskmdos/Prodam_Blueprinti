@@ -1,0 +1,5 @@
+# Рабочие файлы всегда с LF на любой машине: round-trip «байт в байт» и IO-тесты (.out) не должны зависеть от core.autocrlf.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.jar binary

@@ -121,6 +121,8 @@ public final class Runner {
         return "/app/p" + i;
     }
 
+    /** Скрипты запусков пакета в контейнере (read-only), см. {@link #jobScript}. */
+    static final String JOBS = "/app/jobs";
     private static final int MAX_OUTPUT = 1 << 20;
     static final String SANDBOX_DEAD = "прогон прерван: песочница не отвечала";
     private static final Pattern MAIN_NAME = Pattern.compile("[\\w.$]+");
@@ -306,7 +308,7 @@ public final class Runner {
                 Files.copy(f.getValue(), copy);
                 extra.put(copy, f.getKey());
             }
-            return runBatchInDocker(classes, mains, errors, jobs, id, extra);
+            return runBatchInDocker(classes, mains, errors, jobs, id, extra, work.resolve("jobs"));
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         } finally {
@@ -358,8 +360,22 @@ public final class Runner {
         return args;
     }
 
+    /**
+     * Скрипт запуска пакета: чистка /tmp и argv под {@code timeout}. Кладётся файлом в {@link #JOBS} и выполняется
+     * {@code sh <файл>}, а не {@code sh -c "..."}: на Windows ProcessBuilder склеивает argv в одну строку, и docker.exe
+     * разбирает её по своим правилам — аргументы с кавычками и пробелами ломались. Каждый аргумент — в одинарных
+     * кавычках ({@code '} → {@code '\''}): подстановок shell нет.
+     */
+    static String jobScript(double timeoutSecs, List<String> argv) {
+        StringBuilder s = new StringBuilder("find /tmp -mindepth 1 -delete 2>/dev/null; exec timeout -k 1 ")
+                .append(String.format(Locale.ROOT, "%.3f", timeoutSecs));
+        for (String a : argv) s.append(" '").append(a.replace("'", "'\\''")).append('\'');
+        return s.append('\n').toString();
+    }
+
     private List<RunResult> runBatchInDocker(List<Path> classes, List<String> mains, List<List<String>> errors,
-                                             List<Job> jobs, String id, Map<Path, String> extraMounts) throws IOException {
+                                             List<Job> jobs, String id, Map<Path, String> extraMounts, Path jobsDir)
+            throws IOException {
         String name = "bp-batch-" + id;
         long mainMs = config.timeout().toMillis();
         long commandMs = config.commandTimeout().toMillis();
@@ -367,8 +383,19 @@ public final class Runner {
         // завершится и сам (sleep)
         long totalMs = jobs.stream().filter(j -> errors.get(j.program()).isEmpty())
                 .mapToLong(j -> (j.command() == null ? mainMs : commandMs) + execSlackMs).sum() + startTimeoutMs;
+        Files.createDirectories(jobsDir);
+        for (int k = 0; k < jobs.size(); k++) {
+            Job job = jobs.get(k);
+            int i = job.program();
+            if (!errors.get(i).isEmpty()) continue;
+            List<String> argv = job.command() != null ? job.command()
+                    : List.of("java", "-Xmx" + heapFor(config.memory()), "-cp", programDir(i), mains.get(i));
+            Files.writeString(jobsDir.resolve(k + ".sh"),
+                    jobScript((job.command() == null ? mainMs : commandMs) / 1000.0, argv), StandardCharsets.UTF_8);
+        }
         Map<Path, String> mounts = new java.util.LinkedHashMap<>();
         for (int i = 0; i < classes.size(); i++) mounts.put(classes.get(i), programDir(i));
+        mounts.put(jobsDir, JOBS);
         mounts.putAll(extraMounts);
         List<String> start = new ArrayList<>(List.of(docker, "run", "-d", "--rm"));
         start.addAll(sandboxArgs(name, mounts));
@@ -392,7 +419,8 @@ public final class Runner {
             }
             long deadline = System.nanoTime() + totalMs * 1_000_000;
             String abortReason = null;
-            for (Job job : jobs) {
+            for (int k = 0; k < jobs.size(); k++) {
+                Job job = jobs.get(k);
                 int i = job.program();
                 if (!errors.get(i).isEmpty()) {
                     results.add(compileFailed(errors.get(i)));
@@ -405,19 +433,10 @@ public final class Runner {
                     continue;
                 }
                 long perRunMs = job.command() == null ? mainMs : commandMs;
-                String secs = String.format(Locale.ROOT, "%.3f", perRunMs / 1000.0);
-                // mainClass проверен MAIN_NAME и передаётся как $0, не через подстановку в строку
-                List<String> cmd;
-                if (job.command() == null) {
-                    cmd = List.of(docker, "exec", "-i", name, "sh", "-c",
-                            "find /tmp -mindepth 1 -delete 2>/dev/null; exec timeout -k 1 " + secs
-                                    + " java -Xmx" + heapFor(config.memory()) + " -cp /app/p" + i + " \"$0\"", mains.get(i));
-                } else {
-                    // argv команды передаётся как "$@", не подстановкой в строку
-                    cmd = new ArrayList<>(List.of(docker, "exec", "-i", "-e", "JDK_JAVA_OPTIONS=-Xmx" + heapFor(config.memory()),
-                            name, "sh", "-c", "find /tmp -mindepth 1 -delete 2>/dev/null; exec timeout -k 1 " + secs + " \"$@\"", "sh"));
-                    cmd.addAll(job.command());
-                }
+                // скрипт запуска записан файлом до старта контейнера: в argv docker нет пробелов и кавычек
+                List<String> cmd = new ArrayList<>(List.of(docker, "exec", "-i"));
+                if (job.command() != null) cmd.addAll(List.of("-e", "JDK_JAVA_OPTIONS=-Xmx" + heapFor(config.memory())));
+                cmd.addAll(List.of(name, "sh", JOBS + "/" + k + ".sh"));
                 RunResult r = execute(cmd, job.stdin(), perRunMs + execSlackMs, name);
                 if (r.timedOut()) {
                     // docker exec не вернулся даже после таймаута программы: песочница не отвечает,

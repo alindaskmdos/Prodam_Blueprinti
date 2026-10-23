@@ -10,6 +10,9 @@
   текущая версия и оригинал) компилируются по отдельности и монтируются в `/app/p<i>` **одного** контейнера
   (`docker run -d ... sleep`, те же ограничения); `jobs` (`Job(program, stdin)`) выполняются по порядку `docker exec` с
   таймаутом `config.timeout()` на запуск и общим таймаутом контейнера; `/tmp` чистится между запусками; в конце — `docker rm -f`.
+  Команда запуска `k` пишется до старта файлом `/app/jobs/<k>.sh` (read-only, каждый аргумент в `'...'`, `jobScript`) и
+  выполняется `docker exec ... sh /app/jobs/<k>.sh`: в argv docker нет кавычек и пробелов — на Windows ProcessBuilder
+  склеивает argv в строку, и `sh -c "..."` ломался.
   Если `docker exec` завис — контейнер убивается, этот и остальные запуски получают `aborted=true` (не `timedOut`).
   Если контейнер не стартовал за 120 с — `IllegalStateException`, `docker rm -f` сразу и повторно в фоне.
   `runAll(sources, mainClass, stdins, rewrite)` — то же для одной программы. Ошибка компиляции — `compiled=false` у её запусков.

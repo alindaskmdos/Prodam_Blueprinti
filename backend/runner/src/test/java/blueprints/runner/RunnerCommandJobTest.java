@@ -99,6 +99,24 @@ class RunnerCommandJobTest {
         assertEquals("hello", Files.readString(f));
     }
 
+    /** Скрипт запуска: каждый аргумент в одинарных кавычках — без подстановок и разбиения shell, на любой ОС хоста. */
+    @Test
+    void jobScriptQuotesEveryArgument() {
+        assertEquals("find /tmp -mindepth 1 -delete 2>/dev/null; exec timeout -k 1 30.000"
+                        + " 'sh' '-c' 'echo \"$@\"; x' 'it'\\''s' '' '$(id)'\n",
+                Runner.jobScript(30, List.of("sh", "-c", "echo \"$@\"; x", "it's", "", "$(id)")));
+        assertTrue(Runner.jobScript(1.5, List.of("java")).contains(" 1.500 'java'"));
+    }
+
+    /** argv с кавычками, пробелами, ; и $ доходит до команды в контейнере без изменений (на Windows ломался). */
+    @Test
+    void commandArgvReachesContainerIntact(@TempDir Path tmp) {
+        Runner runner = dockerRunner(tmp, Duration.ofSeconds(10));
+        var cmd = new Runner.Job(0, "", List.of("printf", "%s|", "a b", "it's", "\"$HOME\"", "x;y", "", "\\\" \\"));
+        var rs = runner.runBatch(List.of(new Runner.Program(HOST, null)), List.of(cmd), Runner.Rewrite.RUN, Map.of());
+        assertEquals("a b|it's|\"$HOME\"|x;y||\\\" \\|", rs.get(0).stdout(), rs.toString());
+    }
+
     @Test
     void defaultCommandTimeoutIsLonger() {
         var c = new Runner.Config(Path.of("/tmp"), "x", "64m", "1", Duration.ofSeconds(10));
