@@ -7,11 +7,11 @@
 
 ## Backend
 
-**Готово:** BE-01, BE-02, BE-03, BE-04, BE-08, BE-09, BE-11; CT-01 (+ arrow-switch в Block)
-**В работе:** BE-10 (Станислав); BE-05 (напарник) — правки по ревью (final-модификаторы в fields.type, комментарии перед case/catch, сигнатура метода, тест контракта, arrow-switch по новому контракту).
+**Готово:** BE-01, BE-02, BE-03, BE-04, BE-08, BE-09, BE-10, BE-11; CT-01 (+ arrow-switch в Block)
+**В работе:** BE-05 (напарник) — правки по ревью (final-модификаторы в fields.type, комментарии перед case/catch, сигнатура метода, тест контракта, arrow-switch по новому контракту).
 **Висящие ветки/worktree:** be-05 (напарник). Папки старых worktree в .claude/worktrees не удаляются из-за длинных путей Windows, стирать вручную.
 **Заблокировано:** —
-**Следующие шаги:** влить BE-05 → BE-06 (BlocksToJava + RoundTripCorpusTest, Станислав) и BE-12 (анализ); BE-10 — доступна (в BE-10: warning «N тестов пропущено» по decisions.md); BE-07 — после BE-06 и BE-04. В бриф BE-07 передать: ApiErrorHandler — добавить HttpMessageNotReadableException и MultipartException в bad() (сейчас 500 вместо 400).
+**Следующие шаги:** влить BE-05 → BE-06 (BlocksToJava + RoundTripCorpusTest, Станислав) и BE-12 (анализ); BE-18 Quality Gate — после BE-10 ✓ и BE-11 ✓, доступна (текст «нет тестов» — по decisions.md); BE-07 — после BE-06 и BE-04. В бриф BE-07 передать: ApiErrorHandler — добавить HttpMessageNotReadableException и MultipartException в bad() (сейчас 500 вместо 400).
 
 ## Frontend
 
@@ -42,3 +42,4 @@
 - BE-04: загрузка (zip slip/bomb, обёртка root, source root по package, дубликаты FQN, tests/), дерево по пакетам, экспорт zip байт в байт, ProjectStore.update + 409, ContractConformanceTest.
 - BE-09: IoTestSource (tests/*.json, импорт .in/.out, original/manual, ignoreLines, сравнение §10.3), Runner.runBatch — один контейнер на прогон (текущая + оригинал), RunResult.aborted.
 - BE-11: JUnitTestSource (console launcher 1.11.3 из ресурсов, XML-отчёт, имя = FQN.метод, private→package-private в копии, compile_error), Runner: command-job, доп. read-only файлы, Config.commandTimeout 30 с; IO и JUnit в одном контейнере.
+- BE-10: BehaviorVerifier (один runBatch: IO текущей + оригинал ×2 + JUnit; шумные строки → noisyLines; >50% шума, нестабильный выход оригинала, нет тестов → incomplete; stdin без входных тестов → blocked; warning о пропущенных). Приоритет blocked > red > incomplete > green.
