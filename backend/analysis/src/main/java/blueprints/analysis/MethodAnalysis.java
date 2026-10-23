@@ -70,6 +70,8 @@ public final class MethodAnalysis {
     private final Map<Expression, BigO> callCosts = new IdentityHashMap<>();
     private final Map<Expression, String> callTargets = new IdentityHashMap<>();
     private final Set<String> warnings = new LinkedHashSet<>();
+    /** Ключи новых символов для нераспознанных размеров (§8.2: выводы по ним — в «Предупреждения»). */
+    private final Set<String> freshKeys = new LinkedHashSet<>();
     private BigO complexity;
     private boolean calleeLow;
     private boolean computing;
@@ -159,6 +161,11 @@ public final class MethodAnalysis {
     /** Символ размера выражения (коллекция, массив, строка, целая граница) или null, если не распознан. */
     public BigO size(Expression e) {
         return sizeExpr(e);
+    }
+
+    /** Символ заведён этим методом для нераспознанного размера (выражение, цикл без границы, while без границы). */
+    public boolean isFresh(String symbol) {
+        return freshKeys.contains(symbol);
     }
 
     /** Простое имя объявленного типа переменной/параметра/поля (конкретный тип из {@code new}, если есть) или null. */
@@ -297,7 +304,7 @@ public final class MethodAnalysis {
                 if (x != null && !x.isConstant()) s = s == null ? x : s.plus(x);
             }
         }
-        if (s == null) s = BigO.of(key("while@" + loop.getBegin().map(p -> p.line).orElse(0)));
+        if (s == null) s = fresh(key("while@" + loop.getBegin().map(p -> p.line).orElse(0)));
         loop(loop, s);
         BigO m = mult.times(s);
         return s.times(cost(cond, m).plus(cost(body, m)));
@@ -349,7 +356,7 @@ public final class MethodAnalysis {
         Map<String, BigO> sub = new LinkedHashMap<>();
         for (int i = 0; i < Math.min(callee.params.size(), args.size()); i++) {
             BigO a = sizeExpr(args.get(i));
-            sub.put(callee.params.get(i), a != null ? a : BigO.of(freshKey(args.get(i))));
+            sub.put(callee.params.get(i), a != null ? a : fresh(freshKey(args.get(i))));
         }
         return callee.complexity.substitute(sub);
     }
@@ -378,11 +385,16 @@ public final class MethodAnalysis {
         return locals.contains(var) ? null : BigO.of(fieldKey(var));
     }
 
+    private BigO fresh(String key) {
+        freshKeys.add(key);
+        return BigO.of(key);
+    }
+
     private BigO sizeOrFresh(Expression e) {
         BigO s = sizeExpr(e);
         if (s != null) return s;
         warnings.add("размер «" + e + "» не распознан — взят новый символ");
-        return BigO.of(freshKey(e));
+        return fresh(freshKey(e));
     }
 
     /** Ключ нового символа: корень цепочки size()/length/stream()… — {@code mine.size()} и {@code mine} дают один символ. */
@@ -486,7 +498,7 @@ public final class MethodAnalysis {
         }
         if (bound == null) {
             warnings.add("цикл for без распознанной границы — взят новый символ");
-            return BigO.of(key("for@" + f.getBegin().map(p -> p.line).orElse(0)));
+            return fresh(key("for@" + f.getBegin().map(p -> p.line).orElse(0)));
         }
         BigO s = sizeOrFresh(bound);
         // обратный цикл (i = a.length - 1; i >= 0): размер — начальное значение

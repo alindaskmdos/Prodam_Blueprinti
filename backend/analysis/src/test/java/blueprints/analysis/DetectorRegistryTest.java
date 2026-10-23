@@ -23,7 +23,7 @@ class DetectorRegistryTest {
     }
 
     @Test
-    void defaultsStartEmpty() {
-        assertTrue(DetectorRegistry.defaults().detectors().isEmpty());
+    void defaultsRegisterDetectors() {
+        assertTrue(DetectorRegistry.defaults().detectors().stream().anyMatch(d -> d instanceof NestedLoopSameCollection));
     }
 }

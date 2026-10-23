@@ -270,7 +270,7 @@ class ProjectAnalysisTest {
             List<MethodAnalysis> all = p.methods();
             assertFalse(all.isEmpty(), dir);
             all.forEach(x -> assertNotNull(x.complexity(), x.id()));
-            assertTrue(DetectorRegistry.defaults().run(p).isEmpty());
+            DetectorRegistry.defaults().run(p).forEach(i -> assertNotNull(i.span(), i.id()));
         }
         ProjectAnalysis demo = ProjectAnalysis.of(demoFiles());
         assertEquals("O(n²)", demo.method("com.demo.service.InventoryService.distinctIds~0").complexity().toString());
@@ -279,7 +279,7 @@ class ProjectAnalysisTest {
                 .contains("com.demo.service.OrderService.absorb~0"));
     }
 
-    private static List<SourceFile> demoFiles() throws IOException {
+    static List<SourceFile> demoFiles() throws IOException {
         List<SourceFile> files = new ArrayList<>();
         Path root = Path.of("../../samples/demo/src");
         try (Stream<Path> s = Files.walk(root)) {
