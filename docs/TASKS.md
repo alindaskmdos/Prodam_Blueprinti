@@ -17,6 +17,8 @@
 - [x] BE-06 BlocksToJava + замена тела метода + `RoundTripCorpusTest` | blocks | BE-05, BE-03 | §5
 - [x] BE-07 Валидация текста нод (parseExpression/parseStatement), эндпоинты PUT blocks / PUT files | blocks, app | BE-06, BE-04 | §5, §12
 - [ ] BE-36 Экспорт исполняемого .jar из чистого кода (манифест Main-Class, без tests/ и .blueprints/), тест через `java -jar` на IO-тестах | runner, app | BE-08, BE-09 | §11
+- [ ] BE-37 Эндпоинты GET blocks / GET files / GET analysis (представления из ProjectView) | app | BE-07 | §12
+- [ ] BE-38 Эндпоинты тестов (GET tests, GET/PUT/DELETE tests/{name}), POST run, POST verify | app | BE-09, BE-10, BE-11 | §10, §12
 - [x] BE-08 Runner: Docker, лимиты, таймаут, переписывание для запуска (seed) | runner | BE-01 | §11а, §10.4
 - [x] BE-09 IoTestSource: `tests/*.json`, импорт `*.in/*.out`, режимы original/manual, ignoreLines | testing | BE-08 | §10.1
 - [x] BE-10 BehaviorVerifier: двойной прогон, шумные строки, правило сравнения, блок при отсутствии stdin-тестов | testing | BE-09 | §10.3–10.5
