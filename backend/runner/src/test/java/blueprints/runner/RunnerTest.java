@@ -127,4 +127,152 @@ class RunnerTest {
                 null, "", Runner.Rewrite.NONE);
         assertTrue(r.timedOut());
     }
+
+    // --- пакетный запуск ---
+
+    @Test
+    void runAllCompileErrorSkipsDocker(@TempDir Path tmp) {
+        var rs = new Runner(new Runner.Config(tmp, "x", "64m", "1", Duration.ofSeconds(1)))
+                .runAll(Map.of("Bad.java", "class Bad { int x = \"s\"; }"), "Bad", List.of("a", "b"), Runner.Rewrite.NONE);
+        assertEquals(2, rs.size());
+        assertTrue(rs.stream().noneMatch(Runner.RunResult::compiled));
+    }
+
+    @Test
+    void runAllEmptyAndValidation(@TempDir Path tmp) {
+        var r = new Runner(new Runner.Config(tmp, "x", "64m", "1", Duration.ofSeconds(1)));
+        assertEquals(List.of(), r.runAll(Map.of("A.java", "class A {}"), "A", List.of(), Runner.Rewrite.NONE));
+        assertThrows(IllegalArgumentException.class, () -> r.runAll(Map.of(), "A;rm", List.of(""), Runner.Rewrite.NONE));
+    }
+
+    /** Все запуски пакета видят один и тот же контейнер (hostname = id контейнера), разные пакеты — разные. */
+    @Test
+    void runAllUsesOneContainerPerBatch(@TempDir Path tmp) {
+        Runner runner = dockerRunner(tmp, Duration.ofSeconds(60));
+        Map<String, String> src = Map.of("Host.java", """
+                public class Host {
+                    public static void main(String[] a) throws Exception {
+                        String in = new String(System.in.readAllBytes()).trim();
+                        System.out.println(in + " " + java.nio.file.Files.readString(java.nio.file.Path.of("/etc/hostname")).trim());
+                        if (in.equals("fail")) System.exit(5);
+                    }
+                }
+                """);
+        var rs = runner.runAll(src, null, List.of("a", "fail", "c"), Runner.Rewrite.RUN);
+        assertEquals(3, rs.size());
+        assertEquals(List.of(0, 5, 0), rs.stream().map(Runner.RunResult::exitCode).toList(), rs.toString());
+        List<String> hosts = rs.stream().map(r -> r.stdout().trim().split(" ")[1]).distinct().toList();
+        assertEquals(1, hosts.size(), "ожидался один контейнер: " + hosts);
+        assertTrue(rs.get(0).stdout().startsWith("a "));
+        assertTrue(rs.get(2).stdout().startsWith("c "));
+        var again = runner.runAll(src, null, List.of("x"), Runner.Rewrite.RUN);
+        assertNotEquals(hosts.get(0), again.get(0).stdout().trim().split(" ")[1]);
+    }
+
+    @Test
+    void runAllTimeoutIsPerRun(@TempDir Path tmp) {
+        Runner runner = dockerRunner(tmp, Duration.ofSeconds(3));
+        Map<String, String> src = Map.of("Maybe.java", """
+                public class Maybe {
+                    public static void main(String[] a) throws Exception {
+                        String in = new String(System.in.readAllBytes()).trim();
+                        if (in.equals("loop")) while (true) {}
+                        System.out.print(in);
+                    }
+                }
+                """);
+        var rs = runner.runAll(src, null, List.of("loop", "ok"), Runner.Rewrite.NONE);
+        assertTrue(rs.get(0).timedOut());
+        assertFalse(rs.get(1).timedOut(), rs.get(1).toString());
+        assertEquals("ok", rs.get(1).stdout());
+        assertEquals(0, rs.get(1).exitCode());
+    }
+
+    /** Обе программы пакета (текущая и оригинал) запускаются в одном контейнере. */
+    @Test
+    void runBatchRunsAllProgramsInOneContainer(@TempDir Path tmp) {
+        Runner runner = dockerRunner(tmp, Duration.ofSeconds(60));
+        String host = "System.out.print(%s + new String(System.in.readAllBytes()).trim() + \" \" "
+                + "+ java.nio.file.Files.readString(java.nio.file.Path.of(\"/etc/hostname\")).trim());";
+        var cur = new Runner.Program(Map.of("src/Main.java",
+                "public class Main { public static void main(String[] a) throws Exception { " + host.formatted("\"cur:\"") + " } }"), null);
+        var orig = new Runner.Program(Map.of("src/Main.java",
+                "public class Main { public static void main(String[] a) throws Exception { " + host.formatted("\"orig:\"") + " } }"), "Main");
+        var jobs = List.of(new Runner.Job(0, "1"), new Runner.Job(0, "2"), new Runner.Job(1, "1"), new Runner.Job(1, "2"), new Runner.Job(1, "1"));
+        var rs = runner.runBatch(List.of(cur, orig), jobs, Runner.Rewrite.RUN);
+        assertEquals(List.of("cur:1", "cur:2", "orig:1", "orig:2", "orig:1"),
+                rs.stream().map(r -> r.stdout().split(" ")[0]).toList(), rs.toString());
+        assertEquals(1, rs.stream().map(r -> r.stdout().split(" ")[1]).distinct().count(), "ожидался один контейнер: " + rs);
+    }
+
+    @Test
+    void runBatchCompileErrorOnlyAffectsItsProgram(@TempDir Path tmp) {
+        var r = new Runner(new Runner.Config(tmp, "x", "64m", "1", Duration.ofSeconds(1)));
+        var bad = new Runner.Program(Map.of("Bad.java", "class Bad { int x = \"s\"; }"), "Bad");
+        var rs = r.runBatch(List.of(bad, bad), List.of(new Runner.Job(0, ""), new Runner.Job(1, "")), Runner.Rewrite.NONE);
+        assertTrue(rs.stream().noneMatch(Runner.RunResult::compiled));
+        assertThrows(IllegalArgumentException.class,
+                () -> r.runBatch(List.of(bad), List.of(new Runner.Job(1, "")), Runner.Rewrite.NONE));
+    }
+
+    // --- отказы песочницы на поддельном docker (без настоящего Docker) ---
+
+    private static Path fakeDocker(Path dir) throws Exception {
+        assumeTrue(Files.isExecutable(Path.of("/bin/bash")), "нужен bash");
+        Path script = dir.resolve("docker");
+        Files.writeString(script, """
+                #!/bin/bash
+                D="$(dirname "$0")"
+                echo "$*" >> "$D/log"
+                case "$1" in
+                  run) if [ -f "$D/hang-start" ]; then sleep 30; fi; echo cid ;;
+                  exec) in=$(cat); if [ "$in" = hang ]; then sleep 30; fi; printf '%s' "$in" ;;
+                esac
+                exit 0
+                """);
+        script.toFile().setExecutable(true);
+        return script;
+    }
+
+    private static final Map<String, String> ECHO = Map.of("Echo.java", "public class Echo { public static void main(String[] a) {} }");
+
+    @Test
+    void hungExecAbortsRestWithoutClaimingTimeout(@TempDir Path tmp) throws Exception {
+        Path docker = fakeDocker(tmp);
+        var r = new Runner(new Runner.Config(tmp.resolve("work"), "img", "64m", "1", Duration.ofSeconds(1)),
+                docker.toString(), 5_000, 500);
+        var rs = r.runAll(ECHO, null, List.of("a", "hang", "c"), Runner.Rewrite.NONE);
+        assertEquals("a", rs.get(0).stdout());
+        assertFalse(rs.get(0).aborted());
+        for (var x : rs.subList(1, 3)) {
+            assertTrue(x.aborted(), x.toString());
+            assertFalse(x.timedOut(), "не выполненный запуск — не таймаут программы");
+            assertEquals(Runner.SANDBOX_DEAD, x.stderr());
+        }
+        String log = Files.readString(tmp.resolve("log"));
+        assertEquals(1, log.lines().filter(l -> l.startsWith("run -d")).count(), log);
+        assertEquals(2, log.lines().filter(l -> l.startsWith("exec")).count(), "после зависания запуски не выполняются: " + log);
+        assertTrue(log.lines().anyMatch(l -> l.startsWith("rm -f bp-batch-")), log);
+    }
+
+    @Test
+    void containerStartTimeoutLeavesNoContainer(@TempDir Path tmp) throws Exception {
+        Path docker = fakeDocker(tmp);
+        Files.writeString(tmp.resolve("hang-start"), "");
+        var r = new Runner(new Runner.Config(tmp.resolve("work"), "img", "64m", "1", Duration.ofSeconds(1)),
+                docker.toString(), 1_000, 500);
+        var ex = assertThrows(IllegalStateException.class, () -> r.runAll(ECHO, null, List.of("a"), Runner.Rewrite.NONE));
+        assertTrue(ex.getMessage().contains("не запустился"), ex.getMessage());
+        String name = Files.readString(tmp.resolve("log")).lines().filter(l -> l.startsWith("run -d")).findFirst().orElseThrow()
+                .replaceAll(".*--name (\\S+).*", "$1");
+        assertTrue(name.startsWith("bp-batch-"), name);
+        // сразу rm -f, затем повторные rm -f в фоне — на случай, если демон создаст контейнер позже
+        long deadline = System.currentTimeMillis() + 10_000;
+        long removes = 0;
+        while (System.currentTimeMillis() < deadline && removes < 2) {
+            Thread.sleep(200);
+            removes = Files.readString(tmp.resolve("log")).lines().filter(l -> l.equals("rm -f " + name)).count();
+        }
+        assertTrue(removes >= 2, "ожидались повторные docker rm -f " + name);
+    }
 }

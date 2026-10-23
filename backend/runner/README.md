@@ -6,6 +6,13 @@
 - `Runner.run(sources, mainClass, stdin, rewrite)` — `sources`: путь → текст. Пишет копию с переписыванием во временную папку,
   компилирует в процессе сервера, запускает в одноразовом контейнере (`--network none`, `--memory`, `--cpus`, read-only, cap-drop,
   таймаут 10 с, по таймауту `docker rm -f`). Возвращает `RunResult` (stdout, stderr, exitCode, timedOut, millis, ошибки компиляции).
+- `Runner.runBatch(programs, jobs, rewrite)` — пакетный запуск: несколько программ (`Program(sources, mainClass)`, например
+  текущая версия и оригинал) компилируются по отдельности и монтируются в `/app/p<i>` **одного** контейнера
+  (`docker run -d ... sleep`, те же ограничения); `jobs` (`Job(program, stdin)`) выполняются по порядку `docker exec` с
+  таймаутом `config.timeout()` на запуск и общим таймаутом контейнера; `/tmp` чистится между запусками; в конце — `docker rm -f`.
+  Если `docker exec` завис — контейнер убивается, этот и остальные запуски получают `aborted=true` (не `timedOut`).
+  Если контейнер не стартовал за 120 с — `IllegalStateException`, `docker rm -f` сразу и повторно в фоне.
+  `runAll(sources, mainClass, stdins, rewrite)` — то же для одной программы. Ошибка компиляции — `compiled=false` у её запусков.
 - `mainClass == null`: берётся единственный `main`, при нескольких — `IllegalArgumentException` со списком (`findMainClasses`).
 - `Rewrite.RUN`: `new Random()` → `new Random(42)`, `Math.random()` → `bp.rt.Seed.random()` (класс добавляется в копию);
   `packagePrivate=true` убирает `private` (для JUnit, BE-11). Исходники не меняются. Замена регулярками, не AST.
