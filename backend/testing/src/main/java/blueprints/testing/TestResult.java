@@ -19,7 +19,27 @@ public record TestResult(String name, String type, TestStatus status, long durat
         noisyLines = noisyLines == null ? List.of() : List.copyOf(noisyLines);
     }
 
+    /** Пояснение в {@code error} у пропущенного теста (@Disabled, assumption): статус {@code passed} (decisions.md). */
+    public static final String SKIPPED = "пропущен";
+
+    /**
+     * Пояснение в {@code error} original-теста: два прогона оригинала завершились по-разному (код выхода/исключение).
+     * Тест не красный из-за этого; вердикт проверки — {@code incomplete}.
+     */
+    public static final String UNSTABLE_ORIGINAL =
+            "оригинал завершается недетерминированно (разный код выхода/исключение между двумя прогонами)";
+
     public boolean passed() {
         return status == TestStatus.PASSED;
+    }
+
+    /** Тест прошёл, но эталон ненадёжен: оригинал завершается недетерминированно. */
+    public boolean unstableOriginal() {
+        return passed() && UNSTABLE_ORIGINAL.equals(error);
+    }
+
+    /** Тест пропущен: {@code passed} с error «пропущен» или «пропущен: причина». */
+    public boolean skipped() {
+        return passed() && error != null && (error.equals(SKIPPED) || error.startsWith(SKIPPED + ": "));
     }
 }

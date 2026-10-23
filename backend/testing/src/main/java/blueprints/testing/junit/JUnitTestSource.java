@@ -1,6 +1,7 @@
 package blueprints.testing.junit;
 
 import blueprints.runner.Runner;
+import blueprints.testing.Batch;
 import blueprints.testing.TestContext;
 import blueprints.testing.TestResult;
 import blueprints.testing.TestSource;
@@ -79,11 +80,22 @@ public final class JUnitTestSource implements TestSource {
 
     @Override
     public List<TestResult> run(TestContext ctx) {
-        Optional<Plan> plan = plan(ctx, 0);
-        if (plan.isEmpty()) return List.of();
+        Batch batch = new Batch();
+        Prepared p = prepare(ctx, batch);
+        if (batch.jobs().isEmpty()) return List.of();
+        return p.results(runner.runBatch(batch.programs(), batch.jobs(), batch.files()));
+    }
+
+    /** Для общего пакета: программа (код + тесты) и command-запуск {@link #plan} добавляются в {@code batch}. */
+    @Override
+    public Prepared prepare(TestContext ctx, Batch batch) {
+        Optional<Plan> plan = plan(ctx, batch.nextProgram());
+        if (plan.isEmpty()) return rs -> List.of();
         Plan p = plan.get();
-        List<Runner.RunResult> rs = runner.runBatch(List.of(p.program()), List.of(p.job()), p.files());
-        return results(p, rs.get(0));
+        batch.addProgram(p.program());
+        int job = batch.addJob(p.job());
+        p.files().forEach(batch::addFile);
+        return rs -> results(p, rs.get(job));
     }
 
     /** Тестовые файлы: все {@code .java} в {@code tests/}, по порядку путей. */

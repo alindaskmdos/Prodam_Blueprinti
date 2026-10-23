@@ -18,7 +18,7 @@ import org.w3c.dom.NodeList;
  * без stack trace, {@code <skipped>} → {@code passed} с пояснением «пропущен», иначе {@code passed}.
  */
 public final class JUnitReport {
-    public static final String SKIPPED = "пропущен";
+    public static final String SKIPPED = TestResult.SKIPPED;
     static final int MAX_ERROR = 1000;
 
     private JUnitReport() {

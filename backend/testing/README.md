@@ -1,7 +1,16 @@
 # testing
 
-Источники тестов и проверка поведения (§10 ТЗ). Точка расширения: `TestSource` (`id()`, `run(TestContext)` → `List<TestResult>`),
+Источники тестов и проверка поведения (§10 ТЗ). Точка расширения: `TestSource` (`id()`, `run(TestContext)` → `List<TestResult>`;
+для общего контейнера — `prepare(ctx, Batch)` → `Prepared`, по умолчанию отдельный `run`; `providesInput(ctx)` — есть тест со входом),
 реестр — `TestSourceRegistry.defaults(runner)` (`IoTestSource`, `JUnitTestSource`).
+
+- **`BehaviorVerifier.verify(ctx)` → `VerifyResult`** (§10.3–10.5, POST /verify): все источники реестра кладут запуски в один
+  `Batch` → один `runBatch` (`Rewrite.RUN`, seed для текущей и оригинала) — один контейнер. IO: оригинал гоняется дважды,
+  различающиеся строки (`Noise`; строки без пары при разной длине тоже шумные) не сравниваются и идут в `noisyLines`.
+  Статус: `blocked` (текущая читает stdin — `StdinUsage`: `System.in`/`System.console()` вне комментариев и литералов, — а
+  непустого stdin ни у одного теста нет; тесты не запускаются) > `red` (хоть один не `passed`) > `incomplete` (шумных строк
+  > половины вывода хоть в одном тесте, или тестов нет — подсказка «Тестов пока нет…») > `green`. Warnings: шум, «N тестов пропущено (@Disabled)».
+  Разный exit code/исключение у двух прогонов оригинала → тест не red (сравнивается только stdout), verify — `incomplete` + warning с именами тестов.
 
 - `TestContext` — файлы оригинала и текущей версии (путь как в проекте → текст) + main-класс. Программа = все `.java` вне `tests/`.
 - `io.IoTestFiles` — `tests/<имя>.json` (§10.1): `load(files)` (тесты + понятные ошибки по файлам), `parse`, `validate`, `toJson`
@@ -14,8 +23,7 @@
 - `io.OutputComparator` — правило §10.3: stdout побайтово (CRLF ≠ LF), exit code, тип+сообщение необработанного исключения
   (`Observed.uncaughtException`, stack trace не сравнивается); строки из множества `ignoredLines` пропускаются;
   обрезанный вывод (> 1 МБ) не совпадает никогда.
-  BE-10: второй прогон оригинала — дополнительные `Job(1, stdin)` в том же пакете; «шумные» строки — в `ignoredLines`
-  и в `TestResult.noisyLines`.
+  Шумные строки BE-10 передаются сюда вместе с `ignoreLines`. `IoTestSource.run` гоняет оригинал один раз (без шума).
 - `junit.JUnitTestSource` (§10.2) — `tests/*.java` текущей версии компилируются вместе с программой (пакет — из `package`
   теста) с `Rewrite.JUNIT` (`private` → package-private) только в копии; запуск — `junit-platform-console-standalone`
   (jar в ресурсах модуля из `libs.versions.toml`, монтируется read-only в `/opt/junit`), один command-`Job` на все тесты,
@@ -23,13 +31,13 @@
   (`junit.JUnitReport`: имя `полное.имя.Класса.метод`, в пакете по умолчанию — `Класс.метод`, failure/error → `failed` с сообщением без stack trace,
   skipped → `passed` с «пропущен»). Не компилируются тесты или программа → `compile_error` у каждого тестового класса
   (текст «тесты не компилируются»/«код программы не компилируется» + ошибки); таймаут/нет отчёта → `failed`.
-  BE-10: `plan(ctx, index)` → программа + job + `files` в общий `runBatch` с IO-тестами, `results(plan, runResult)`.
+  `plan(ctx, index)`/`results(plan, runResult)` — основа `prepare`: программа + job + `files` в общем пакете.
   Оговорки: снятие `private` регуляркой может сломать корректный код (private-метод подкласса с той же сигнатурой, что у
   суперкласса, становится package-private и сужает доступ) — пользователь увидит «код программы не компилируется».
   Отчёт пишется в `/tmp` контейнера, доступный коду теста: тест может его подменить — модель «пользователь проверяет сам себя».
 
-**Временные типы**: `TestResult`, `TestStatus`, `io.IoTestCase` повторяют контрактные `TestResult`/`TestCase` (поля и имена
+**Временные типы**: `TestResult`, `TestStatus`, `VerifyResult`, `io.IoTestCase` повторяют контрактные `TestResult`/`VerifyResult`/`TestCase` (поля и имена
 те же, `wire()` — значения enum в JSON). После BE-05 заменяются record'ами из `model` одним адаптером.
 
-Зависит от: model, runner, jackson-databind. Тесты: `./gradlew :testing:test` (Docker-тесты — IO на `samples/roundtrip`
-и JUnit — пропускаются, если `docker info` не проходит).
+Зависит от: model, runner, jackson-databind. Тесты: `./gradlew :testing:test` (Docker-тесты — IO на `samples/roundtrip`,
+JUnit и `BehaviorVerifierDockerTest` — пропускаются, если `docker info` не проходит).
