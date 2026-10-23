@@ -302,7 +302,7 @@ components:
       name: methodId
       in: path
       required: true
-      description: "FQN класса + имя + ~ + индекс перегрузки, напр. com.demo.service.OrderService.merge~0. Вложенный класс — через $ (Outer$Inner.run~0), анонимный/лямбда отдельного id не имеют (часть блоков метода-хозяина)."
+      description: "FQN класса + имя + ~ + индекс перегрузки, напр. com.demo.service.OrderService.merge~0. Конструктор — имя <init>: com.demo.model.Order.<init>~0. Вложенный класс — через $ (Outer$Inner.run~0), анонимный/лямбда отдельного id не имеют (часть блоков метода-хозяина). Фронт кодирует id в пути через encodeURIComponent ($, <, > и т.п.)."
       schema: { type: string }
     FilePath: { name: path, in: query, required: true, description: "Путь файла как в архиве", schema: { type: string } }
 
@@ -344,7 +344,7 @@ components:
       type: object
       required: [path, package]
       properties:
-        path: { type: string, description: "Как в архиве — для экспорта" }
+        path: { type: string, description: "Путь как в архиве, но без общей верхней папки-обёртки (§11). Экспорт .zip добавляет обёртку обратно. Этим путём файл адресуется в ?path= и Span.file" }
         package: { type: string, description: "Пустая строка — пакет по умолчанию" }
 
     LoadWarning:
