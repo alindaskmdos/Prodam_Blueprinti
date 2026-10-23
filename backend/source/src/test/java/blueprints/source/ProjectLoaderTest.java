@@ -171,6 +171,20 @@ class ProjectLoaderTest {
     }
 
     @Test
+    void javaParserGapLoadsAsText() {
+        // локальный enum — корректная Java 16+, но JavaParser 3.26 его не разбирает
+        byte[] src = b("package a;\npublic class A {\n public static void main(String[] x) {\n  enum L { X }\n  System.out.println(L.X);\n }\n}\n");
+        var p = ProjectLoader.load(List.of(new ProjectLoader.Upload("a/A.java", src)));
+        assertArrayEquals(src, p.files().get(0).content());
+        assertEquals("a", p.files().get(0).pkg());
+        assertEquals(List.of("a.A"), p.mainClasses());
+        assertEquals("UNPARSED_FILE", p.warnings().get(0).code());
+        assertEquals(List.of(), TreeBuilder.build(p).get(0).files().get(0).classes());
+        // настоящая ошибка синтаксиса по-прежнему отказ
+        assertEquals("PARSE_ERROR", fails(List.of(new ProjectLoader.Upload("A.java", b("class A { void m() { enum } }")))).code());
+    }
+
+    @Test
     void demoLoadsWithoutWarningsAndRoundTrips() throws IOException {
         var ups = demo("demo/");
         var p = ProjectLoader.load(ups);

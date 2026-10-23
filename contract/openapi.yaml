@@ -351,7 +351,7 @@ components:
       type: object
       required: [code, message]
       properties:
-        code: { type: string, enum: [PACKAGE_MISMATCH, IGNORED_FILE, TESTS_IMPORTED] }
+        code: { type: string, enum: [PACKAGE_MISMATCH, IGNORED_FILE, TESTS_IMPORTED, UNPARSED_FILE] }
         file: { type: string }
         message: { type: string }
 
