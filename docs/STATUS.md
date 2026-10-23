@@ -26,7 +26,6 @@
 - samples/demo: `ReportService.java:80` — `String.format("%.2f")` без Locale, под ru_RU 4/6 IO-тестов demo падают (под en — 6/6).
 - app: битый JSON / битый multipart → 500 INTERNAL вместо 400 (чинится в BE-07).
 - app: export jar → 501 (заглушка до BE-36, кода 501 нет в контракте).
-- Контракт: id конструктора `FQN.<init>~N` не описан в MethodId; ProjectFile.path — путь после отрезания обёртки (экспорт добавляет root).
 - CLAUDE.md и .claude/ в .gitignore — правила и агенты не переносятся на другие устройства через git.
 
 ## Журнал (одна строка на закрытую задачу)
