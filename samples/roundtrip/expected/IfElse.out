@@ -1,0 +1,7 @@
+-3 -> negative
+0 -> zero
+7 -> small
+25 -> large
+1 2 3 0
+13 3 13 2 12 2 11 1 
+compound true

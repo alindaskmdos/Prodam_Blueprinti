@@ -1,0 +1,8 @@
+[alpha, bravo, charlie, delta, echo]
+[echo, delta, bravo, alpha, charlie]
+[bravo, alpha, charlie, delta, echo]
+b=2 a=3 c=1 z=1 y=7 
+dup5 dup3 [5, 3, 1, 9]
+pop=4 poll=1 peek=3 [2, 3, 4]
+[1, 2, 4, 5, 7]
+[7, 5, 4, 2, 1] max=7 idx=2

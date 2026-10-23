@@ -1,0 +1,23 @@
+parsed 12
+12
+parsed x
+caught bad number: x code=42
+multi: zero
+multi: one
+runtime: ArrayIndexOutOfBoundsException
+open A
+open B
+using AB
+close B
+close A
+open C
+reuse C
+close C
+inner caught inner
+inner finally
+outer caught rethrown cause=inner
+outer finally
+no catch
+only finally
+closeable body
+lambda close

@@ -1,0 +1,16 @@
+1: one two
+2: two
+3: three-or-four
+4: three-or-four
+5: other
+1 20 -1
+RED warm
+arrow red
+GREEN cool
+arrow green
+BLUE cool
+arrow blue
+BLACK none
+arrow default
+1 6 0
+zero ONE many

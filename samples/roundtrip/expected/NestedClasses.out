@@ -1,0 +1,9 @@
+static nested
+inner 10
+hi ann #1
+hi bob #2
+1
+local class 2
+Point[x=3, y=4] sum=7
+0LOW 1HIGH 
+area 4.0

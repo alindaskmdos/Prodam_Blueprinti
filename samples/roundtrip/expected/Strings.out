@@ -1,0 +1,17 @@
+Hello,
+  "text block"
+end
+tab	here
+new line "quoted" back\slash 'single' Aé
+10 ' B
+Привет, мир — ünïcödé ✓ len=23
+[0,1,2,3,4] rev=cba
+n+d=31.5
+n+d=4.5
+4.5=sum
+3345
+null concat: null
+   42|ab  |3.14
+4 trim|xxx
+2
+-1 true

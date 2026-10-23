@@ -1,0 +1,6 @@
+10! = 3628800
+fib(15) = 610
+gcd = 12
+even(7)=false odd(7)=true
+[abc, acb, bac, bca, cab, cba]
+AC AB CB AC BA BC AC

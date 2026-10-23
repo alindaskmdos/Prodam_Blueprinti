@@ -1,0 +1,8 @@
+Money[cents=200, currency=RUB] 200 true
+ADD + 13
+MUL * 42
+Rex(4) says woof / Hello, Rex
+Bim(4) says woof / Hello, Bim
+Kesha(2) says tweet / Hello, Kesha!
+created=3 Hello, Ann
+rejected negative
