@@ -1,0 +1,23 @@
+created order 100 lines=2
+created order 101 lines=1
+created order 102 lines=1
+reserved 3
+shipped 3
+=== ORDERS REPORT ===
+ 100 Alice *gld*         28.65 SHIPPED
+ 101 Bob [slv]            9.60 SHIPPED
+ 102 Carol [std]          2.50 SHIPPED
+----------------------------------------
+orders:   3
+shipped:  3
+rejected: 0
+merged:   0
+open:     0
+revenue:  40.75
+avg qty:  3.00
+max qty:  6
+=== END ===
+Widget         94    2.50
+Gadget          9   19.99
+Gizmo           1    5.05
+done, errors=0

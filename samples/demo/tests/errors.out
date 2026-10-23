@@ -1,0 +1,26 @@
+error line 3: duplicate customer 1
+error line 4: missing arguments
+error line 5: not a number: x
+error line 7: unknown customer 9
+error line 8: bad line spec 10:abc
+created order 3 lines=1
+created order 4 lines=1
+reserved 0
+error line 12: order 3 is final
+error line 13: no order 99
+error line 14: unknown command FROBNICATE
+issue order 4: unknown product 77
+=== ORDERS REPORT ===
+   3 Alice *gld*         19.20 REJECTED (out of stock Widget)
+   4 Alice *gld*          0.00 REJECTED (unknown product 77)
+----------------------------------------
+orders:   2
+shipped:  0
+rejected: 2
+merged:   0
+open:     0
+revenue:  0.00
+avg qty:  5.00
+max qty:  9
+=== END ===
+done, errors=8

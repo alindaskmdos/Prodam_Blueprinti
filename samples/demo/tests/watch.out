@@ -1,0 +1,11 @@
+watch 4: Bolt(500) Screw(0) Washer(40)
+watch 2: Nut(5) Screw(100)
+created order 1 lines=2
+created order 2 lines=3
+issue order 2: duplicate product 1
+issue order 2: bad qty for product 4
+Bolt          500    0.10
+Nut             5    0.05
+Screw         100    0.12
+Washer         40    0.02
+done, errors=0

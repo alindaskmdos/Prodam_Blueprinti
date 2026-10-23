@@ -1,0 +1,28 @@
+created order 1 lines=1
+created order 2 lines=1
+created order 3 lines=2
+created order 4 lines=1
+created order 5 lines=1
+merged 3
+no issues
+reserved 2
+shipped 2
+=== ORDERS REPORT ===
+   1 Alice *gld*         97.55 SHIPPED
+   2 Bob [slv]           80.70 SHIPPED
+   3 Alice *gld*         32.90 MERGED (merged into 1)
+   4 Alice *gld*         53.95 MERGED (merged into 1)
+   5 Bob [slv]           42.75 MERGED (merged into 2)
+----------------------------------------
+orders:   5
+shipped:  2
+rejected: 0
+merged:   3
+open:     0
+revenue:  178.25
+avg qty:  19.00
+max qty:  22
+=== END ===
+hot: Widget=32, Gadget=6
+Alice *gld*: 1 shipped, 97.55
+done, errors=0

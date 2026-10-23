@@ -1,0 +1,27 @@
+created order 1 lines=2
+created order 2 lines=1
+created order 3 lines=1
+created order 4 lines=1
+merged 2
+reserved 2
+shipped 2
+error line 12: order 1 is final
+hot: Pen=124, Book=30
+Dmitri *gld*: 1 shipped, 156.10
+Eve [slv]: 1 shipped, 351.80
+=== ORDERS REPORT ===
+   1 Dmitri *gld*       156.10 SHIPPED
+   2 Eve [slv]          351.80 SHIPPED
+   3 Eve [slv]          331.30 MERGED (merged into 2)
+   4 Dmitri *gld*         4.30 MERGED (merged into 1)
+----------------------------------------
+orders:   4
+shipped:  2
+rejected: 0
+merged:   2
+open:     0
+revenue:  507.90
+avg qty:  77.00
+max qty:  109
+=== END ===
+done, errors=1
