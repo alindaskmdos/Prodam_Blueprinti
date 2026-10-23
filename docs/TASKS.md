@@ -15,7 +15,7 @@
 - [x] BE-04 Загрузка .java/.zip/.jar (только с исходниками), защита от zip slip и zip bomb, отрезание обёртки, source root по `package`, предупреждение о несовпадении пакета, отказ на дубликатах FQN, импорт `tests/`, экспорт с исходной структурой; хранение в памяти, дерево по пакетам, версия + 409 | app, source | BE-01, CT-01 | §11, §12
 - [x] BE-05 Модели `model` по контракту + AstToBlocks для всех kind, включая `comment` и `raw` | model, blocks | BE-01, CT-01 | §4, §5
 - [x] BE-06 BlocksToJava + замена тела метода + `RoundTripCorpusTest` | blocks | BE-05, BE-03 | §5
-- [ ] BE-07 Валидация текста нод (parseExpression/parseStatement), эндпоинты PUT blocks / PUT files | blocks, app | BE-06, BE-04 | §5, §12
+- [x] BE-07 Валидация текста нод (parseExpression/parseStatement), эндпоинты PUT blocks / PUT files | blocks, app | BE-06, BE-04 | §5, §12
 - [ ] BE-36 Экспорт исполняемого .jar из чистого кода (манифест Main-Class, без tests/ и .blueprints/), тест через `java -jar` на IO-тестах | runner, app | BE-08, BE-09 | §11
 - [x] BE-08 Runner: Docker, лимиты, таймаут, переписывание для запуска (seed) | runner | BE-01 | §11а, §10.4
 - [x] BE-09 IoTestSource: `tests/*.json`, импорт `*.in/*.out`, режимы original/manual, ignoreLines | testing | BE-08 | §10.1
