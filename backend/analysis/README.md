@@ -31,5 +31,15 @@ while/do или нераспознанный (fresh) символ → confidence
 точно не индекс (new, строка, переменная не int/short/byte/char); неизвестный тип получателя (кроме `remove`),
 `Collection` (`JdkCosts.isAbstractCollection`), remove(переменная неизвестного типа), fresh-размер списка или while/do → confidence low.
 Отступление от §8.2: нераспознанное (fresh) число итераций и fresh-размер списка, выросшего от того же цикла, confidence не понижают — поиск по списку линеен в любом случае.
+`ExpensiveCallInLoop` («N+1») — вызов с `callCost` ≥ O(n) (`BigO.isAtLeastLinear`: метод проекта или JDK по таблице) в цикле
+не константного размера; span — вызов, severity medium. Не сообщаются: линейный поиск у списка (это `LinearSearchInLoop`),
+O(log n), рекурсивный вызов (стоимость неизвестна) и вызов, у которого все символы стоимости «дешёвые»: данные элемента
+for-each, если между его циклом и вызовом нет других неконстантных циклов (получатель `o.totalQty()` — нестатические поля
+его класса; аргумент `checkLines(o)` — символы вызываемого от этого параметра), длины строк и целые параметры
+(`padLeft(s, width)`; fresh-символ вызываемого — только от его скалярного параметра или счётного while/do/for, в условии
+которого лишь строки/числа, как `do {…} while (true)`). Fresh от for-each по коллекции или результата вызова
+(`isKnown(int id)` с обходом `catalog.items()`) не дешёвый. Иначе сообщается; fresh-символ (§8.2)
+или вызываемый с confidence low → low; число итераций confidence не понижает.
+`ProjectAnalysis.isInstanceField(FQN|поле)` — нестатическое поле класса проекта.
 
 Зависит от: model, source. Тесты: `./gradlew :analysis:test` (в т.ч. прогон по `samples/demo` и `samples/roundtrip`).

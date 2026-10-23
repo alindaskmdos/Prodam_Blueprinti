@@ -119,6 +119,19 @@ public final class ProjectAnalysis {
         return i != null ? i.fqn() : td.getNameAsString();
     }
 
+    /** Символ {@code FQN|поле} — нестатическое поле (или компонент record) класса проекта с этим FQN. */
+    boolean isInstanceField(String symbol) {
+        int bar = symbol.indexOf('|');
+        String fqn = symbol.substring(0, bar), field = symbol.substring(bar + 1);
+        for (TypeInfo t : typeOf.values()) {
+            if (!t.fqn().equals(fqn)) continue;
+            if (t.decl() instanceof com.github.javaparser.ast.body.RecordDeclaration r
+                    && r.getParameters().stream().anyMatch(p -> p.getNameAsString().equals(field))) return true;
+            return t.decl().getFieldByName(field).map(f -> !f.isStatic()).orElse(false);
+        }
+        return false;
+    }
+
     boolean isProjectType(String simple) {
         return typesBySimpleName.containsKey(simple);
     }
