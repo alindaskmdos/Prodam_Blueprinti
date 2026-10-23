@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Применение фикса</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0E13}
+a{color:#7AA7FF}a:hover{color:#A9C6FF}
+@keyframes jb-rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes jb-fade{from{opacity:0}to{opacity:1}}
+@keyframes jb-pop{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.15);opacity:1}100%{transform:scale(1)}}
+@keyframes jb-fill{from{width:0}}
+@keyframes jb-shake{0%,100%{transform:none}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+@keyframes jb-slide{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:none}}
+.rise{animation:jb-rise .5s cubic-bezier(.2,.7,.2,1) both}
+.btn{font:500 13px Inter,sans-serif;color:#D7DEE8;background:#161B23;border:1px solid #2A323E;border-radius:8px;padding:0 14px;height:36px;display:inline-flex;align-items:center;gap:8px;cursor:pointer;text-decoration:none;transition:background .15s,border-color .15s,transform .1s,filter .15s}
+.btn:hover{background:#1D2430;border-color:#3A4556;color:#FFFFFF}
+.btn:active{transform:translateY(1px)}
+.btn-p{background:var(--accent);border-color:var(--accent);color:#0B0E13;font-weight:600}
+.btn-p:hover{background:var(--accent);border-color:var(--accent);color:#0B0E13;filter:brightness(1.12)}
+.panel{background:#11151B;border:1px solid #1F2630;border-radius:12px;display:flex;flex-direction:column;min-width:0}
+.ph{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px solid #1F2630;font:600 12px Inter,sans-serif;letter-spacing:.05em;text-transform:uppercase;color:#A3AEBD}
+.badge{font:600 11px 'JetBrains Mono',monospace;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.dl{display:block;font:400 12.5px/21px 'JetBrains Mono',monospace;color:#D4DAE3;white-space:pre;padding:0 14px 0 0}
+.dl.del{background:rgba(248,113,113,.12);color:#FFC2BC;animation:jb-slide .4s both}
+.dl.add{background:rgba(74,222,128,.10);color:#BDF5CF;animation:jb-slide .4s both}
+.ln{display:inline-block;width:34px;color:#5E6878;text-align:right;margin-right:8px}
+.sg{display:inline-block;width:18px;text-align:center}
+.step{display:flex;gap:14px;padding:14px 18px;border-bottom:1px solid #1A2029;animation:jb-rise .45s both}
+.dot{width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font:700 13px Inter,sans-serif;flex:0 0 auto;animation:jb-pop .45s both}
+.bar{height:5px;border-radius:3px;background:#1B2230;overflow:hidden;margin-top:8px}
+.bar>div{height:100%;border-radius:3px;animation:jb-fill .9s cubic-bezier(.3,.7,.2,1) both}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="--accent: {{accent}}; min-height: 960px; background: #0B0E13; font-family: Inter, sans-serif; color: #E6EAF0; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid #1A2029; background: #0E1218">
+  <div style="display: flex; align-items: center; gap: 10px; margin-right: 12px">
+    <div style="width: 30px; height: 30px; border-radius: 8px; background: {{accent}}; display: flex; align-items: center; justify-content: center">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0B0E13" stroke-width="2.2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect><path d="M10 6.5h4a2.5 2.5 0 0 1 2.5 2.5v5"></path></svg>
+    </div>
+    <div style="display: flex; flex-direction: column">
+      <span style="font-weight: 700; font-size: 15px">Java Blueprints</span>
+      <span style="font-size: 12px; color: #9AA4B2">demo-shop · версия 14 → 15</span>
+    </div>
+  </div>
+  <nav aria-label="Путь" style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #9AA4B2">
+    <a href="Editor.dc.html" style="color: #9AA4B2">Редактор</a><span>/</span><span style="color: #E6EAF0">Фикс «индекс по id»</span>
+  </nav>
+  <div style="flex: 1 1 20px"></div>
+  <button class="btn" type="button" onClick="{{replay}}">↻ Прогнать заново</button>
+  <button class="btn" type="button" onClick="{{toggleFail}}">{{failLabel}}</button>
+</header>
+
+<div style="display: flex; flex-wrap: wrap; gap: 14px; padding: 14px; flex: 1 1 auto; align-items: flex-start">
+
+  <section class="panel rise" style="flex: 3 1 560px">
+    <div class="ph">OrderService.java · merge <span style="display: flex; gap: 6px"><span class="badge" style="background: #3A1E22; color: #FFB4AC">−5</span><span class="badge" style="background: #173F28; color: #9BF0B8">+6</span></span></div>
+    <div style="padding: 10px 0; overflow-x: auto">
+      <span class="dl"><span class="ln">29</span><span class="sg"> </span>static List&lt;Report&gt; merge(List&lt;Order&gt; orders, List&lt;Customer&gt; customers) {</span>
+      <span class="dl add" style="animation-delay: .15s"><span class="ln">30</span><span class="sg">+</span>    Map&lt;Integer, List&lt;Customer&gt;&gt; byId = new LinkedHashMap&lt;&gt;();</span>
+      <span class="dl add" style="animation-delay: .2s"><span class="ln">31</span><span class="sg">+</span>    for (Customer c : customers)</span>
+      <span class="dl add" style="animation-delay: .25s"><span class="ln">32</span><span class="sg">+</span>        byId.computeIfAbsent(c.id(), k -&gt; new ArrayList&lt;&gt;()).add(c);</span>
+      <span class="dl"><span class="ln">33</span><span class="sg"> </span>    List&lt;Report&gt; result = new ArrayList&lt;&gt;();</span>
+      <span class="dl"><span class="ln">34</span><span class="sg"> </span>    for (Order o : orders) {</span>
+      <span class="dl del" style="animation-delay: .3s"><span class="ln"></span><span class="sg">−</span>        for (Customer c : customers) {</span>
+      <span class="dl del" style="animation-delay: .35s"><span class="ln"></span><span class="sg">−</span>            if (c.id() == o.customerId()) {</span>
+      <span class="dl del" style="animation-delay: .4s"><span class="ln"></span><span class="sg">−</span>                result.add(new Report(o, c));</span>
+      <span class="dl del" style="animation-delay: .45s"><span class="ln"></span><span class="sg">−</span>            }</span>
+      <span class="dl del" style="animation-delay: .5s"><span class="ln"></span><span class="sg">−</span>        }</span>
+      <span class="dl add" style="animation-delay: .55s"><span class="ln">35</span><span class="sg">+</span>        for (Customer c : byId.getOrDefault(o.customerId(), List.of()))</span>
+      <span class="dl add" style="animation-delay: .6s"><span class="ln">36</span><span class="sg">+</span>            result.add(new Report(o, c));</span>
+      <span class="dl add" style="animation-delay: .65s"><span class="ln">37</span><span class="sg">+</span>    // LinkedHashMap — порядок перебора не меняется</span>
+      <span class="dl"><span class="ln">38</span><span class="sg"> </span>    }</span>
+      <span class="dl"><span class="ln">39</span><span class="sg"> </span>    return result;</span>
+      <span class="dl"><span class="ln">40</span><span class="sg"> </span>}</span>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; padding: 14px 16px; border-top: 1px solid #1F2630">
+      <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #9AA4B2">Время</span><span style="font: 600 16px 'JetBrains Mono', monospace"><span style="color: #FF8A80">O(n·m)</span> → <span style="color: #7EE2A0">O(n + m)</span></span></div>
+      <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #9AA4B2">При n = m = 10 000</span><span style="font: 600 16px 'JetBrains Mono', monospace">≈10⁸ → ≈2·10⁴</span></div>
+      <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #9AA4B2">Вложенность схемы</span><span style="font: 600 16px 'JetBrains Mono', monospace">3 → 2</span></div>
+    </div>
+    <span style="padding: 0 16px 14px; font-size: 12px; color: #8B95A4">Асимптотическая оценка числа операций. «Ускорение в X раз» — только после замера.</span>
+  </section>
+
+  <section class="panel rise" style="flex: 2 1 380px; animation-delay: .1s">
+    <div class="ph">Quality Gate <span style="font: 500 12px Inter, sans-serif; text-transform: none; letter-spacing: 0; color: #9AA4B2">1 контейнер · сеть выключена</span></div>
+    <sc-if value="{{even}}" hint-placeholder-val="{{ true }}">
+      <sc-for list="{{steps}}" as="st" hint-placeholder-count="5">
+        <div class="step" style="{{st.delay}}">
+          <span class="dot" style="{{st.dot}}">{{st.icon}}</span>
+          <div style="flex: 1 1 auto; min-width: 0"><div style="display: flex; gap: 8px; align-items: baseline"><span style="font-weight: 600; font-size: 14px">{{st.name}}</span><span style="margin-left: auto; font: 500 12px 'JetBrains Mono', monospace; color: #9AA4B2">{{st.time}}</span></div><span style="font-size: 12.5px; color: #9AA4B2">{{st.detail}}</span><div class="bar"><div style="{{st.bar}}"></div></div></div>
+        </div>
+      </sc-for>
+    </sc-if>
+    <sc-if value="{{odd}}" hint-placeholder-val="{{ false }}">
+      <sc-for list="{{steps}}" as="st" hint-placeholder-count="5">
+        <div class="step" style="{{st.delay}}">
+          <span class="dot" style="{{st.dot}}">{{st.icon}}</span>
+          <div style="flex: 1 1 auto; min-width: 0"><div style="display: flex; gap: 8px; align-items: baseline"><span style="font-weight: 600; font-size: 14px">{{st.name}}</span><span style="margin-left: auto; font: 500 12px 'JetBrains Mono', monospace; color: #9AA4B2">{{st.time}}</span></div><span style="font-size: 12.5px; color: #9AA4B2">{{st.detail}}</span><div class="bar"><div style="{{st.bar}}"></div></div></div>
+        </div>
+      </sc-for>
+    </sc-if>
+
+    <sc-if value="{{ok}}" hint-placeholder-val="{{ true }}">
+      <div style="margin: 16px; padding: 18px; border-radius: 12px; background: linear-gradient(180deg, #13301F, #10241A); border: 1px solid #2F6B45; display: flex; flex-direction: column; gap: 10px; animation: jb-rise .5s 2.6s both">
+        <div style="display: flex; align-items: center; gap: 12px"><span class="dot" style="width: 36px; height: 36px; background: #4ADE80; color: #0B0E13; font-size: 17px; animation-delay: 2.8s">✓</span><span style="font: 700 18px Inter, sans-serif; color: #9BF0B8">Исправление подтверждено</span></div>
+        <span style="font-size: 13.5px; line-height: 1.5; color: #C9D2DE">Код компилируется, 8 из 8 тестов проходят, вывод совпадает с оригиналом байт в байт. Создана версия 15.</span>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap"><a class="btn btn-p" href="Editor.dc.html">Оставить и вернуться к схеме</a><button class="btn" type="button">Откатить</button></div>
+      </div>
+    </sc-if>
+    <sc-if value="{{bad}}" hint-placeholder-val="{{ false }}">
+      <div style="margin: 16px; padding: 18px; border-radius: 12px; background: #2A1518; border: 1px solid #6B2F35; display: flex; flex-direction: column; gap: 10px; animation: jb-rise .5s 2.2s both, jb-shake .5s 2.7s both">
+        <div style="display: flex; align-items: center; gap: 12px"><span class="dot" style="width: 36px; height: 36px; background: #F87171; color: #0B0E13; font-size: 17px; animation-delay: 2.4s">✕</span><span style="font: 700 18px Inter, sans-serif; color: #FFB4AC">Исправление не подтверждено</span></div>
+        <span style="font-size: 13.5px; line-height: 1.5; color: #E3C9C9">Тест duplicate-ids: вывод отличается со строки 3. Изменения откатаны, код остался в версии 14.</span>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap"><a class="btn" href="Tests.dc.html">Показать diff вывода</a><a class="btn" href="Editor.dc.html">К схеме</a></div>
+      </div>
+    </sc-if>
+  </section>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#5B9BFF","options":["#5B9BFF","#8B5CF6","#22D3EE","#F59E0B"]},"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { run: 0, fail: false };
+  }
+  renderVals() {
+    const fail = this.state.fail;
+    const okDot = 'background: #173F28; color: #7EE2A0;';
+    const badDot = 'background: #3A1E22; color: #FF8A80;';
+    const base = [
+      { name: 'Патч применён к копии', detail: 'OrderService.java · только тело merge', time: '12 мс' },
+      { name: 'Компиляция', detail: 'javac · 7 файлов · Java 21', time: '0,8 с' },
+      { name: 'Двойной прогон оригинала', detail: 'эталон IO · 1 шумная строка замаскирована', time: '0,6 с' },
+      { name: 'IO-тесты', detail: fail ? '4 из 5 · duplicate-ids: вывод отличается' : '5 из 5 · stdout, exit code, исключения', time: '0,9 с' },
+      { name: 'JUnit', detail: '3 из 3 · console launcher', time: '0,4 с' }
+    ];
+    const steps = base.map((s, i) => {
+      const broken = fail && i === 3;
+      const color = broken ? '#F87171' : '#4ADE80';
+      const d = (0.25 + i * 0.45).toFixed(2);
+      return {
+        ...s,
+        icon: broken ? '✕' : '✓',
+        delay: 'animation-delay: ' + d + 's',
+        dot: (broken ? badDot : okDot) + ' animation-delay: ' + (Number(d) + 0.35).toFixed(2) + 's',
+        bar: 'width: ' + (broken ? '80%' : '100%') + '; background: ' + color + '; animation-delay: ' + d + 's'
+      };
+    });
+    return {
+      accent: this.props.accent ?? '#5B9BFF',
+      steps,
+      even: this.state.run % 2 === 0,
+      odd: this.state.run % 2 === 1,
+      ok: !fail,
+      bad: fail,
+      failLabel: fail ? 'Показать успех' : 'Показать провал',
+      replay: () => this.setState({ run: this.state.run + 1 }),
+      toggleFail: () => this.setState({ fail: !fail, run: this.state.run + 1 })
+    };
+  }
+}
+</script>
+</body>
+</html>

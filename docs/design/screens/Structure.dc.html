@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Структура класса</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0E13}
+a{color:#7AA7FF}a:hover{color:#A9C6FF}
+@keyframes jb-rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.rise{animation:jb-rise .5s cubic-bezier(.2,.7,.2,1) both}
+.d1{animation-delay:.06s}.d2{animation-delay:.12s}.d3{animation-delay:.18s}.d4{animation-delay:.24s}.d5{animation-delay:.3s}.d6{animation-delay:.36s}
+.btn{font:500 13px Inter,sans-serif;color:#D7DEE8;background:#161B23;border:1px solid #2A323E;border-radius:8px;padding:0 14px;height:34px;display:inline-flex;align-items:center;gap:8px;cursor:pointer;text-decoration:none;transition:background .15s,border-color .15s,transform .1s,filter .15s}
+.btn:hover{background:#1D2430;border-color:#3A4556;color:#FFFFFF}
+.btn:active{transform:translateY(1px)}
+.btn-p{background:var(--accent);border-color:var(--accent);color:#0B0E13;font-weight:600}
+.btn-p:hover{background:var(--accent);border-color:var(--accent);color:#0B0E13;filter:brightness(1.12)}
+.ib{width:30px;height:30px;padding:0;justify-content:center}
+.panel{background:#11151B;border:1px solid #1F2630;border-radius:12px;display:flex;flex-direction:column;min-width:0}
+.ph{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px solid #1F2630;font:600 12px Inter,sans-serif;letter-spacing:.05em;text-transform:uppercase;color:#A3AEBD}
+.badge{font:600 11px 'JetBrains Mono',monospace;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.tree{font:400 13px Inter,sans-serif;color:#C9D2DE;padding:5px 10px;border-radius:6px;display:flex;align-items:center;gap:8px;transition:background .12s}
+.tree:hover{background:#171D26}
+.ic{width:18px;height:18px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font:700 10px 'JetBrains Mono',monospace;color:#0B0E13;flex:0 0 auto}
+.mem{display:flex;align-items:center;gap:10px;padding:9px 16px;border-top:1px solid #1A2029;font:400 13px 'JetBrains Mono',monospace;color:#D4DAE3;text-decoration:none;transition:background .15s,padding-left .15s}
+a.mem:hover{background:#161B23;padding-left:20px;color:#FFFFFF}
+.fld{display:flex;flex-direction:column;gap:6px;font:500 12px Inter,sans-serif;color:#9AA4B2}
+.inp{height:34px;border-radius:7px;border:1px solid #2A323E;background:#0E1218;color:#E6EAF0;padding:0 10px;font:13px 'JetBrains Mono',monospace;transition:border-color .15s,box-shadow .15s}
+.inp:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(91,155,255,.2)}
+.ck{display:inline-flex;align-items:center;gap:6px;font:500 12.5px 'JetBrains Mono',monospace;color:#C9D2DE;background:#161B23;border:1px solid #2A323E;border-radius:7px;padding:5px 10px;cursor:pointer}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="--accent: {{accent}}; min-height: 960px; background: #0B0E13; font-family: Inter, sans-serif; color: #E6EAF0; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid #1A2029; background: #0E1218">
+  <div style="display: flex; align-items: center; gap: 10px; margin-right: 12px">
+    <div style="width: 30px; height: 30px; border-radius: 8px; background: {{accent}}; display: flex; align-items: center; justify-content: center">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0B0E13" stroke-width="2.2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect><path d="M10 6.5h4a2.5 2.5 0 0 1 2.5 2.5v5"></path></svg>
+    </div>
+    <div style="display: flex; flex-direction: column">
+      <span style="font-weight: 700; font-size: 15px">Java Blueprints</span>
+      <span style="font-size: 12px; color: #9AA4B2">demo-shop · версия 14</span>
+    </div>
+  </div>
+  <nav aria-label="Путь" style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #9AA4B2">
+    <span>com.shop</span><span>/</span><span style="color: #E6EAF0">OrderService</span>
+  </nav>
+  <div style="flex: 1 1 20px"></div>
+  <a class="btn" href="Export.dc.html">Экспорт ▾</a>
+  <button class="btn" type="button">▶ Запуск</button>
+  <a class="btn btn-p" href="Tests.dc.html">Проверить поведение</a>
+</header>
+
+<div style="display: flex; flex-wrap: wrap; gap: 10px; padding: 10px; flex: 1 1 auto; align-items: flex-start">
+
+  <aside class="panel rise" style="flex: 1 1 230px; max-width: 280px">
+    <div class="ph">Проект
+      <span style="display: flex; gap: 4px"><button class="btn ib" type="button" aria-label="Новый класс">+</button><button class="btn ib" type="button" aria-label="Удалить">−</button></span>
+    </div>
+    <div style="padding: 8px 6px; display: flex; flex-direction: column; gap: 1px">
+      <div class="tree">▾ <span style="color: #9AA4B2">com.shop</span></div>
+      <div class="tree" style="padding-left: 24px"><span class="ic" style="background: #60A5FA">C</span>Main</div>
+      <div class="tree" style="padding-left: 24px; background: #1B2532; color: #FFFFFF"><span class="ic" style="background: #60A5FA">C</span>OrderService</div>
+      <div class="tree" style="padding-left: 24px"><span class="ic" style="background: #60A5FA">C</span>ReportPrinter</div>
+      <div class="tree" style="padding-left: 24px"><span class="ic" style="background: #FBBF24">I</span>Discount</div>
+      <div class="tree">▾ <span style="color: #9AA4B2">com.shop.model</span></div>
+      <div class="tree" style="padding-left: 24px"><span class="ic" style="background: #4ADE80">R</span>Order</div>
+      <div class="tree" style="padding-left: 24px"><span class="ic" style="background: #4ADE80">R</span>Customer</div>
+      <div class="tree" style="padding-left: 24px"><span class="ic" style="background: #F472B6">E</span>Status</div>
+    </div>
+  </aside>
+
+  <main style="flex: 999 1 480px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+    <section class="panel rise d1">
+      <div style="padding: 18px 20px; display: flex; flex-wrap: wrap; align-items: center; gap: 14px; border-bottom: 1px solid #1F2630">
+        <span class="ic" style="width: 40px; height: 40px; border-radius: 10px; font-size: 16px; background: #60A5FA">C</span>
+        <div style="display: flex; flex-direction: column; gap: 2px; flex: 1 1 260px">
+          <span style="font: 700 22px Inter, sans-serif; letter-spacing: -.01em">OrderService</span>
+          <span style="font: 400 13px 'JetBrains Mono', monospace; color: #9AA4B2">public class · implements Discount · OrderService.java</span>
+        </div>
+        <span class="badge" style="background: #3A1E22; color: #FFB4AC">1 проблема</span>
+      </div>
+      <div style="padding: 10px 16px 6px; font: 600 11px Inter, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #8B95A4">Поля</div>
+      <div class="mem rise d2"><span class="ic" style="background: #60A5FA">f</span><span style="color: #8B95A4">private final</span> List&lt;Order&gt; orders</div>
+      <div class="mem rise d2"><span class="ic" style="background: #60A5FA">f</span><span style="color: #8B95A4">private static final</span> int LIMIT = 100</div>
+      <div style="padding: 14px 16px 6px; font: 600 11px Inter, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #8B95A4">Конструкторы</div>
+      <div class="mem rise d3"><span class="ic" style="background: #A78BFA">c</span>OrderService(List&lt;Order&gt; orders)</div>
+      <div style="padding: 14px 16px 6px; font: 600 11px Inter, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #8B95A4">Методы · клик открывает схему</div>
+      <a class="mem rise d4" href="Editor.dc.html" style="background: #161B23; box-shadow: inset 2px 0 0 {{accent}}"><span class="ic" style="background: #8B5CF6; color: #FFFFFF">m</span><span style="color: #8B95A4">static</span> List&lt;Report&gt; merge(…)<span class="badge" style="margin-left: auto; background: #3A1E22; color: #FFB4AC">O(n·m)</span></a>
+      <a class="mem rise d5" href="Editor.dc.html"><span class="ic" style="background: #8B5CF6; color: #FFFFFF">m</span>long total()<span class="badge" style="margin-left: auto; background: #1A1F27; color: #C9D2DE">O(n)</span></a>
+      <a class="mem rise d6" href="Editor.dc.html"><span class="ic" style="background: #8B5CF6; color: #FFFFFF">m</span>Optional&lt;Order&gt; findById(int id)<span class="badge" style="margin-left: auto; background: #1A1F27; color: #C9D2DE">O(n)</span></a>
+      <div style="display: flex; gap: 8px; padding: 14px 16px; border-top: 1px solid #1A2029">
+        <button class="btn" type="button">+ Поле</button><button class="btn" type="button">+ Конструктор</button><button class="btn" type="button">+ Метод</button>
+      </div>
+    </section>
+  </main>
+
+  <aside class="panel rise d2" style="flex: 1 1 340px; max-width: 400px">
+    <div class="ph">Свойства метода <span class="badge" style="background: #1B2532; color: #A9C6FF; text-transform: none; letter-spacing: 0">merge</span></div>
+    <form style="display: flex; flex-direction: column; gap: 16px; padding: 16px">
+      <label class="fld">Имя<input class="inp" type="text" value="merge"></label>
+      <label class="fld">Возвращает<input class="inp" type="text" value="List&lt;Report&gt;"></label>
+      <div class="fld"><span>Модификаторы</span>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px">
+          <label class="ck"><input type="radio" name="vis">public</label>
+          <label class="ck"><input type="radio" name="vis">private</label>
+          <label class="ck"><input type="radio" name="vis" checked>пакет</label>
+          <label class="ck"><input type="checkbox" checked>static</label>
+          <label class="ck"><input type="checkbox">final</label>
+        </div>
+      </div>
+      <div class="fld"><span>Параметры</span>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <div style="display: flex; gap: 6px"><input class="inp" type="text" value="List&lt;Order&gt;" aria-label="Тип параметра 1" style="flex: 1 1 auto; min-width: 0"><input class="inp" type="text" value="orders" aria-label="Имя параметра 1" style="width: 110px"><button class="btn ib" type="button" aria-label="Удалить параметр 1" style="height: 34px; width: 34px">×</button></div>
+          <div style="display: flex; gap: 6px"><input class="inp" type="text" value="List&lt;Customer&gt;" aria-label="Тип параметра 2" style="flex: 1 1 auto; min-width: 0"><input class="inp" type="text" value="customers" aria-label="Имя параметра 2" style="width: 110px"><button class="btn ib" type="button" aria-label="Удалить параметр 2" style="height: 34px; width: 34px">×</button></div>
+          <button class="btn" type="button" style="align-self: flex-start">+ параметр</button>
+        </div>
+      </div>
+      <label class="fld">throws<input class="inp" type="text" placeholder="например, IOException"></label>
+      <label class="fld">Javadoc<textarea class="inp" rows="3" style="height: auto; padding: 8px 10px; font-family: Inter, sans-serif; resize: vertical">Сопоставляет заказы с клиентами по id. Порядок результата — порядок заказов.</textarea></label>
+      <div style="padding: 10px 12px; border-radius: 8px; background: #1A1F27; font-size: 12.5px; line-height: 1.5; color: #C9D2DE">Переименование меняет только объявление. Вызовы в других файлах обновит рефакторинг — он появится позже.</div>
+      <div style="display: flex; gap: 8px"><button class="btn btn-p" type="button">Сохранить</button><button class="btn" type="button">Отменить</button></div>
+    </form>
+  </aside>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#5B9BFF","options":["#5B9BFF","#8B5CF6","#22D3EE","#F59E0B"]},"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#5B9BFF' };
+  }
+}
+</script>
+</body>
+</html>

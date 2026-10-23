@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Тесты и diff вывода</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0E13}
+a{color:#7AA7FF}a:hover{color:#A9C6FF}
+@keyframes jb-rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes jb-fade{from{opacity:0}to{opacity:1}}
+@keyframes jb-fill{from{width:0}}
+@keyframes jb-blink{0%,100%{background:rgba(248,113,113,.22)}50%{background:rgba(248,113,113,.08)}}
+.rise{animation:jb-rise .5s cubic-bezier(.2,.7,.2,1) both}
+.d1{animation-delay:.06s}.d2{animation-delay:.12s}.d3{animation-delay:.18s}.d4{animation-delay:.24s}.d5{animation-delay:.3s}.d6{animation-delay:.36s}.d7{animation-delay:.42s}.d8{animation-delay:.48s}
+.btn{font:500 13px Inter,sans-serif;color:#D7DEE8;background:#161B23;border:1px solid #2A323E;border-radius:8px;padding:0 14px;height:34px;display:inline-flex;align-items:center;gap:8px;cursor:pointer;text-decoration:none;transition:background .15s,border-color .15s,transform .1s,filter .15s}
+.btn:hover{background:#1D2430;border-color:#3A4556;color:#FFFFFF}
+.btn:active{transform:translateY(1px)}
+.btn-p{background:var(--accent);border-color:var(--accent);color:#0B0E13;font-weight:600}
+.btn-p:hover{background:var(--accent);border-color:var(--accent);color:#0B0E13;filter:brightness(1.12)}
+.panel{background:#11151B;border:1px solid #1F2630;border-radius:12px;display:flex;flex-direction:column;min-width:0}
+.ph{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px solid #1F2630;font:600 12px Inter,sans-serif;letter-spacing:.05em;text-transform:uppercase;color:#A3AEBD}
+.badge{font:600 11px 'JetBrains Mono',monospace;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.ti{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;font:500 13px Inter,sans-serif;color:#C9D2DE;cursor:pointer;background:none;border:1px solid transparent;width:100%;text-align:left;transition:background .15s,border-color .15s}
+.ti:hover{background:#161B23}
+.ti.on{background:#1B2532;border-color:#2C3B50;color:#FFFFFF}
+.st{width:18px;height:18px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font:700 10px Inter,sans-serif;flex:0 0 auto}
+.grp{font:600 11px Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#8B95A4;padding:12px 12px 6px}
+.ol{display:block;font:400 12.5px/22px 'JetBrains Mono',monospace;color:#D4DAE3;white-space:pre;padding-right:12px}
+.ol .n{display:inline-block;width:28px;color:#5E6878;text-align:right;margin-right:12px}
+.ol.bad{background:rgba(248,113,113,.14);color:#FFC2BC;animation:jb-blink 1.6s ease-in-out 2}
+.ol.good{background:rgba(74,222,128,.10);color:#BDF5CF}
+.ol.noise{color:#6B7686;text-decoration:line-through;text-decoration-color:#4A5361}
+.fld{display:flex;flex-direction:column;gap:6px;font:500 12px Inter,sans-serif;color:#9AA4B2}
+.inp{height:34px;border-radius:7px;border:1px solid #2A323E;background:#0E1218;color:#E6EAF0;padding:0 10px;font:13px 'JetBrains Mono',monospace}
+.seg{display:inline-flex;border:1px solid #2A323E;border-radius:8px;overflow:hidden}
+.seg button{font:500 12.5px Inter,sans-serif;color:#A3AEBD;background:#0E1218;border:0;padding:0 12px;height:32px;cursor:pointer}
+.seg button.on{background:#1B2532;color:#FFFFFF}
+.code{font:400 12.5px/21px 'JetBrains Mono',monospace;color:#D4DAE3;white-space:pre}
+.ln{display:inline-block;width:28px;color:#5E6878;text-align:right;margin-right:14px}
+.k{color:#C792EA}.t{color:#7FDBCA}.f{color:#82AAFF}.s{color:#ECC48D}.c{color:#8B95A4;font-style:italic}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="--accent: {{accent}}; min-height: 960px; background: #0B0E13; font-family: Inter, sans-serif; color: #E6EAF0; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid #1A2029; background: #0E1218">
+  <div style="display: flex; align-items: center; gap: 10px; margin-right: 12px">
+    <div style="width: 30px; height: 30px; border-radius: 8px; background: {{accent}}; display: flex; align-items: center; justify-content: center">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0B0E13" stroke-width="2.2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect><path d="M10 6.5h4a2.5 2.5 0 0 1 2.5 2.5v5"></path></svg>
+    </div>
+    <div style="display: flex; flex-direction: column">
+      <span style="font-weight: 700; font-size: 15px">Java Blueprints</span>
+      <span style="font-size: 12px; color: #9AA4B2">demo-shop · версия 16</span>
+    </div>
+  </div>
+  <nav aria-label="Путь" style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #9AA4B2">
+    <a href="Editor.dc.html" style="color: #9AA4B2">Редактор</a><span>/</span><span style="color: #E6EAF0">Тесты</span>
+  </nav>
+  <div style="flex: 1 1 20px"></div>
+  <button class="btn" type="button">▶ Запуск</button>
+  <button class="btn btn-p" type="button">Проверить поведение</button>
+</header>
+
+<div class="rise" style="margin: 14px 14px 0; padding: 14px 18px; border-radius: 12px; background: #2A1518; border: 1px solid #6B2F35; display: flex; flex-wrap: wrap; align-items: center; gap: 14px">
+  <span style="width: 34px; height: 34px; border-radius: 50%; background: #F87171; color: #0B0E13; display: inline-flex; align-items: center; justify-content: center; font-weight: 800">✕</span>
+  <div style="display: flex; flex-direction: column; flex: 1 1 300px"><span style="font: 700 16px Inter, sans-serif; color: #FFB4AC">Поведение отличается — 1 из 8 тестов</span><span style="font-size: 13px; color: #E3C9C9">После правки ноды «Условие» в merge (версия 16) тест duplicate-ids выдаёт другой вывод.</span></div>
+  <div style="flex: 1 1 220px; max-width: 320px; display: flex; flex-direction: column; gap: 6px">
+    <div style="display: flex; justify-content: space-between; font-size: 12px; color: #E3C9C9"><span>7 пройдено</span><span>1 не пройден</span></div>
+    <div style="height: 6px; border-radius: 3px; background: #3A1E22; overflow: hidden; display: flex"><div style="width: 87.5%; background: #4ADE80; animation: jb-fill 1s .2s both"></div><div style="width: 12.5%; background: #F87171; animation: jb-fill .4s 1.1s both"></div></div>
+  </div>
+  <a class="btn" href="Editor.dc.html">Вернуть правку</a>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 14px; padding: 14px; flex: 1 1 auto; align-items: stretch">
+
+  <aside class="panel rise d1" style="flex: 1 1 260px; max-width: 320px; padding: 6px">
+    <div class="grp">IO-тесты · 5</div>
+    <button class="{{cDup}}" type="button" onClick="{{toDup}}"><span class="st" style="background: #F87171; color: #0B0E13">✕</span>duplicate-ids<span class="badge" style="margin-left: auto; background: #1A1F27; color: #9AA4B2">оригинал</span></button>
+    <button class="{{cLarge}}" type="button" onClick="{{toLarge}}"><span class="st" style="background: #4ADE80; color: #0B0E13">✓</span>large-10k<span class="badge" style="margin-left: auto; background: #1A1F27; color: #9AA4B2">1 шум</span></button>
+    <button class="ti" type="button"><span class="st" style="background: #4ADE80; color: #0B0E13">✓</span>empty-orders<span class="badge" style="margin-left: auto; background: #1A1F27; color: #9AA4B2">оригинал</span></button>
+    <button class="ti" type="button"><span class="st" style="background: #4ADE80; color: #0B0E13">✓</span>single-order<span class="badge" style="margin-left: auto; background: #1A1F27; color: #9AA4B2">ручной</span></button>
+    <button class="ti" type="button"><span class="st" style="background: #4ADE80; color: #0B0E13">✓</span>vip-discount<span class="badge" style="margin-left: auto; background: #1A1F27; color: #9AA4B2">.in/.out</span></button>
+    <div class="grp">JUnit · 3</div>
+    <button class="{{cJunit}}" type="button" onClick="{{toJunit}}"><span class="st" style="background: #4ADE80; color: #0B0E13">✓</span>MergeTest<span style="margin-left: auto; font-size: 12px; color: #9AA4B2">2 / 2</span></button>
+    <button class="ti" type="button"><span class="st" style="background: #FBBF24; color: #0B0E13">!</span>ReportTest<span style="margin-left: auto; font-size: 12px; color: #FBBF24">не компилируется</span></button>
+    <div style="display: flex; flex-direction: column; gap: 6px; padding: 14px 6px 6px; margin-top: auto">
+      <button class="btn" type="button" style="justify-content: center">+ IO-тест</button>
+      <button class="btn" type="button" style="justify-content: center">+ JUnit-класс</button>
+    </div>
+  </aside>
+
+  <section style="flex: 999 1 600px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+
+    <sc-if value="{{isDup}}" hint-placeholder-val="{{ true }}">
+      <div class="panel rise d2">
+        <div class="ph">duplicate-ids · stdout <span style="font: 500 12px Inter, sans-serif; text-transform: none; letter-spacing: 0; color: #FF8A80">отличается со строки 3</span></div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow-x: auto">
+          <div style="border-right: 1px solid #1F2630; padding: 10px 0; min-width: 300px">
+            <span style="display: block; padding: 0 14px 8px; font: 600 11.5px Inter, sans-serif; color: #9AA4B2; letter-spacing: .04em; text-transform: uppercase">Ожидалось · оригинал</span>
+            <span class="ol"><span class="n">1</span>Заказов: 4, клиентов: 3</span>
+            <span class="ol"><span class="n">2</span>#1 Анна — 1 200 ₽</span>
+            <span class="ol good"><span class="n">3</span>#2 Борис — 640 ₽</span>
+            <span class="ol good"><span class="n">4</span>#2 Борис (дубль id) — 640 ₽</span>
+            <span class="ol"><span class="n">5</span>#3 Анна — 90 ₽</span>
+            <span class="ol noise"><span class="n">6</span>Сформировано: 12:04:11.204</span>
+          </div>
+          <div style="padding: 10px 0; min-width: 300px">
+            <span style="display: block; padding: 0 14px 8px; font: 600 11.5px Inter, sans-serif; color: #9AA4B2; letter-spacing: .04em; text-transform: uppercase">Получено · версия 16</span>
+            <span class="ol"><span class="n">1</span>Заказов: 4, клиентов: 3</span>
+            <span class="ol"><span class="n">2</span>#1 Анна — 1 200 ₽</span>
+            <span class="ol bad"><span class="n">3</span>#3 Анна — 90 ₽</span>
+            <span class="ol bad"><span class="n">4</span></span>
+            <span class="ol"><span class="n">5</span></span>
+            <span class="ol noise"><span class="n">6</span>Сформировано: 12:09:40.017</span>
+          </div>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 16px; padding: 12px 16px; border-top: 1px solid #1F2630; font-size: 12.5px; color: #9AA4B2">
+          <span>exit code: <b style="color: #E6EAF0; font-family: 'JetBrains Mono', monospace; font-weight: 500">0 = 0</b></span>
+          <span>исключение: <b style="color: #E6EAF0; font-weight: 500">нет</b></span>
+          <span><span style="color: #6B7686; text-decoration: line-through">серые</span> — шумные строки, отличались между двумя прогонами оригинала, не сравниваются</span>
+        </div>
+      </div>
+      <div class="panel rise d3">
+        <div class="ph">Тест · tests/duplicate-ids.json</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 16px; padding: 16px">
+          <label class="fld" style="flex: 1 1 200px">Имя<input class="inp" type="text" value="duplicate-ids"></label>
+          <div class="fld" style="flex: 1 1 260px"><span>Ожидаемый вывод</span>
+            <div class="seg" role="group" aria-label="Режим"><button class="on" type="button">Как у оригинала</button><button type="button">Задать вручную</button></div>
+          </div>
+          <label class="fld" style="flex: 1 0 100%">stdin<textarea class="inp" rows="4" style="height: auto; padding: 8px 10px; resize: vertical">4
+1 2 640
+2 1 1200
+…</textarea></label>
+          <span style="font-size: 12.5px; color: #9AA4B2">Игнорируемые строки: 6 («Сформировано: …») · отметить строку — клик по номеру в выводе</span>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isLarge}}" hint-placeholder-val="{{ false }}">
+      <div class="panel rise">
+        <div class="ph">large-10k · stdout <span style="font: 500 12px Inter, sans-serif; text-transform: none; letter-spacing: 0; color: #7EE2A0">совпадает</span></div>
+        <div style="padding: 10px 0">
+          <span class="ol"><span class="n">1</span>Заказов: 10000, клиентов: 2500</span>
+          <span class="ol"><span class="n">2</span>Сумма: 48 213 900 ₽</span>
+          <span class="ol"><span class="n">3</span>Топ-клиент: #418 — 61 200 ₽</span>
+          <span class="ol noise"><span class="n">4</span>Время отчёта: 912 мс</span>
+        </div>
+        <div style="margin: 0 16px 16px; padding: 12px 14px; border-radius: 8px; background: #1A1F27; font-size: 13px; line-height: 1.5; color: #C9D2DE">Оригинал запущен дважды: строка 4 отличалась — она помечена шумной и не сравнивается. Шумных строк 1 из 4, проверка полная.</div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isJunit}}" hint-placeholder-val="{{ false }}">
+      <div class="panel rise">
+        <div class="ph">tests/MergeTest.java <span style="font: 500 12px Inter, sans-serif; text-transform: none; letter-spacing: 0; color: #7EE2A0">2 из 2 · 18 мс</span></div>
+        <div style="padding: 12px 6px; overflow-x: auto">
+<div class="code"><span class="ln">1</span><span class="k">package</span> com.shop;
+<span class="ln">2</span>
+<span class="ln">3</span><span class="k">class</span> <span class="t">MergeTest</span> {
+<span class="ln">4</span>    <span class="c">@Test</span> <span class="k">void</span> <span class="f">keepsOrder</span>() {           <span style="color: #7EE2A0">✓ 9 мс</span>
+<span class="ln">5</span>        <span class="k">var</span> r = <span class="t">OrderService</span>.<span class="f">merge</span>(orders(<span class="s">3</span>), customers(<span class="s">2</span>));
+<span class="ln">6</span>        <span class="f">assertEquals</span>(<span class="t">List</span>.<span class="f">of</span>(<span class="s">1</span>, <span class="s">2</span>, <span class="s">3</span>), ids(r));
+<span class="ln">7</span>    }
+<span class="ln">8</span>    <span class="c">@Test</span> <span class="k">void</span> <span class="f">keepsDuplicates</span>() {      <span style="color: #7EE2A0">✓ 9 мс</span>
+<span class="ln">9</span>        <span class="f">assertEquals</span>(<span class="s">2</span>, <span class="t">OrderService</span>.<span class="f">merge</span>(dupOrders(), dupCustomers()).<span class="f">size</span>());
+<span class="ln">10</span>    }
+<span class="ln">11</span>}</div>
+        </div>
+        <span style="padding: 0 16px 14px; font-size: 12.5px; color: #9AA4B2">private-члены видны тестам: при сборке тестов они становятся package-private. Ваш код не меняется.</span>
+      </div>
+    </sc-if>
+
+    <div class="panel rise d4" style="flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; border-color: #3A2E10; background: #17140C">
+      <span class="badge" style="background: #3A2E10; color: #FBBF24">stdin</span>
+      <span style="flex: 1 1 300px; font-size: 13px; line-height: 1.5; color: #E5D9B8">Если программа читает System.in, зелёный статус возможен только с тестами со входными данными.</span>
+      <button class="btn" type="button">Создать заготовку</button>
+    </div>
+  </section>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#5B9BFF","options":["#5B9BFF","#8B5CF6","#22D3EE","#F59E0B"]},"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sel: 'dup' };
+  }
+  renderVals() {
+    const sel = this.state.sel;
+    const c = (k) => sel === k ? 'ti on' : 'ti';
+    return {
+      accent: this.props.accent ?? '#5B9BFF',
+      isDup: sel === 'dup', isLarge: sel === 'large', isJunit: sel === 'junit',
+      cDup: c('dup'), cLarge: c('large'), cJunit: c('junit'),
+      toDup: () => this.setState({ sel: 'dup' }),
+      toLarge: () => this.setState({ sel: 'large' }),
+      toJunit: () => this.setState({ sel: 'junit' })
+    };
+  }
+}
+</script>
+</body>
+</html>

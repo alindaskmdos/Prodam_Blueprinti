@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Daylight — редактор метода</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F4F5F7}
+a{color:#2457D6}a:hover{color:#173E9E}
+.d-btn{font:500 13px 'IBM Plex Sans',sans-serif;color:#1B2230;background:#FFFFFF;border:1px solid #D5DAE1;border-radius:6px;padding:0 14px;height:34px;display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.d-panel{background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;display:flex;flex-direction:column;min-width:0}
+.d-ph{padding:12px 16px 8px;font:600 13px 'IBM Plex Sans',sans-serif;color:#1B2230;display:flex;align-items:center;justify-content:space-between}
+.d-rail{width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#5B6474;background:none;border:0;cursor:pointer}
+.d-tree{font:400 13.5px 'IBM Plex Sans',sans-serif;color:#2A3242;padding:5px 10px;border-radius:5px;display:flex;align-items:center;gap:8px}
+.d-node{background:#FFFFFF;border:1px solid #D5DAE1;border-radius:8px;box-shadow:0 1px 2px rgba(16,24,40,.06),0 4px 10px rgba(16,24,40,.05);min-width:250px}
+.d-nh{display:flex;align-items:center;gap:8px;padding:8px 12px 2px;font:600 11px 'IBM Plex Sans',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#5B6474}
+.d-dot{width:8px;height:8px;border-radius:50%}
+.d-nb{padding:2px 12px 10px;font:500 13px 'IBM Plex Mono',monospace;color:#1B2230;white-space:nowrap}
+.d-wire{width:1.5px;height:24px;background:#A9B1BD;margin:0 auto;position:relative}
+.d-wire:after{content:"";position:absolute;left:-4px;bottom:-4px;width:9px;height:9px;border-radius:50%;background:#FFFFFF;border:1.5px solid #A9B1BD;box-sizing:border-box}
+.d-cont{border:1.5px dashed;border-radius:12px;padding:0 20px 20px;display:flex;flex-direction:column;align-items:center}
+.d-chip{font:600 11.5px 'IBM Plex Mono',monospace;padding:2px 8px;border-radius:4px}
+.d-tab{font:500 13px 'IBM Plex Sans',sans-serif;color:#5B6474;padding:10px 4px;margin-right:16px;background:none;border:0;border-bottom:2px solid transparent;cursor:pointer}
+.d-issue{padding:14px 16px;border-top:1px solid #EEF0F3;display:flex;flex-direction:column;gap:6px}
+.d-row{display:grid;grid-template-columns:22px minmax(0,1fr) 80px 70px;gap:8px;padding:9px 16px;font:400 13px 'IBM Plex Sans',sans-serif;color:#2A3242;border-top:1px solid #EEF0F3;align-items:center}
+</style>
+</helmet>
+<div style="min-height: 960px; background: #F4F5F7; font-family: 'IBM Plex Sans', sans-serif; color: #1B2230; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 16px; background: #FFFFFF; border-bottom: 1px solid #E3E6EB">
+  <span style="font-weight: 700; font-size: 16px; letter-spacing: -.01em">Java Blueprints</span>
+  <nav aria-label="Путь" style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #5B6474; margin-left: 12px">
+    <span>demo-shop</span><span>/</span><span>com.shop</span><span>/</span><span>OrderService</span><span>/</span><span style="color: #1B2230; font-weight: 600">merge</span>
+  </nav>
+  <div style="flex: 1 1 20px"></div>
+  <button class="d-btn" type="button">Загрузить</button>
+  <button class="d-btn" type="button">Экспорт .zip / .jar</button>
+  <button class="d-btn" type="button">▶ Запуск</button>
+  <button class="d-btn" type="button" style="background: {{accent}}; border-color: {{accent}}; color: #FFFFFF; font-weight: 600">Проверить поведение</button>
+</header>
+
+<div style="display: flex; flex-wrap: wrap; flex: 1 1 auto">
+
+  <nav aria-label="Разделы" style="flex: 0 0 56px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0; background: #FFFFFF; border-right: 1px solid #E3E6EB">
+    <button class="d-rail" type="button" aria-label="Проект" style="background: #EAF0FD; color: {{accent}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg></button>
+    <button class="d-rail" type="button" aria-label="Блоки"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"></rect><rect x="13" y="4" width="7" height="7" rx="1.5"></rect><rect x="4" y="13" width="7" height="7" rx="1.5"></rect><rect x="13" y="13" width="7" height="7" rx="1.5"></rect></svg></button>
+    <button class="d-rail" type="button" aria-label="Тесты"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3"></path></svg></button>
+    <button class="d-rail" type="button" aria-label="UML"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="8" height="6" rx="1"></rect><rect x="13" y="15" width="8" height="6" rx="1"></rect><path d="M7 9v4h10v2"></path></svg></button>
+  </nav>
+
+  <aside style="flex: 1 1 220px; max-width: 260px; padding: 12px; display: flex; flex-direction: column; gap: 2px; background: #FAFBFC; border-right: 1px solid #E3E6EB">
+    <div style="font: 600 11px 'IBM Plex Sans', sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #5B6474; padding: 4px 10px 8px">Проект</div>
+    <div class="d-tree" style="color: #5B6474">▾ com.shop</div>
+    <div class="d-tree" style="padding-left: 26px">Main</div>
+    <div class="d-tree" style="padding-left: 26px">▾ OrderService</div>
+    <div class="d-tree" style="padding-left: 44px; background: #EAF0FD; color: #173E9E; font-weight: 600">merge <span class="d-chip" style="margin-left: auto; background: #FDECEC; color: #B42318">n·m</span></div>
+    <div class="d-tree" style="padding-left: 44px">total</div>
+    <div class="d-tree" style="padding-left: 44px">findById</div>
+    <div class="d-tree" style="padding-left: 26px">ReportPrinter <span class="d-chip" style="margin-left: auto; background: #FEF3E2; color: #8A4B08">2</span></div>
+    <div class="d-tree" style="color: #5B6474">▾ com.shop.model</div>
+    <div class="d-tree" style="padding-left: 26px">Order</div>
+    <div class="d-tree" style="padding-left: 26px">Customer</div>
+    <div class="d-tree" style="color: #5B6474">▸ tests</div>
+    <div style="margin-top: 16px; font: 600 11px 'IBM Plex Sans', sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #5B6474; padding: 4px 10px 8px">Блоки</div>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px">
+      <div class="d-tree" style="border: 1px solid #E3E6EB; background: #FFFFFF"><span class="d-dot" style="background: #2563EB"></span>Переменная</div>
+      <div class="d-tree" style="border: 1px solid #E3E6EB; background: #FFFFFF"><span class="d-dot" style="background: #D97706"></span>Условие</div>
+      <div class="d-tree" style="border: 1px solid #E3E6EB; background: #FFFFFF"><span class="d-dot" style="background: #7C3AED"></span>Цикл</div>
+      <div class="d-tree" style="border: 1px solid #E3E6EB; background: #FFFFFF"><span class="d-dot" style="background: #0891B2"></span>Вызов</div>
+      <div class="d-tree" style="border: 1px solid #E3E6EB; background: #FFFFFF"><span class="d-dot" style="background: #16A34A"></span>Возврат</div>
+      <div class="d-tree" style="border: 1px solid #E3E6EB; background: #FFFFFF"><span class="d-dot" style="background: #A3A3A3"></span>Коммент.</div>
+    </div>
+  </aside>
+
+  <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+    <div style="flex: 1 1 auto; min-height: 560px; overflow: auto; position: relative; background-color: #F7F8FA; background-image: linear-gradient(#ECEEF2 1px, transparent 1px), linear-gradient(90deg, #ECEEF2 1px, transparent 1px); background-size: 24px 24px">
+      <div style="position: absolute; top: 12px; left: 12px; right: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+        <span class="d-chip" style="background: #FFFFFF; border: 1px solid #D5DAE1; color: #1B2230; font-size: 12px; padding: 5px 10px">Сложность метода: <b style="color: #B42318">O(n·m)</b></span>
+        <div style="flex: 1 1 10px"></div>
+        <label style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #2A3242; background: #FFFFFF; border: 1px solid #D5DAE1; border-radius: 6px; padding: 5px 10px"><input type="checkbox" checked>Комментарии</label>
+        <span class="d-chip" style="background: #FFFFFF; border: 1px solid #D5DAE1; color: #2A3242; font-size: 12px; padding: 5px 10px">− 100% +</span>
+      </div>
+      <div style="padding: 64px 24px 40px; display: flex; flex-direction: column; align-items: center; min-width: 620px">
+        <div class="d-node" style="border-color: #C4B5FD">
+          <div class="d-nh"><span class="d-dot" style="background: #7C3AED"></span>Метод</div>
+          <div class="d-nb">List&lt;Report&gt; merge(orders, customers)</div>
+        </div>
+        <div class="d-wire"></div>
+        <div class="d-node">
+          <div class="d-nh"><span class="d-dot" style="background: #2563EB"></span>Переменная</div>
+          <div class="d-nb">result = new ArrayList&lt;&gt;()</div>
+        </div>
+        <div class="d-wire"></div>
+        <div class="d-cont" style="border-color: #C4B5FD; background: rgba(124,58,237,.03)">
+          <div style="display: flex; align-items: center; gap: 8px; margin: -11px 0 0; background: #F7F8FA; padding: 0 8px; font: 600 11px 'IBM Plex Sans', sans-serif; color: #5B21B6; letter-spacing: .06em; text-transform: uppercase">Цикл × n</div>
+          <div class="d-node" style="margin-top: 10px">
+            <div class="d-nh"><span class="d-dot" style="background: #7C3AED"></span>for-each</div>
+            <div class="d-nb">Order o : orders</div>
+          </div>
+          <div class="d-wire"></div>
+          <div class="d-cont" style="border-color: #E5484D; border-style: solid; background: rgba(229,72,77,.04)">
+            <div style="display: flex; align-items: center; gap: 8px; margin: -11px 0 0; background: #FDF3F3; padding: 0 8px; font: 600 11px 'IBM Plex Sans', sans-serif; color: #B42318; letter-spacing: .06em; text-transform: uppercase">Цикл × m · вложенный</div>
+            <div class="d-node" style="margin-top: 10px; border-color: #F1A7A9">
+              <div class="d-nh"><span class="d-dot" style="background: #7C3AED"></span>for-each</div>
+              <div class="d-nb">Customer c : customers</div>
+            </div>
+            <div class="d-wire"></div>
+            <div class="d-cont" style="border-color: #F0C27A; background: rgba(217,119,6,.03)">
+              <div style="margin: -11px 0 0; background: #FBF8F3; padding: 0 8px; font: 600 11px 'IBM Plex Sans', sans-serif; color: #8A4B08; letter-spacing: .06em; text-transform: uppercase">Если</div>
+              <div class="d-node" style="margin-top: 10px">
+                <div class="d-nh"><span class="d-dot" style="background: #D97706"></span>Условие</div>
+                <div class="d-nb">c.id() == o.customerId()</div>
+              </div>
+              <div class="d-wire"></div>
+              <div class="d-node">
+                <div class="d-nh"><span class="d-dot" style="background: #0891B2"></span>Вызов</div>
+                <div class="d-nb">result.add(new Report(o, c))</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="d-wire"></div>
+        <div class="d-node">
+          <div class="d-nh"><span class="d-dot" style="background: #16A34A"></span>Возврат</div>
+          <div class="d-nb">return result</div>
+        </div>
+      </div>
+    </div>
+
+    <section style="background: #FFFFFF; border-top: 1px solid #E3E6EB">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; padding: 0 16px">
+        <button class="d-tab" type="button">Код</button>
+        <button class="d-tab" type="button" style="color: #1B2230; border-bottom-color: {{accent}}">Тесты · 8</button>
+        <button class="d-tab" type="button">Вывод</button>
+        <div style="flex: 1 1 10px"></div>
+        <span style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #1E7D45"><span style="width: 10px; height: 10px; border-radius: 50%; background: #1E9E55"></span>Поведение совпадает · 8 из 8</span>
+      </div>
+      <div class="d-row" style="font-size: 12px; color: #5B6474"><span></span><span>Тест</span><span>Источник</span><span>Время</span></div>
+      <div class="d-row"><span style="color: #1E7D45">✓</span><span>empty-orders</span><span style="color: #5B6474">IO · оригинал</span><span>41 мс</span></div>
+      <div class="d-row"><span style="color: #1E7D45">✓</span><span>duplicate-ids</span><span style="color: #5B6474">IO · оригинал</span><span>48 мс</span></div>
+      <div class="d-row"><span style="color: #1E7D45">✓</span><span>large-10k <span style="color: #5B6474">— 1 шумная строка скрыта</span></span><span style="color: #5B6474">IO · оригинал</span><span>0,9 с</span></div>
+      <div class="d-row"><span style="color: #1E7D45">✓</span><span>MergeTest.keepsOrder</span><span style="color: #5B6474">JUnit</span><span>12 мс</span></div>
+    </section>
+  </main>
+
+  <aside style="flex: 1 1 300px; max-width: 360px; background: #FFFFFF; border-left: 1px solid #E3E6EB; display: flex; flex-direction: column">
+    <div style="display: flex; padding: 0 16px; border-bottom: 1px solid #EEF0F3">
+      <button class="d-tab" type="button" style="color: #1B2230; border-bottom-color: {{accent}}">Проблемы 3</button>
+      <button class="d-tab" type="button">Предупреждения 2</button>
+      <button class="d-tab" type="button">Метрики</button>
+    </div>
+    <div class="d-issue" style="background: #FFF8F8; border-top: 0">
+      <div style="display: flex; align-items: center; gap: 8px"><span class="d-chip" style="background: #FDECEC; color: #B42318">Высокая</span><span style="font-size: 12px; color: #5B6474; margin-left: auto">OrderService.java:31</span></div>
+      <div style="font-weight: 600; font-size: 15px">Вложенный цикл по двум коллекциям</div>
+      <div style="font-size: 13.5px; color: #2A3242; line-height: 1.5">Для каждого заказа перебираются все клиенты. Индекс по id (LinkedHashMap) уберёт внутренний цикл, порядок сохранится.</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 12px; padding: 10px 12px; background: #FFFFFF; border: 1px solid #EEF0F3; border-radius: 6px">
+        <div style="display: flex; flex-direction: column"><span style="font-size: 11.5px; color: #5B6474">сейчас</span><span style="font: 600 15px 'IBM Plex Mono', monospace; color: #B42318">O(n·m)</span></div>
+        <div style="display: flex; flex-direction: column"><span style="font-size: 11.5px; color: #5B6474">после</span><span style="font: 600 15px 'IBM Plex Mono', monospace; color: #1E7D45">O(n + m)</span></div>
+        <div style="display: flex; flex-direction: column"><span style="font-size: 11.5px; color: #5B6474">при n = m = 10⁴</span><span style="font: 600 15px 'IBM Plex Mono', monospace">10⁸ → 2·10⁴</span></div>
+      </div>
+      <span style="font-size: 12px; color: #5B6474">асимптотическая оценка числа операций</span>
+      <div style="display: flex; gap: 8px; margin-top: 4px">
+        <button class="d-btn" type="button" style="background: {{accent}}; border-color: {{accent}}; color: #FFFFFF; font-weight: 600">Применить фикс</button>
+        <button class="d-btn" type="button">Показать на схеме</button>
+      </div>
+    </div>
+    <div class="d-issue">
+      <div style="display: flex; align-items: center; gap: 8px"><span class="d-chip" style="background: #FEF3E2; color: #8A4B08">Средняя</span><span style="font-size: 12px; color: #5B6474; margin-left: auto">ReportPrinter.java:18</span></div>
+      <div style="font-weight: 600">contains у списка в цикле</div>
+      <div style="font-size: 13px; color: #2A3242">ArrayList.contains — O(n) → LinkedHashSet</div>
+    </div>
+    <div class="d-issue">
+      <div style="display: flex; align-items: center; gap: 8px"><span class="d-chip" style="background: #FEF3E2; color: #8A4B08">Средняя</span><span style="font-size: 12px; color: #5B6474; margin-left: auto">ReportPrinter.java:42</span></div>
+      <div style="font-weight: 600">Конкатенация строк в цикле</div>
+      <div style="font-size: 13px; color: #2A3242">s += … → StringBuilder</div>
+    </div>
+  </aside>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2457D6","options":["#2457D6","#0F766E","#7C3AED","#C2410C"]},"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#2457D6' };
+  }
+}
+</script>
+</body>
+</html>

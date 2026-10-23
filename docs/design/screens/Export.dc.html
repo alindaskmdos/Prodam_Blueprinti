@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Экспорт проекта</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0E13}
+a{color:#7AA7FF}a:hover{color:#A9C6FF}
+@keyframes jb-fade{from{opacity:0}to{opacity:1}}
+@keyframes jb-modal{from{opacity:0;transform:translateY(16px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes jb-rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.btn{font:500 13px Inter,sans-serif;color:#D7DEE8;background:#161B23;border:1px solid #2A323E;border-radius:8px;padding:0 14px;height:36px;display:inline-flex;align-items:center;gap:8px;cursor:pointer;text-decoration:none;transition:background .15s,border-color .15s,transform .1s,filter .15s}
+.btn:hover{background:#1D2430;border-color:#3A4556;color:#FFFFFF}
+.btn:active{transform:translateY(1px)}
+.btn-p{background:var(--accent);border-color:var(--accent);color:#0B0E13;font-weight:600}
+.btn-p:hover{background:var(--accent);border-color:var(--accent);color:#0B0E13;filter:brightness(1.12)}
+.btn[disabled]{opacity:.45;cursor:not-allowed;filter:none}
+.opt{flex:1 1 300px;min-width:0;border:1px solid #2A323E;border-radius:12px;background:#0E1218;padding:18px;display:flex;flex-direction:column;gap:12px;transition:border-color .2s,transform .2s;animation:jb-rise .45s both}
+.opt:hover{border-color:#3A4556;transform:translateY(-2px)}
+.ft{display:block;font:400 12.5px/21px 'JetBrains Mono',monospace;color:#C9D2DE;white-space:pre}
+.ghost{background:#11151B;border:1px solid #1F2630;border-radius:10px}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="--accent: {{accent}}; min-height: 960px; background: #0B0E13; font-family: Inter, sans-serif; color: #E6EAF0; position: relative; overflow: hidden">
+
+  <div aria-hidden="true" style="position: absolute; inset: 0; display: flex; flex-direction: column; filter: blur(2px)">
+    <div style="height: 56px; border-bottom: 1px solid #1A2029; background: #0E1218"></div>
+    <div style="flex: 1 1 auto; display: flex; gap: 10px; padding: 10px">
+      <div class="ghost" style="flex: 0 0 260px"></div>
+      <div style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 10px"><div class="ghost" style="flex: 1 1 auto; background-image: radial-gradient(#252D39 1px, transparent 1px); background-size: 20px 20px"></div><div class="ghost" style="height: 260px"></div></div>
+      <div class="ghost" style="flex: 0 0 340px"></div>
+    </div>
+  </div>
+  <div style="position: absolute; inset: 0; background: rgba(5,7,10,.72); animation: jb-fade .3s both"></div>
+
+  <div style="position: relative; min-height: 960px; display: flex; align-items: center; justify-content: center; padding: 32px 16px; box-sizing: border-box">
+    <section role="dialog" aria-modal="true" aria-labelledby="exp-title" style="width: 100%; max-width: 860px; background: #11151B; border: 1px solid #2A323E; border-radius: 16px; box-shadow: 0 30px 80px rgba(0,0,0,.6); animation: jb-modal .4s .1s cubic-bezier(.2,.8,.2,1) both">
+      <div style="display: flex; align-items: center; gap: 12px; padding: 18px 22px; border-bottom: 1px solid #1F2630">
+        <div style="display: flex; flex-direction: column; flex: 1 1 auto"><span id="exp-title" style="font: 700 19px Inter, sans-serif">Экспорт demo-shop</span><span style="font-size: 13px; color: #9AA4B2">версия 15 · после фикса «индекс по id»</span></div>
+        <a class="btn" href="Editor.dc.html" aria-label="Закрыть" style="width: 36px; padding: 0; justify-content: center">✕</a>
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 14px; padding: 20px 22px">
+        <div class="opt" style="animation-delay: .25s">
+          <div style="display: flex; align-items: center; gap: 10px"><span style="font: 700 12px 'JetBrains Mono', monospace; padding: 4px 8px; border-radius: 6px; background: #1B2532; color: #A9C6FF">.zip</span><span style="font: 600 16px Inter, sans-serif">Исходники</span></div>
+          <span style="font-size: 13px; line-height: 1.5; color: #A3AEBD">Та же структура папок, что вы загрузили.</span>
+          <div style="padding: 10px 12px; border-radius: 8px; background: #11151B; border: 1px solid #1F2630">
+            <span class="ft">src/main/java/com/shop/</span>
+            <span class="ft">  Main.java · OrderService.java <span style="color: #FBBF24">изм.</span></span>
+            <span class="ft">src/utils/StringUtil.java</span>
+            <span class="ft" style="color: #A9C6FF">tests/  5 .json · 3 .java</span>
+            <span class="ft" style="color: #A9C6FF">.blueprints/</span>
+          </div>
+          <label style="display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.45; color: #C9D2DE; cursor: pointer"><input type="checkbox" checked style="margin-top: 3px">Включить настройки Java Blueprints — папки .blueprints/ и tests/</label>
+          <button class="btn btn-p" type="button" style="margin-top: auto; justify-content: center">Скачать .zip</button>
+        </div>
+
+        <div class="opt" style="animation-delay: .35s">
+          <div style="display: flex; align-items: center; gap: 10px"><span style="font: 700 12px 'JetBrains Mono', monospace; padding: 4px 8px; border-radius: 6px; background: #173F28; color: #9BF0B8">.jar</span><span style="font: 600 16px Inter, sans-serif">Исполняемый файл</span></div>
+          <span style="font-size: 13px; line-height: 1.5; color: #A3AEBD">Собирается из чистого кода: без seed, без правок видимости, без tests/.</span>
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #9AA4B2">Точка входа (Main-Class)
+            <select style="height: 36px; border-radius: 7px; border: 1px solid #2A323E; background: #11151B; color: #E6EAF0; padding: 0 10px; font: 13px 'JetBrains Mono', monospace"><option>com.shop.Main</option><option>com.shop.tools.Seed</option></select>
+          </label>
+          <div style="padding: 10px 12px; border-radius: 8px; background: #11151B; border: 1px solid #1F2630; font: 400 12.5px 'JetBrains Mono', monospace; color: #C9D2DE">java -jar demo-shop.jar</div>
+          <button class="btn btn-p" type="button" style="margin-top: auto; justify-content: center">Собрать .jar</button>
+          <span style="font-size: 12px; color: #8B95A4; text-align: center">требует Java 21+</span>
+        </div>
+      </div>
+
+      <div style="margin: 0 22px 22px; padding: 12px 14px; border-radius: 10px; background: #17140C; border: 1px solid #3A2E10; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; animation: jb-rise .45s .5s both">
+        <span style="font: 600 12px Inter, sans-serif; color: #FBBF24">Так выглядит недоступная сборка</span>
+        <button class="btn" type="button" disabled>Собрать .jar</button>
+        <span style="flex: 1 1 260px; font-size: 12.5px; line-height: 1.45; color: #E5D9B8">Проект не компилируется: OrderService.java:33 — cannot find symbol byId</span>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#5B9BFF","options":["#5B9BFF","#8B5CF6","#22D3EE","#F59E0B"]},"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#5B9BFF' };
+  }
+}
+</script>
+</body>
+</html>

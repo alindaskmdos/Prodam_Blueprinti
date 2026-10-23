@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Graphite — редактор метода</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0E13}
+a{color:#7AA7FF}a:hover{color:#A9C6FF}
+.g-btn{font:500 13px Inter,sans-serif;color:#D7DEE8;background:#161B23;border:1px solid #2A323E;border-radius:8px;padding:0 14px;height:34px;display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.g-panel{background:#11151B;border:1px solid #1F2630;border-radius:10px;display:flex;flex-direction:column;min-width:0}
+.g-ph{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #1F2630;font:600 12px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#A3AEBD}
+.g-node{border-radius:10px;background:#141A22;border:1px solid #2B3442;box-shadow:0 6px 18px rgba(0,0,0,.35);min-width:260px}
+.g-nh{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:9px 9px 0 0;font:600 12px Inter,sans-serif;color:#0B0E13}
+.g-nb{padding:8px 12px 10px;font:500 12.5px 'JetBrains Mono',monospace;color:#E6EAF0;white-space:nowrap}
+.g-wire{width:2px;height:22px;background:#6B7686;margin:0 auto;position:relative}
+.g-wire:after{content:"";position:absolute;left:-5px;bottom:-6px;border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid #6B7686}
+.g-cont{border:1.5px solid;border-radius:12px;padding:0 18px 18px;display:flex;flex-direction:column;align-items:center}
+.g-badge{font:600 11px 'JetBrains Mono',monospace;padding:2px 7px;border-radius:999px}
+.g-tree{font:400 13px Inter,sans-serif;color:#C9D2DE;padding:4px 10px;border-radius:6px;display:flex;align-items:center;gap:8px}
+.g-pal{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:#161B23;border:1px solid #232B36;font:500 13px Inter,sans-serif;color:#D7DEE8}
+.g-sw{width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font:700 11px 'JetBrains Mono',monospace;color:#0B0E13}
+.g-tab{font:500 13px Inter,sans-serif;color:#A3AEBD;padding:8px 12px;border-radius:7px;background:none;border:0;cursor:pointer}
+.g-issue{padding:12px 14px;border-bottom:1px solid #1F2630;display:flex;flex-direction:column;gap:6px}
+.g-code{font:400 12.5px/20px 'JetBrains Mono',monospace;color:#D4DAE3;white-space:pre}
+.g-ln{display:inline-block;width:28px;color:#5E6878;text-align:right;margin-right:14px}
+.k{color:#C792EA}.t{color:#7FDBCA}.s{color:#ECC48D}.f{color:#82AAFF}.c{color:#7C8796;font-style:italic}
+.g-row{display:grid;grid-template-columns:minmax(0,1fr) 70px 60px;gap:8px;padding:7px 14px;font:400 12.5px Inter,sans-serif;color:#C9D2DE;border-bottom:1px solid #1A2029;align-items:center}
+</style>
+</helmet>
+<div style="min-height: 960px; background: #0B0E13; font-family: Inter, sans-serif; color: #E6EAF0; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid #1A2029; background: #0E1218">
+  <div style="display: flex; align-items: center; gap: 10px; margin-right: 12px">
+    <div style="width: 30px; height: 30px; border-radius: 8px; background: {{accent}}; display: flex; align-items: center; justify-content: center">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0B0E13" stroke-width="2.2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect><path d="M10 6.5h4a2.5 2.5 0 0 1 2.5 2.5v5"></path></svg>
+    </div>
+    <div style="display: flex; flex-direction: column">
+      <span style="font-weight: 700; font-size: 15px">Java Blueprints</span>
+      <span style="font-size: 12px; color: #9AA4B2">demo-shop · версия 14</span>
+    </div>
+  </div>
+  <button class="g-btn" type="button">Загрузить проект</button>
+  <button class="g-btn" type="button">Экспорт ▾</button>
+  <div style="flex: 1 1 20px"></div>
+  <span style="font-size: 12px; color: #9AA4B2">Точка входа: <span style="font-family: 'JetBrains Mono', monospace; color: #D7DEE8">Main.main</span></span>
+  <button class="g-btn" type="button" style="border-color: #2F6B45; color: #7EE2A0">▶ Запуск</button>
+  <button class="g-btn" type="button" style="background: {{accent}}; border-color: {{accent}}; color: #0B0E13; font-weight: 600">Проверить поведение</button>
+</header>
+
+<div style="display: flex; flex-wrap: wrap; gap: 10px; padding: 10px; flex: 1 1 auto">
+
+  <aside style="flex: 1 1 230px; max-width: 280px; display: flex; flex-direction: column; gap: 10px">
+    <section class="g-panel">
+      <div class="g-ph">Проект <span style="color: #6B7686; font-weight: 500">7 файлов</span></div>
+      <div style="padding: 8px 6px; display: flex; flex-direction: column; gap: 1px">
+        <div class="g-tree">▾ <span style="color: #9AA4B2">com.shop</span></div>
+        <div class="g-tree" style="padding-left: 24px">▸ Main</div>
+        <div class="g-tree" style="padding-left: 24px">▾ OrderService</div>
+        <div class="g-tree" style="padding-left: 42px; color: #9AA4B2">f orders</div>
+        <div class="g-tree" style="padding-left: 42px; background: #1B2532; color: #FFFFFF">m merge <span style="margin-left: auto; color: #FF8A80; font: 600 11px 'JetBrains Mono', monospace">O(n·m)</span></div>
+        <div class="g-tree" style="padding-left: 42px">m total</div>
+        <div class="g-tree" style="padding-left: 24px">▸ ReportPrinter</div>
+        <div class="g-tree">▾ <span style="color: #9AA4B2">com.shop.model</span></div>
+        <div class="g-tree" style="padding-left: 24px">▸ Order <span style="color: #6B7686; font-size: 11px">record</span></div>
+        <div class="g-tree" style="padding-left: 24px">▸ Customer <span style="color: #6B7686; font-size: 11px">record</span></div>
+        <div class="g-tree">▾ <span style="color: #9AA4B2">tests</span></div>
+        <div class="g-tree" style="padding-left: 24px">5 IO · 3 JUnit</div>
+      </div>
+    </section>
+    <section class="g-panel">
+      <div class="g-ph">Блоки</div>
+      <div style="padding: 10px; display: flex; flex-direction: column; gap: 6px">
+        <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #9AA4B2">Поиск блока
+          <input type="text" placeholder="переменная, цикл…" style="height: 32px; border-radius: 7px; border: 1px solid #2A323E; background: #0E1218; color: #E6EAF0; padding: 0 10px; font: 13px Inter, sans-serif">
+        </label>
+        <div class="g-pal"><span class="g-sw" style="background: #60A5FA">x</span>Переменная</div>
+        <div class="g-pal"><span class="g-sw" style="background: #FBBF24">?</span>Условие</div>
+        <div class="g-pal"><span class="g-sw" style="background: #A78BFA">↻</span>Цикл</div>
+        <div class="g-pal"><span class="g-sw" style="background: #22D3EE">f</span>Вызов метода</div>
+        <div class="g-pal"><span class="g-sw" style="background: #4ADE80">↵</span>Возврат</div>
+        <div class="g-pal"><span class="g-sw" style="background: #FDE68A">//</span>Комментарий</div>
+        <div class="g-pal"><span class="g-sw" style="background: #F87171">!</span>try / catch</div>
+      </div>
+    </section>
+  </aside>
+
+  <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+    <section class="g-panel" style="flex: 1 1 auto; min-height: 560px">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 6px 8px; border-bottom: 1px solid #1F2630">
+        <button class="g-tab" type="button" style="background: #1B2532; color: #FFFFFF">OrderService.merge</button>
+        <button class="g-tab" type="button">ReportPrinter.print</button>
+        <div style="flex: 1 1 10px"></div>
+        <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #A3AEBD"><input type="checkbox" checked>Комментарии</label>
+        <button class="g-btn" type="button" style="height: 28px; padding: 0 10px" aria-label="Уменьшить">−</button>
+        <span style="font: 500 12px 'JetBrains Mono', monospace; color: #A3AEBD">100%</span>
+        <button class="g-btn" type="button" style="height: 28px; padding: 0 10px" aria-label="Увеличить">+</button>
+      </div>
+      <div style="flex: 1 1 auto; overflow: auto; position: relative; background-color: #0D1117; background-image: radial-gradient(#252D39 1px, transparent 1px); background-size: 20px 20px; border-radius: 0 0 10px 10px">
+        <div style="padding: 28px 24px 40px; display: flex; flex-direction: column; align-items: center; min-width: 620px">
+
+          <div class="g-node" style="border-color: #6D4BD8">
+            <div class="g-nh" style="background: #8B5CF6; color: #FFFFFF">МЕТОД <span style="margin-left: auto" class="g-badge" title="сложность">O(n·m)</span></div>
+            <div class="g-nb">List&lt;Report&gt; merge(List&lt;Order&gt; orders,<br>                   List&lt;Customer&gt; customers)</div>
+          </div>
+          <div class="g-wire"></div>
+          <div class="g-node">
+            <div class="g-nh" style="background: #60A5FA">Переменная</div>
+            <div class="g-nb">List&lt;Report&gt; result = new ArrayList&lt;&gt;()</div>
+          </div>
+          <div class="g-wire"></div>
+
+          <div class="g-cont" style="border-color: #7C5CE0; background: rgba(124,92,224,.06)">
+            <div class="g-node" style="margin-top: -1px; border-color: #7C5CE0">
+              <div class="g-nh" style="background: #A78BFA">Цикл for-each <span class="g-badge" style="margin-left: auto; background: #0B0E13; color: #C4B5FD">× n</span></div>
+              <div class="g-nb">for (Order o : orders)</div>
+            </div>
+            <div class="g-wire"></div>
+            <div class="g-cont" style="border-color: #F87171; background: rgba(248,113,113,.07); box-shadow: 0 0 0 4px rgba(248,113,113,.15)">
+              <div class="g-node" style="border-color: #F87171">
+                <div class="g-nh" style="background: #A78BFA">Цикл for-each <span class="g-badge" style="margin-left: auto; background: #0B0E13; color: #C4B5FD">× m</span><span class="g-badge" style="background: #F87171; color: #0B0E13">!</span></div>
+                <div class="g-nb">for (Customer c : customers)</div>
+              </div>
+              <div class="g-wire"></div>
+              <div class="g-cont" style="border-color: #B8892A; background: rgba(251,191,36,.05)">
+                <div class="g-node" style="border-color: #B8892A">
+                  <div class="g-nh" style="background: #FBBF24">Условие</div>
+                  <div class="g-nb">c.id() == o.customerId()</div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px; margin-top: 6px; font: 600 11px Inter, sans-serif; color: #7EE2A0">да</div>
+                <div class="g-wire" style="height: 14px"></div>
+                <div class="g-node">
+                  <div class="g-nh" style="background: #22D3EE">Вызов метода</div>
+                  <div class="g-nb">result.add(new Report(o, c))</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="g-wire"></div>
+          <sc-if value="{{showComments}}" hint-placeholder-val="{{ true }}">
+            <div style="background: #FDE68A; color: #3B2F07; border-radius: 6px; padding: 8px 12px; font: 500 12.5px 'JetBrains Mono', monospace; transform: rotate(-1deg); box-shadow: 0 4px 12px rgba(0,0,0,.4)">// порядок отчётов = порядок заказов</div>
+            <div class="g-wire"></div>
+          </sc-if>
+          <div class="g-node" style="border-color: #2F8F57">
+            <div class="g-nh" style="background: #4ADE80">Возврат</div>
+            <div class="g-nb">return result</div>
+          </div>
+        </div>
+        <div style="position: absolute; right: 14px; bottom: 14px; width: 150px; height: 96px; border-radius: 8px; background: rgba(17,21,27,.9); border: 1px solid #2A323E; padding: 8px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 4px" aria-hidden="true">
+          <div style="width: 40px; height: 6px; background: #8B5CF6; border-radius: 2px"></div>
+          <div style="width: 40px; height: 6px; background: #60A5FA; border-radius: 2px"></div>
+          <div style="width: 70px; height: 40px; border: 1px solid #F87171; border-radius: 3px"></div>
+          <div style="width: 40px; height: 6px; background: #4ADE80; border-radius: 2px"></div>
+        </div>
+      </div>
+    </section>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 10px">
+      <section class="g-panel" style="flex: 3 1 360px">
+        <div class="g-ph">Код · OrderService.java <span style="color: #7EE2A0; font-weight: 500; text-transform: none; letter-spacing: 0">синхронизировано</span></div>
+        <div style="padding: 10px 6px; overflow-x: auto">
+<div class="g-code"><span class="g-ln">29</span><span class="k">static</span> <span class="t">List</span>&lt;<span class="t">Report</span>&gt; <span class="f">merge</span>(<span class="t">List</span>&lt;<span class="t">Order</span>&gt; orders, <span class="t">List</span>&lt;<span class="t">Customer</span>&gt; customers) {
+<span class="g-ln">30</span>    <span class="t">List</span>&lt;<span class="t">Report</span>&gt; result = <span class="k">new</span> <span class="t">ArrayList</span>&lt;&gt;();
+<span style="background: rgba(248,113,113,.12); display: inline-block; width: 100%"><span class="g-ln" style="color: #FF8A80">31</span>    <span class="k">for</span> (<span class="t">Order</span> o : orders) {</span>
+<span style="background: rgba(248,113,113,.12); display: inline-block; width: 100%"><span class="g-ln" style="color: #FF8A80">32</span>        <span class="k">for</span> (<span class="t">Customer</span> c : customers) {</span>
+<span class="g-ln">33</span>            <span class="k">if</span> (c.<span class="f">id</span>() == o.<span class="f">customerId</span>()) {
+<span class="g-ln">34</span>                result.<span class="f">add</span>(<span class="k">new</span> <span class="t">Report</span>(o, c));
+<span class="g-ln">35</span>            }
+<span class="g-ln">36</span>        }
+<span class="g-ln">37</span>    }
+<span class="g-ln">38</span>    <span class="c">// порядок отчётов = порядок заказов</span>
+<span class="g-ln">39</span>    <span class="k">return</span> result;
+<span class="g-ln">40</span>}</div>
+        </div>
+      </section>
+      <section class="g-panel" style="flex: 2 1 300px">
+        <div class="g-ph">Тесты <span style="color: #7EE2A0; text-transform: none; letter-spacing: 0">8 / 8</span></div>
+        <div style="padding: 12px 14px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #1F2630">
+          <div style="width: 28px; height: 28px; border-radius: 50%; background: #1E5B36; display: flex; align-items: center; justify-content: center; color: #7EE2A0; font-weight: 700">✓</div>
+          <div style="display: flex; flex-direction: column"><span style="font-weight: 600; color: #7EE2A0">Поведение совпадает</span><span style="font-size: 12px; color: #9AA4B2">IO и JUnit · 1 контейнер · 2,4 с</span></div>
+        </div>
+        <div class="g-row" style="color: #9AA4B2; font-size: 11.5px">Тест<span>Тип</span><span>Время</span></div>
+        <div class="g-row"><span>✓ empty-orders</span><span style="color: #9AA4B2">IO</span><span>41 мс</span></div>
+        <div class="g-row"><span>✓ duplicate-ids</span><span style="color: #9AA4B2">IO</span><span>48 мс</span></div>
+        <div class="g-row"><span>✓ large-10k <span style="color: #9AA4B2">· 1 шумная</span></span><span style="color: #9AA4B2">IO</span><span>0,9 с</span></div>
+        <div class="g-row"><span>✓ MergeTest.keepsOrder</span><span style="color: #9AA4B2">JUnit</span><span>12 мс</span></div>
+      </section>
+    </div>
+  </main>
+
+  <aside class="g-panel" style="flex: 1 1 300px; max-width: 360px">
+    <div class="g-ph">Анализ</div>
+    <div style="display: flex; gap: 4px; padding: 8px; border-bottom: 1px solid #1F2630">
+      <button class="g-tab" type="button" style="background: #1B2532; color: #FFFFFF">Проблемы 3</button>
+      <button class="g-tab" type="button">Предупреждения 2</button>
+      <button class="g-tab" type="button">Метрики</button>
+    </div>
+    <div class="g-issue" style="background: #1A1418">
+      <div style="display: flex; align-items: center; gap: 8px"><span class="g-badge" style="background: #F87171; color: #0B0E13">высокая</span><span style="font-weight: 600">Вложенный цикл</span><span style="margin-left: auto; font-size: 12px; color: #9AA4B2">:31</span></div>
+      <div style="font-size: 13px; color: #C9D2DE; line-height: 1.45">Для каждого заказа перебираются все клиенты. Индекс по id уберёт внутренний цикл.</div>
+      <div style="font: 500 12px 'JetBrains Mono', monospace; color: #FF8A80">O(n·m) <span style="color: #9AA4B2">→</span> <span style="color: #7EE2A0">O(n + m)</span></div>
+      <button class="g-btn" type="button" style="align-self: flex-start; height: 30px; background: {{accent}}; border-color: {{accent}}; color: #0B0E13; font-weight: 600">Применить фикс</button>
+    </div>
+    <div class="g-issue">
+      <div style="display: flex; align-items: center; gap: 8px"><span class="g-badge" style="background: #FBBF24; color: #0B0E13">средняя</span><span style="font-weight: 600">contains в цикле</span><span style="margin-left: auto; font-size: 12px; color: #9AA4B2">ReportPrinter:18</span></div>
+      <div style="font-size: 13px; color: #C9D2DE; line-height: 1.45">ArrayList.contains — O(n). Замена на LinkedHashSet сохраняет порядок.</div>
+    </div>
+    <div class="g-issue">
+      <div style="display: flex; align-items: center; gap: 8px"><span class="g-badge" style="background: #FBBF24; color: #0B0E13">средняя</span><span style="font-weight: 600">Строки через +=</span><span style="margin-left: auto; font-size: 12px; color: #9AA4B2">ReportPrinter:42</span></div>
+      <div style="font-size: 13px; color: #C9D2DE; line-height: 1.45">Конкатенация в цикле копирует строку каждый раз. Нужен StringBuilder.</div>
+    </div>
+    <div style="margin: 12px; padding: 14px; border-radius: 10px; background: #0E1218; border: 1px solid #1F2630; display: flex; flex-direction: column; gap: 8px">
+      <span style="font: 600 12px Inter, sans-serif; letter-spacing: .04em; text-transform: uppercase; color: #A3AEBD">Сложность merge</span>
+      <div style="font: 600 18px 'JetBrains Mono', monospace"><span style="color: #FF8A80">≈10⁸</span> <span style="color: #6B7686">→</span> <span style="color: #7EE2A0">≈2·10⁴</span> <span style="font-size: 13px; color: #9AA4B2">операций</span></div>
+      <label style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #9AA4B2">при n = m =
+        <input type="text" value="10 000" style="width: 80px; height: 28px; border-radius: 6px; border: 1px solid #2A323E; background: #11151B; color: #E6EAF0; padding: 0 8px; font: 12.5px 'JetBrains Mono', monospace">
+      </label>
+      <span style="font-size: 12px; color: #8B95A4">асимптотическая оценка, не замер</span>
+    </div>
+  </aside>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#5B9BFF","options":["#5B9BFF","#8B5CF6","#22D3EE","#F59E0B"]},"showComments":{"editor":"boolean","default":true},"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      accent: this.props.accent ?? '#5B9BFF',
+      showComments: this.props.showComments ?? true
+    };
+  }
+}
+</script>
+</body>
+</html>

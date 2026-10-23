@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Компоненты и состояния</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0E13}
+a{color:#7AA7FF}a:hover{color:#A9C6FF}
+@keyframes jb-rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes jb-flow{to{background-position:0 20px}}
+@keyframes jb-pulse{0%{box-shadow:0 0 0 0 rgba(248,113,113,.5)}70%{box-shadow:0 0 0 14px rgba(248,113,113,0)}100%{box-shadow:0 0 0 0 rgba(248,113,113,0)}}
+@keyframes jb-shimmer{to{background-position:-200% 0}}
+@keyframes jb-caret{50%{opacity:0}}
+@keyframes jb-glow{0%,100%{box-shadow:0 0 0 2px rgba(91,155,255,.35)}50%{box-shadow:0 0 0 6px rgba(91,155,255,.15)}}
+@keyframes jb-toast{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
+@keyframes jb-spin{to{transform:rotate(360deg)}}
+.rise{animation:jb-rise .5s cubic-bezier(.2,.7,.2,1) both}
+.sec{display:flex;flex-direction:column;gap:14px;padding:24px;background:#11151B;border:1px solid #1F2630;border-radius:14px;min-width:0}
+.h2{font:700 18px Inter,sans-serif;margin:0}
+.cap{font:500 12px Inter,sans-serif;color:#9AA4B2}
+.sw{display:flex;flex-direction:column;gap:6px;font:500 12px 'JetBrains Mono',monospace;color:#C9D2DE}
+.sw i{display:block;height:48px;border-radius:8px;border:1px solid #2A323E}
+.btn{font:500 13px Inter,sans-serif;color:#D7DEE8;background:#161B23;border:1px solid #2A323E;border-radius:8px;padding:0 14px;height:34px;display:inline-flex;align-items:center;gap:8px;cursor:pointer;transition:background .15s,border-color .15s,transform .1s,filter .15s}
+.btn:hover{background:#1D2430;border-color:#3A4556;color:#FFFFFF}
+.btn-p{background:var(--accent);border-color:var(--accent);color:#0B0E13;font-weight:600}
+.btn-p:hover{background:var(--accent);border-color:var(--accent);color:#0B0E13;filter:brightness(1.12)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.badge{font:600 11px 'JetBrains Mono',monospace;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.node{border-radius:10px;background:#141A22;border:1px solid #2B3442;box-shadow:0 6px 18px rgba(0,0,0,.35);min-width:0;transition:transform .18s,box-shadow .18s}
+.node:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(0,0,0,.5)}
+.nh{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:9px 9px 0 0;font:600 12px Inter,sans-serif;color:#0B0E13}
+.nb{padding:8px 12px 10px;font:500 12.5px 'JetBrains Mono',monospace;color:#E6EAF0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wire{width:2px;height:44px;margin:0 auto;position:relative;background:repeating-linear-gradient(to bottom,#6B7686 0 6px,transparent 6px 10px);animation:jb-flow .9s linear infinite}
+.wire:after{content:"";position:absolute;left:-5px;bottom:-6px;border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid #6B7686}
+.lbl{font:500 12px Inter,sans-serif;color:#9AA4B2;text-align:center}
+.toast{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:12px;background:#161B23;border:1px solid #2A323E;box-shadow:0 14px 34px rgba(0,0,0,.45);animation:jb-toast .45s cubic-bezier(.2,.8,.2,1) both}
+.sk{height:14px;border-radius:6px;background:linear-gradient(90deg,#161B23 0%,#222A36 50%,#161B23 100%);background-size:200% 100%;animation:jb-shimmer 1.4s linear infinite}
+.tbl{display:grid;grid-template-columns:minmax(0,1.2fr) 90px minmax(0,1fr) minmax(0,1.6fr);gap:10px;padding:9px 0;border-top:1px solid #1F2630;font:400 13px Inter,sans-serif;color:#C9D2DE;align-items:center}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="--accent: {{accent}}; min-height: 1100px; background: #0B0E13; font-family: Inter, sans-serif; color: #E6EAF0; padding: 32px 16px 48px; box-sizing: border-box">
+<div style="max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px">
+
+  <div class="rise" style="display: flex; flex-direction: column; gap: 6px">
+    <span style="font: 600 12px Inter, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: {{accent}}">Graphite · дизайн-система</span>
+    <h1 style="margin: 0; font: 800 34px Inter, sans-serif; letter-spacing: -.02em">Компоненты и состояния</h1>
+    <span style="font-size: 15px; color: #A3AEBD">Справочник для фронтенда: цвета, ноды всех видов, состояния, уведомления и анимации.</span>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 18px">
+    <section class="sec rise" style="flex: 1 1 520px">
+      <h2 class="h2">Цвета</h2>
+      <span class="cap">Поверхности</span>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 10px">
+        <div class="sw"><i style="background: #0B0E13"></i>фон #0B0E13</div>
+        <div class="sw"><i style="background: #0E1218"></i>шапка #0E1218</div>
+        <div class="sw"><i style="background: #11151B"></i>панель #11151B</div>
+        <div class="sw"><i style="background: #161B23"></i>поднятый #161B23</div>
+        <div class="sw"><i style="background: #1B2532"></i>выбрано #1B2532</div>
+        <div class="sw"><i style="background: #2A323E"></i>граница #2A323E</div>
+      </div>
+      <span class="cap">Смысл</span>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 10px">
+        <div class="sw"><i style="background: {{accent}}"></i>акцент</div>
+        <div class="sw"><i style="background: #4ADE80"></i>успех #4ADE80</div>
+        <div class="sw"><i style="background: #F87171"></i>высокая #F87171</div>
+        <div class="sw"><i style="background: #FBBF24"></i>средняя #FBBF24</div>
+        <div class="sw"><i style="background: #A9C6FF"></i>«возможно»</div>
+        <div class="sw"><i style="background: #9AA4B2"></i>текст 2 #9AA4B2</div>
+      </div>
+    </section>
+    <section class="sec rise" style="flex: 1 1 380px; animation-delay: .06s">
+      <h2 class="h2">Шрифты и кнопки</h2>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <span style="font: 800 28px Inter, sans-serif; letter-spacing: -.02em">Inter 800 · заголовок</span>
+        <span style="font: 600 15px Inter, sans-serif">Inter 600 · название панели, ноды</span>
+        <span style="font: 400 13px Inter, sans-serif; color: #C9D2DE">Inter 400 · текст интерфейса 13 px</span>
+        <span style="font: 500 12.5px 'JetBrains Mono', monospace; color: #D4DAE3">JetBrains Mono · код, выражения, O(n·m)</span>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <button class="btn btn-p" type="button">Проверить поведение</button>
+        <button class="btn" type="button">Экспорт ▾</button>
+        <button class="btn" type="button" style="border-color: #2F6B45; color: #7EE2A0">▶ Запуск</button>
+        <button class="btn" type="button" disabled>Недоступно</button>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <span class="badge" style="background: #F87171; color: #0B0E13">высокая</span>
+        <span class="badge" style="background: #FBBF24; color: #0B0E13">средняя</span>
+        <span class="badge" style="background: #2A323E; color: #E6EAF0">низкая</span>
+        <span class="badge" style="background: #1B2532; color: #A9C6FF">возможно</span>
+        <span class="badge" style="background: #3A1E22; color: #FFB4AC">O(n·m)</span>
+        <span class="badge" style="background: #173F28; color: #9BF0B8">O(n + m)</span>
+      </div>
+    </section>
+  </div>
+
+  <section class="sec rise" style="animation-delay: .1s">
+    <h2 class="h2">Ноды по видам блока</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px">
+      <div class="node" style="border-color: #6D4BD8"><div class="nh" style="background: #8B5CF6; color: #FFFFFF">Метод · method</div><div class="nb">merge(orders, customers)</div></div>
+      <div class="node"><div class="nh" style="background: #60A5FA">Переменная · var</div><div class="nb">int sum = 0</div></div>
+      <div class="node"><div class="nh" style="background: #93C5FD">Присваивание · assign</div><div class="nb">sum += o.total()</div></div>
+      <div class="node"><div class="nh" style="background: #22D3EE">Вызов · expr</div><div class="nb">result.add(r)</div></div>
+      <div class="node"><div class="nh" style="background: #FBBF24">Условие · if</div><div class="nb">o.total() &gt; LIMIT</div></div>
+      <div class="node"><div class="nh" style="background: #A78BFA">Цикл · for / foreach</div><div class="nb">for (Order o : orders)</div></div>
+      <div class="node"><div class="nh" style="background: #C4B5FD">Цикл · while / do</div><div class="nb">while (sc.hasNext())</div></div>
+      <div class="node"><div class="nh" style="background: #FB923C">Выбор · switch / case</div><div class="nb">switch (o.status())</div></div>
+      <div class="node"><div class="nh" style="background: #F87171">try / catch</div><div class="nb">catch (IOException e)</div></div>
+      <div class="node"><div class="nh" style="background: #FCA5A5">throw</div><div class="nb">throw new IllegalStateException()</div></div>
+      <div class="node"><div class="nh" style="background: #4ADE80">Возврат · return</div><div class="nb">return result</div></div>
+      <div class="node"><div class="nh" style="background: #94A3B8">break / continue</div><div class="nb">continue</div></div>
+      <div style="background: #FDE68A; color: #3B2F07; border-radius: 6px; padding: 10px 12px; font: 500 12.5px 'JetBrains Mono', monospace; transform: rotate(-1deg); align-self: center">// комментарий · comment</div>
+      <div class="node" style="border-style: dashed; border-color: #5E6878; background: #10141A"><div class="nh" style="background: #2A323E; color: #C9D2DE">raw · как есть</div><div class="nb" style="color: #9AA4B2">label: { … }</div></div>
+    </div>
+  </section>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 18px">
+    <section class="sec rise" style="flex: 2 1 640px; animation-delay: .14s">
+      <h2 class="h2">Состояния ноды</h2>
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 22px 16px; align-items: start">
+        <div style="display: flex; flex-direction: column; gap: 8px"><div class="node"><div class="nh" style="background: #FBBF24">Условие</div><div class="nb">c.id() == o.customerId()</div></div><span class="lbl">обычная · наведите</span></div>
+        <div style="display: flex; flex-direction: column; gap: 8px"><div class="node" style="border-color: {{accent}}; animation: jb-glow 2s ease-in-out infinite"><div class="nh" style="background: #FBBF24">Условие</div><div class="nb">c.id() == o.customerId()</div></div><span class="lbl">выбрана · связана со строкой кода</span></div>
+        <div style="display: flex; flex-direction: column; gap: 8px"><div class="node" style="border-color: #F87171; animation: jb-pulse 1.8s ease-out infinite"><div class="nh" style="background: #A78BFA">Цикл <span class="badge" style="margin-left: auto; background: #F87171; color: #0B0E13">!</span></div><div class="nb">for (Customer c : customers)</div></div><span class="lbl">есть проблема · после клика в панели</span></div>
+        <div style="display: flex; flex-direction: column; gap: 8px"><div class="node" style="border-color: {{accent}}"><div class="nh" style="background: #FBBF24">Условие · правка</div><div class="nb" style="background: #0E1218; margin: 6px; border-radius: 6px; padding: 6px 8px">c.id() == o.customerId<span style="display: inline-block; width: 1.5px; height: 14px; background: {{accent}}; vertical-align: middle; animation: jb-caret 1s steps(1) infinite"></span></div></div><span class="lbl">редактирование · подсветка Java</span></div>
+        <div style="display: flex; flex-direction: column; gap: 8px"><div class="node" style="border-color: #F87171; background: #1E1316"><div class="nh" style="background: #F87171">Условие · ошибка</div><div class="nb" style="color: #FFC2BC">c.id() == == o.id()</div><div style="padding: 0 12px 10px; font: 400 12px Inter, sans-serif; color: #FFB4AC">Синтаксис: лишний «==». В код не попало.</div></div><span class="lbl">невалидный текст</span></div>
+        <div style="display: flex; flex-direction: column; gap: 8px"><div class="node" style="border-color: #7C5CE0"><div class="nh" style="background: #A78BFA">▸ Цикл for-each <span class="badge" style="margin-left: auto; background: #0B0E13; color: #C4B5FD">6 блоков</span></div><div class="nb">for (Order o : orders)</div></div><span class="lbl">свёрнутый контейнер · глубина &gt; 3</span></div>
+      </div>
+    </section>
+    <section class="sec rise" style="flex: 1 1 300px; animation-delay: .18s">
+      <h2 class="h2">Стрелки</h2>
+      <div style="display: flex; justify-content: space-around; gap: 16px; flex-wrap: wrap">
+        <div style="display: flex; flex-direction: column; gap: 10px; align-items: center"><div class="wire"></div><span class="lbl">поток · движется</span></div>
+        <div style="display: flex; flex-direction: column; gap: 10px; align-items: center"><div class="wire"><span style="position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: {{accent}}; color: #0B0E13; font: 700 15px/22px Inter, sans-serif; text-align: center">+</span></div><span class="lbl">наведение · «+»</span></div>
+        <div style="display: flex; flex-direction: column; gap: 10px; align-items: center"><div style="width: 64px; height: 44px; border-radius: 8px; border: 1.5px dashed {{accent}}; background: rgba(91,155,255,.1); animation: jb-glow 1.4s ease-in-out infinite"></div><span class="lbl">цель перетаскивания</span></div>
+      </div>
+      <span class="cap" style="line-height: 1.5">Стрелки не рисуются вручную — они выводятся из дерева блоков. Вставка только через «+» или перетаскивание на стрелку.</span>
+    </section>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 18px">
+    <section class="sec rise" style="flex: 1 1 420px; animation-delay: .22s">
+      <h2 class="h2">Уведомления</h2>
+      <div class="toast" style="animation-delay: .4s"><span style="width: 22px; height: 22px; border-radius: 50%; background: #FBBF24; color: #0B0E13; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; flex: 0 0 auto">!</span><div style="display: flex; flex-direction: column; gap: 4px"><span style="font-weight: 600">Проект изменился</span><span style="font-size: 13px; color: #A3AEBD">Ваша правка относилась к версии 14, сейчас 15. Состояние перезагружено.</span></div></div>
+      <div class="toast" style="animation-delay: .55s"><span style="width: 22px; height: 22px; border-radius: 50%; background: #F87171; color: #0B0E13; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; flex: 0 0 auto">✕</span><div style="display: flex; flex-direction: column; gap: 4px"><span style="font-weight: 600">Синтаксическая ошибка в коде</span><span style="font-size: 13px; color: #A3AEBD">OrderService.java:33 — схема осталась прежней, пока код не исправлен.</span></div></div>
+      <div class="toast" style="animation-delay: .7s"><span style="width: 22px; height: 22px; border-radius: 50%; background: #4ADE80; color: #0B0E13; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; flex: 0 0 auto">✓</span><div style="display: flex; flex-direction: column; gap: 4px"><span style="font-weight: 600">Исправление подтверждено</span><span style="font-size: 13px; color: #A3AEBD">8 из 8 тестов, версия 15.</span></div></div>
+    </section>
+    <section class="sec rise" style="flex: 1 1 360px; animation-delay: .26s">
+      <h2 class="h2">Загрузка</h2>
+      <div style="display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 10px; background: #0E1218; border: 1px solid #1F2630">
+        <div class="sk" style="width: 60%"></div><div class="sk" style="width: 85%"></div><div class="sk" style="width: 40%"></div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; font-size: 13px; color: #C9D2DE"><span style="width: 18px; height: 18px; border-radius: 50%; border: 2px solid #2A323E; border-top-color: {{accent}}; animation: jb-spin .8s linear infinite"></span>Анализ… обычно меньше секунды</div>
+      <div style="display: flex; align-items: center; gap: 10px; font-size: 13px; color: #C9D2DE"><span style="width: 18px; height: 18px; border-radius: 50%; border: 2px solid #2A323E; border-top-color: #4ADE80; animation: jb-spin .8s linear infinite"></span>Тесты: 5 из 8 · один контейнер</div>
+    </section>
+  </div>
+
+  <section class="sec rise" style="animation-delay: .3s">
+    <h2 class="h2">Анимации</h2>
+    <div class="tbl" style="border-top: 0; color: #9AA4B2; font-size: 12px">Название<span>Длительность</span><span>Где</span><span>Как</span></div>
+    <div class="tbl"><span style="font-family: 'JetBrains Mono', monospace">rise</span><span>500 мс</span><span>панели, карточки, ноды</span><span>сдвиг 10 px + прозрачность, каскад по 60 мс</span></div>
+    <div class="tbl"><span style="font-family: 'JetBrains Mono', monospace">flow</span><span>900 мс ∞</span><span>стрелки схемы</span><span>пунктир едет вниз по направлению выполнения</span></div>
+    <div class="tbl"><span style="font-family: 'JetBrains Mono', monospace">pulse</span><span>1,8 с ∞</span><span>нода с выбранной проблемой</span><span>красное кольцо расходится от рамки</span></div>
+    <div class="tbl"><span style="font-family: 'JetBrains Mono', monospace">pop</span><span>450 мс</span><span>галочки шагов, итог тестов</span><span>масштаб 0,4 → 1,15 → 1</span></div>
+    <div class="tbl"><span style="font-family: 'JetBrains Mono', monospace">fill</span><span>900 мс</span><span>прогресс тестов и Quality Gate</span><span>ширина 0 → значение</span></div>
+    <div class="tbl"><span style="font-family: 'JetBrains Mono', monospace">shake</span><span>500 мс</span><span>фикс не подтверждён</span><span>один раз, ±5 px</span></div>
+    <div class="tbl"><span style="font-family: 'JetBrains Mono', monospace">hover</span><span>150–180 мс</span><span>кнопки, ноды, строки</span><span>подъём ноды на 2 px, фон кнопок светлее</span></div>
+    <span class="cap">При системной настройке «уменьшить движение» все анимации отключаются.</span>
+  </section>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#5B9BFF","options":["#5B9BFF","#8B5CF6","#22D3EE","#F59E0B"]},"$preview":{"width":1440,"height":1900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#5B9BFF' };
+  }
+}
+</script>
+</body>
+</html>

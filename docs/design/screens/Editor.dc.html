@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Редактор метода</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0E13}
+a{color:#7AA7FF}a:hover{color:#A9C6FF}
+@keyframes jb-rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes jb-fade{from{opacity:0}to{opacity:1}}
+@keyframes jb-flow{to{background-position:0 20px}}
+@keyframes jb-pulse{0%{box-shadow:0 0 0 0 rgba(248,113,113,.5)}70%{box-shadow:0 0 0 14px rgba(248,113,113,0)}100%{box-shadow:0 0 0 0 rgba(248,113,113,0)}}
+@keyframes jb-pop{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.15);opacity:1}100%{transform:scale(1)}}
+@keyframes jb-fill{from{width:0}}
+.rise{animation:jb-rise .5s cubic-bezier(.2,.7,.2,1) both}
+.d1{animation-delay:.06s}.d2{animation-delay:.12s}.d3{animation-delay:.18s}.d4{animation-delay:.24s}.d5{animation-delay:.3s}.d6{animation-delay:.36s}.d7{animation-delay:.42s}.d8{animation-delay:.48s}
+.btn{font:500 13px Inter,sans-serif;color:#D7DEE8;background:#161B23;border:1px solid #2A323E;border-radius:8px;padding:0 14px;height:34px;display:inline-flex;align-items:center;gap:8px;cursor:pointer;transition:background .15s,border-color .15s,transform .1s,filter .15s}
+.btn:hover{background:#1D2430;border-color:#3A4556;color:#FFFFFF}
+.btn:active{transform:translateY(1px)}
+.btn-p{background:var(--accent);border-color:var(--accent);color:#0B0E13;font-weight:600}
+.btn-p:hover{background:var(--accent);border-color:var(--accent);color:#0B0E13;filter:brightness(1.12)}
+.btn-ok{border-color:#2F6B45;color:#7EE2A0}
+.panel{background:#11151B;border:1px solid #1F2630;border-radius:10px;display:flex;flex-direction:column;min-width:0}
+.ph{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;border-bottom:1px solid #1F2630;font:600 12px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#A3AEBD}
+.node{border-radius:10px;background:#141A22;border:1px solid #2B3442;box-shadow:0 6px 18px rgba(0,0,0,.35);min-width:260px;transition:transform .18s,box-shadow .18s,border-color .18s;cursor:pointer}
+.node:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(0,0,0,.5);border-color:#4A5568}
+.nh{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:9px 9px 0 0;font:600 12px Inter,sans-serif;color:#0B0E13}
+.nb{padding:8px 12px 10px;font:500 12.5px 'JetBrains Mono',monospace;color:#E6EAF0;white-space:nowrap}
+.wire{width:2px;height:26px;margin:0 auto;position:relative;background:repeating-linear-gradient(to bottom,#6B7686 0 6px,transparent 6px 10px);animation:jb-flow .9s linear infinite}
+.wire:after{content:"";position:absolute;left:-5px;bottom:-6px;border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid #6B7686}
+.plus{position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;background:var(--accent);color:#0B0E13;font:700 15px/22px Inter,sans-serif;text-align:center;opacity:0;transform:scale(.6);transition:opacity .15s,transform .15s;border:0;padding:0;cursor:pointer;z-index:2}
+.wire:hover .plus{opacity:1;transform:scale(1)}
+.cont{border:1.5px solid;border-radius:12px;padding:0 18px 18px;display:flex;flex-direction:column;align-items:center}
+.hot{animation:jb-pulse 1.8s ease-out infinite}
+.badge{font:600 11px 'JetBrains Mono',monospace;padding:2px 7px;border-radius:999px;white-space:nowrap}
+.tree{font:400 13px Inter,sans-serif;color:#C9D2DE;padding:5px 10px;border-radius:6px;display:flex;align-items:center;gap:8px;cursor:pointer;transition:background .12s}
+.tree:hover{background:#171D26}
+.pal{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:#161B23;border:1px solid #232B36;font:500 13px Inter,sans-serif;color:#D7DEE8;cursor:grab;transition:border-color .15s,transform .15s,background .15s}
+.pal:hover{border-color:#3A4556;background:#1A202A;transform:translateX(3px)}
+.sw{width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font:700 11px 'JetBrains Mono',monospace;color:#0B0E13}
+.tab{font:500 13px Inter,sans-serif;color:#A3AEBD;padding:7px 12px;border-radius:7px;background:none;border:0;cursor:pointer;transition:background .15s,color .15s}
+.tab:hover{color:#FFFFFF;background:#161B23}
+.tab.on{background:#1B2532;color:#FFFFFF}
+.issue{padding:12px 14px;border-bottom:1px solid #1F2630;display:flex;flex-direction:column;gap:6px;cursor:pointer;transition:background .15s;text-align:left;background:none;border-left:0;border-right:0;border-top:0;color:inherit;font:inherit;width:100%}
+.issue:hover{background:#151A21}
+.issue.on{background:#1A1418}
+.code{font:400 12.5px/20px 'JetBrains Mono',monospace;color:#D4DAE3;white-space:pre}
+.ln{display:inline-block;width:28px;color:#5E6878;text-align:right;margin-right:14px}
+.k{color:#C792EA}.t{color:#7FDBCA}.f{color:#82AAFF}.c{color:#8B95A4;font-style:italic}.s{color:#ECC48D}
+.row{display:grid;grid-template-columns:minmax(0,1fr) 64px 70px;gap:8px;padding:7px 14px;font:400 12.5px Inter,sans-serif;color:#C9D2DE;border-bottom:1px solid #1A2029;align-items:center}
+.mrow{display:grid;grid-template-columns:minmax(0,1.4fr) 50px 60px minmax(0,1fr);gap:8px;padding:8px 14px;font:400 12.5px Inter,sans-serif;color:#C9D2DE;border-bottom:1px solid #1A2029;align-items:center}
+.out{font:400 12.5px/21px 'JetBrains Mono',monospace;color:#C9D2DE;animation:jb-fade .3s both}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="--accent: {{accent}}; min-height: 960px; background: #0B0E13; font-family: Inter, sans-serif; color: #E6EAF0; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid #1A2029; background: #0E1218">
+  <div style="display: flex; align-items: center; gap: 10px; margin-right: 12px">
+    <div style="width: 30px; height: 30px; border-radius: 8px; background: {{accent}}; display: flex; align-items: center; justify-content: center">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0B0E13" stroke-width="2.2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect><path d="M10 6.5h4a2.5 2.5 0 0 1 2.5 2.5v5"></path></svg>
+    </div>
+    <div style="display: flex; flex-direction: column">
+      <span style="font-weight: 700; font-size: 15px">Java Blueprints</span>
+      <span style="font-size: 12px; color: #9AA4B2">demo-shop · версия 14</span>
+    </div>
+  </div>
+  <a class="btn" href="Upload.dc.html" style="text-decoration: none">Загрузить проект</a>
+  <a class="btn" href="Export.dc.html" style="text-decoration: none">Экспорт ▾</a>
+  <div style="flex: 1 1 20px"></div>
+  <span style="font-size: 12px; color: #9AA4B2">Точка входа: <span style="font-family: 'JetBrains Mono', monospace; color: #D7DEE8">Main.main</span></span>
+  <button class="btn btn-ok" type="button" onClick="{{showConsole}}">▶ Запуск</button>
+  <a class="btn btn-p" href="Tests.dc.html" style="text-decoration: none">Проверить поведение</a>
+</header>
+
+<div style="display: flex; flex-wrap: wrap; gap: 10px; padding: 10px; flex: 1 1 auto">
+
+  <aside style="flex: 1 1 230px; max-width: 280px; display: flex; flex-direction: column; gap: 10px">
+    <section class="panel rise">
+      <div class="ph">Проект <span style="color: #8B95A4; font-weight: 500; text-transform: none; letter-spacing: 0">7 файлов</span></div>
+      <div style="padding: 8px 6px; display: flex; flex-direction: column; gap: 1px">
+        <div class="tree">▾ <span style="color: #9AA4B2">com.shop</span></div>
+        <div class="tree" style="padding-left: 24px">▸ Main</div>
+        <a class="tree" href="Structure.dc.html" style="padding-left: 24px; text-decoration: none">▾ OrderService</a>
+        <div class="tree" style="padding-left: 42px; color: #9AA4B2">f orders</div>
+        <div class="tree" style="padding-left: 42px; background: #1B2532; color: #FFFFFF">m merge <span style="margin-left: auto; color: #FF8A80; font: 600 11px 'JetBrains Mono', monospace">O(n·m)</span></div>
+        <div class="tree" style="padding-left: 42px">m total <span style="margin-left: auto; color: #8B95A4; font: 500 11px 'JetBrains Mono', monospace">O(n)</span></div>
+        <div class="tree" style="padding-left: 24px">▸ ReportPrinter <span style="margin-left: auto; width: 7px; height: 7px; border-radius: 50%; background: #FBBF24"></span></div>
+        <div class="tree">▾ <span style="color: #9AA4B2">com.shop.model</span></div>
+        <div class="tree" style="padding-left: 24px">▸ Order <span style="color: #8B95A4; font-size: 11px">record</span></div>
+        <div class="tree" style="padding-left: 24px">▸ Customer <span style="color: #8B95A4; font-size: 11px">record</span></div>
+        <div class="tree">▸ <span style="color: #9AA4B2">tests</span><span style="margin-left: auto; color: #8B95A4; font-size: 11px">5 IO · 3 JUnit</span></div>
+      </div>
+    </section>
+    <section class="panel rise d2">
+      <div class="ph">Блоки <span style="color: #8B95A4; font-weight: 500; text-transform: none; letter-spacing: 0">тащите на стрелку</span></div>
+      <div style="padding: 10px; display: flex; flex-direction: column; gap: 6px">
+        <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #9AA4B2">Поиск блока
+          <input type="text" placeholder="переменная, цикл…" style="height: 32px; border-radius: 7px; border: 1px solid #2A323E; background: #0E1218; color: #E6EAF0; padding: 0 10px; font: 13px Inter, sans-serif">
+        </label>
+        <div class="pal"><span class="sw" style="background: #60A5FA">x</span>Переменная</div>
+        <div class="pal"><span class="sw" style="background: #FBBF24">?</span>Условие</div>
+        <div class="pal"><span class="sw" style="background: #A78BFA">↻</span>Цикл</div>
+        <div class="pal"><span class="sw" style="background: #22D3EE">f</span>Вызов метода</div>
+        <div class="pal"><span class="sw" style="background: #4ADE80">↵</span>Возврат</div>
+        <div class="pal"><span class="sw" style="background: #FDE68A">//</span>Комментарий</div>
+        <div class="pal"><span class="sw" style="background: #F87171">!</span>try / catch · throw</div>
+        <div class="pal"><span class="sw" style="background: #FB923C">⇉</span>switch</div>
+      </div>
+    </section>
+  </aside>
+
+  <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+    <section class="panel rise d1" style="flex: 1 1 auto; min-height: 540px">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 6px 8px; border-bottom: 1px solid #1F2630">
+        <button class="tab on" type="button">OrderService.merge</button>
+        <button class="tab" type="button">ReportPrinter.print</button>
+        <div style="flex: 1 1 10px"></div>
+        <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #A3AEBD; cursor: pointer"><input type="checkbox" checked="{{showComments}}" onChange="{{toggleComments}}">Комментарии</label>
+        <button class="btn" type="button" style="height: 28px; padding: 0 10px" aria-label="Уменьшить">−</button>
+        <span style="font: 500 12px 'JetBrains Mono', monospace; color: #A3AEBD">100%</span>
+        <button class="btn" type="button" style="height: 28px; padding: 0 10px" aria-label="Увеличить">+</button>
+      </div>
+      <div style="flex: 1 1 auto; overflow: auto; position: relative; background-color: #0D1117; background-image: radial-gradient(#252D39 1px, transparent 1px); background-size: 20px 20px; border-radius: 0 0 10px 10px">
+        <div style="padding: 28px 24px 40px; display: flex; flex-direction: column; align-items: center; min-width: 620px">
+
+          <div class="node rise d2" style="border-color: #6D4BD8">
+            <div class="nh" style="background: #8B5CF6; color: #FFFFFF">МЕТОД <span style="margin-left: auto; background: rgba(0,0,0,.25)" class="badge">O(n·m)</span></div>
+            <div class="nb">List&lt;Report&gt; merge(List&lt;Order&gt; orders,<br>                   List&lt;Customer&gt; customers)</div>
+          </div>
+          <div class="wire"><button class="plus" type="button" aria-label="Вставить блок">+</button></div>
+          <div class="node rise d3">
+            <div class="nh" style="background: #60A5FA">Переменная</div>
+            <div class="nb">List&lt;Report&gt; result = new ArrayList&lt;&gt;()</div>
+          </div>
+          <div class="wire"><button class="plus" type="button" aria-label="Вставить блок">+</button></div>
+
+          <div class="cont rise d4" style="border-color: #7C5CE0; background: rgba(124,92,224,.06)">
+            <div class="node" style="margin-top: -1px; border-color: #7C5CE0">
+              <div class="nh" style="background: #A78BFA">Цикл for-each <span class="badge" style="margin-left: auto; background: #0B0E13; color: #C4B5FD">× n</span></div>
+              <div class="nb">for (Order o : orders)</div>
+            </div>
+            <div class="wire"><button class="plus" type="button" aria-label="Вставить блок">+</button></div>
+            <div class="cont {{hotCls}}" style="border-color: #F87171; background: rgba(248,113,113,.07)">
+              <div class="node" style="border-color: #F87171">
+                <div class="nh" style="background: #A78BFA">Цикл for-each <span class="badge" style="margin-left: auto; background: #0B0E13; color: #C4B5FD">× m</span><span class="badge" style="background: #F87171; color: #0B0E13">!</span></div>
+                <div class="nb">for (Customer c : customers)</div>
+              </div>
+              <div class="wire"><button class="plus" type="button" aria-label="Вставить блок">+</button></div>
+              <div class="cont" style="border-color: #B8892A; background: rgba(251,191,36,.05)">
+                <div class="node" style="border-color: #B8892A">
+                  <div class="nh" style="background: #FBBF24">Условие</div>
+                  <div class="nb">c.id() == o.customerId()</div>
+                </div>
+                <div style="margin-top: 6px; font: 600 11px Inter, sans-serif; color: #7EE2A0">да</div>
+                <div class="wire" style="height: 16px"></div>
+                <div class="node">
+                  <div class="nh" style="background: #22D3EE">Вызов метода</div>
+                  <div class="nb">result.add(new Report(o, c))</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="wire"><button class="plus" type="button" aria-label="Вставить блок">+</button></div>
+          <sc-if value="{{showComments}}" hint-placeholder-val="{{ true }}">
+            <div class="rise" style="background: #FDE68A; color: #3B2F07; border-radius: 6px; padding: 8px 12px; font: 500 12.5px 'JetBrains Mono', monospace; transform: rotate(-1deg); box-shadow: 0 4px 12px rgba(0,0,0,.4)">// порядок отчётов = порядок заказов</div>
+            <div class="wire"><button class="plus" type="button" aria-label="Вставить блок">+</button></div>
+          </sc-if>
+          <div class="node rise d5" style="border-color: #2F8F57">
+            <div class="nh" style="background: #4ADE80">Возврат</div>
+            <div class="nb">return result</div>
+          </div>
+        </div>
+        <div style="position: absolute; left: 14px; bottom: 14px; font-size: 12px; color: #8B95A4; background: rgba(17,21,27,.9); border: 1px solid #2A323E; border-radius: 8px; padding: 6px 10px">Наведите на стрелку — появится «+»</div>
+        <div style="position: absolute; right: 14px; bottom: 14px; width: 150px; height: 96px; border-radius: 8px; background: rgba(17,21,27,.9); border: 1px solid #2A323E; padding: 8px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 4px" aria-hidden="true">
+          <div style="width: 40px; height: 6px; background: #8B5CF6; border-radius: 2px"></div>
+          <div style="width: 40px; height: 6px; background: #60A5FA; border-radius: 2px"></div>
+          <div style="width: 70px; height: 40px; border: 1px solid #F87171; border-radius: 3px"></div>
+          <div style="width: 40px; height: 6px; background: #4ADE80; border-radius: 2px"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel rise d3" style="min-height: 280px">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 6px 8px; border-bottom: 1px solid #1F2630">
+        <button class="{{bCode}}" type="button" onClick="{{toCode}}">Код Java</button>
+        <button class="{{bCons}}" type="button" onClick="{{toCons}}">Консоль</button>
+        <button class="{{bTest}}" type="button" onClick="{{toTest}}">Результат тестов</button>
+        <div style="flex: 1 1 10px"></div>
+        <span style="font-size: 12px; color: #7EE2A0; padding-right: 8px">● синхронизировано</span>
+      </div>
+      <sc-if value="{{isCode}}" hint-placeholder-val="{{ true }}">
+        <div style="padding: 10px 6px; overflow-x: auto; animation: jb-fade .25s both">
+<div class="code"><span class="ln">29</span><span class="k">static</span> <span class="t">List</span>&lt;<span class="t">Report</span>&gt; <span class="f">merge</span>(<span class="t">List</span>&lt;<span class="t">Order</span>&gt; orders, <span class="t">List</span>&lt;<span class="t">Customer</span>&gt; customers) {
+<span class="ln">30</span>    <span class="t">List</span>&lt;<span class="t">Report</span>&gt; result = <span class="k">new</span> <span class="t">ArrayList</span>&lt;&gt;();
+<span class="ln">31</span>    <span class="k">for</span> (<span class="t">Order</span> o : orders) {
+<span style="background: rgba(248,113,113,.12); display: inline-block; width: 100%"><span class="ln" style="color: #FF8A80">32</span>        <span class="k">for</span> (<span class="t">Customer</span> c : customers) {</span>
+<span class="ln">33</span>            <span class="k">if</span> (c.<span class="f">id</span>() == o.<span class="f">customerId</span>()) {
+<span class="ln">34</span>                result.<span class="f">add</span>(<span class="k">new</span> <span class="t">Report</span>(o, c));
+<span class="ln">35</span>            }
+<span class="ln">36</span>        }
+<span class="ln">37</span>    }
+<span class="ln">38</span>    <span class="c">// порядок отчётов = порядок заказов</span>
+<span class="ln">39</span>    <span class="k">return</span> result;
+<span class="ln">40</span>}</div>
+        </div>
+      </sc-if>
+      <sc-if value="{{isCons}}" hint-placeholder-val="{{ false }}">
+        <div style="padding: 12px 16px; display: flex; flex-direction: column">
+          <span class="out" style="color: #8B95A4">[12:04:10] компиляция 7 файлов…</span>
+          <span class="out" style="animation-delay: .25s; color: #7EE2A0">[12:04:11] компиляция успешна · 0,8 с</span>
+          <span class="out" style="animation-delay: .5s; color: #8B95A4">[12:04:11] java com.shop.Main · контейнер jb-run-7f3a · сеть выключена</span>
+          <span class="out" style="animation-delay: .75s">Заказов: 3, клиентов: 2</span>
+          <span class="out" style="animation-delay: 1s">#1 Анна — 1 200 ₽</span>
+          <span class="out" style="animation-delay: 1.25s">#2 Борис — 640 ₽</span>
+          <span class="out" style="animation-delay: 1.5s">#3 Анна — 90 ₽</span>
+          <span class="out" style="animation-delay: 1.75s; color: #7EE2A0">[12:04:12] exit 0 · 0,21 с</span>
+        </div>
+      </sc-if>
+      <sc-if value="{{isTest}}" hint-placeholder-val="{{ false }}">
+        <div style="animation: jb-fade .25s both">
+          <div style="padding: 12px 14px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #1F2630">
+            <div style="width: 30px; height: 30px; border-radius: 50%; background: #173F28; display: flex; align-items: center; justify-content: center; color: #7EE2A0; font-weight: 700; animation: jb-pop .45s both">✓</div>
+            <div style="display: flex; flex-direction: column; flex: 1 1 auto"><span style="font-weight: 600; color: #7EE2A0">Поведение совпадает</span><span style="font-size: 12px; color: #9AA4B2">8 из 8 · IO и JUnit · один контейнер · 2,4 с</span></div>
+            <a class="btn" href="Tests.dc.html" style="text-decoration: none; height: 30px">Все тесты →</a>
+          </div>
+          <div style="height: 4px; background: #1B2230"><div style="height: 100%; width: 100%; background: #4ADE80; animation: jb-fill 1s cubic-bezier(.3,.7,.2,1) both"></div></div>
+          <div class="row"><span>✓ empty-orders</span><span style="color: #9AA4B2">IO</span><span>41 мс</span></div>
+          <div class="row"><span>✓ large-10k <span style="color: #8B95A4">· 1 шумная строка</span></span><span style="color: #9AA4B2">IO</span><span>0,9 с</span></div>
+          <div class="row"><span>✓ MergeTest.keepsOrder</span><span style="color: #9AA4B2">JUnit</span><span>12 мс</span></div>
+        </div>
+      </sc-if>
+    </section>
+  </main>
+
+  <aside class="panel rise d2" style="flex: 1 1 300px; max-width: 360px">
+    <div class="ph">Анализ <span style="font: 500 11.5px Inter, sans-serif; text-transform: none; letter-spacing: 0; color: #8B95A4">обновлён после v14</span></div>
+    <div style="display: flex; flex-wrap: wrap; gap: 4px; padding: 8px; border-bottom: 1px solid #1F2630">
+      <button class="{{tP}}" type="button" onClick="{{toP}}">Проблемы 3</button>
+      <button class="{{tW}}" type="button" onClick="{{toW}}">Предупреждения 2</button>
+      <button class="{{tM}}" type="button" onClick="{{toM}}">Метрики</button>
+    </div>
+
+    <sc-if value="{{isP}}" hint-placeholder-val="{{ true }}">
+      <button class="{{i1}} rise d3" type="button" onClick="{{pick1}}">
+        <span style="display: flex; align-items: center; gap: 8px"><span class="badge" style="background: #F87171; color: #0B0E13">высокая</span><span style="font-weight: 600">Вложенный цикл</span><span style="margin-left: auto; font-size: 12px; color: #9AA4B2">:32</span></span>
+        <span style="font-size: 13px; color: #C9D2DE; line-height: 1.45">Для каждого заказа перебираются все клиенты. Индекс по id уберёт внутренний цикл.</span>
+        <span style="font: 500 12px 'JetBrains Mono', monospace; color: #FF8A80">O(n·m) <span style="color: #9AA4B2">→</span> <span style="color: #7EE2A0">O(n + m)</span></span>
+      </button>
+      <div style="padding: 0 14px 12px; border-bottom: 1px solid #1F2630; display: flex; gap: 8px">
+        <a class="btn btn-p" href="QualityGate.dc.html" style="height: 30px; text-decoration: none">Применить фикс</a>
+        <span style="align-self: center; font-size: 12px; color: #8B95A4">индекс по id · LinkedHashMap</span>
+      </div>
+      <button class="{{i2}} rise d4" type="button" onClick="{{pick2}}">
+        <span style="display: flex; align-items: center; gap: 8px"><span class="badge" style="background: #FBBF24; color: #0B0E13">средняя</span><span style="font-weight: 600">contains в цикле</span><span style="margin-left: auto; font-size: 12px; color: #9AA4B2">ReportPrinter:18</span></span>
+        <span style="font-size: 13px; color: #C9D2DE; line-height: 1.45">ArrayList.contains — O(n). LinkedHashSet сохраняет порядок.</span>
+      </button>
+      <button class="{{i3}} rise d5" type="button" onClick="{{pick3}}">
+        <span style="display: flex; align-items: center; gap: 8px"><span class="badge" style="background: #FBBF24; color: #0B0E13">средняя</span><span style="font-weight: 600">Строки через +=</span><span style="margin-left: auto; font-size: 12px; color: #9AA4B2">ReportPrinter:42</span></span>
+        <span style="font-size: 13px; color: #C9D2DE; line-height: 1.45">Конкатенация в цикле копирует строку каждый раз. Нужен StringBuilder.</span>
+      </button>
+      <div class="rise d6" style="margin: 12px; padding: 14px; border-radius: 10px; background: #0E1218; border: 1px solid #1F2630; display: flex; flex-direction: column; gap: 8px">
+        <span style="font: 600 12px Inter, sans-serif; letter-spacing: .04em; text-transform: uppercase; color: #A3AEBD">Сложность merge</span>
+        <div style="font: 600 18px 'JetBrains Mono', monospace"><span style="color: #FF8A80">≈10⁸</span> <span style="color: #6B7686">→</span> <span style="color: #7EE2A0">≈2·10⁴</span> <span style="font-size: 13px; color: #9AA4B2">операций</span></div>
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #9AA4B2">при n = m =
+          <input type="text" value="10 000" style="width: 80px; height: 28px; border-radius: 6px; border: 1px solid #2A323E; background: #11151B; color: #E6EAF0; padding: 0 8px; font: 12.5px 'JetBrains Mono', monospace">
+        </label>
+        <span style="font-size: 12px; color: #8B95A4">асимптотическая оценка, не замер</span>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isW}}" hint-placeholder-val="{{ false }}">
+      <div class="issue rise" style="cursor: default">
+        <span style="display: flex; align-items: center; gap: 8px"><span class="badge" style="background: #1B2532; color: #A9C6FF">возможно</span><span style="font-weight: 600">O(n²) в readInput</span><span style="margin-left: auto; font-size: 12px; color: #9AA4B2">Main:14</span></span>
+        <span style="font-size: 13px; color: #C9D2DE; line-height: 1.45">Возможно, цикл while повторяется n раз — границу не удалось определить точно.</span>
+        <span style="font-size: 12px; color: #8B95A4">Низкая уверенность · без автоисправления</span>
+      </div>
+      <div class="issue rise d1" style="cursor: default">
+        <span style="display: flex; align-items: center; gap: 8px"><span class="badge" style="background: #1B2532; color: #A9C6FF">возможно</span><span style="font-weight: 600">Рекурсия в depth</span><span style="margin-left: auto; font-size: 12px; color: #9AA4B2">Category:22</span></span>
+        <span style="font-size: 13px; color: #C9D2DE; line-height: 1.45">Возможно, глубина рекурсии растёт с размером дерева. Оценка неточная.</span>
+        <span style="font-size: 12px; color: #8B95A4">Низкая уверенность · без автоисправления</span>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isM}}" hint-placeholder-val="{{ false }}">
+      <div class="rise" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 12px">
+        <div style="background: #0E1218; border: 1px solid #1F2630; border-radius: 8px; padding: 10px; display: flex; flex-direction: column"><span style="font: 700 20px 'JetBrains Mono', monospace">412</span><span style="font-size: 12px; color: #9AA4B2">строк</span></div>
+        <div style="background: #0E1218; border: 1px solid #1F2630; border-radius: 8px; padding: 10px; display: flex; flex-direction: column"><span style="font: 700 20px 'JetBrains Mono', monospace">23</span><span style="font-size: 12px; color: #9AA4B2">метода</span></div>
+        <div style="background: #0E1218; border: 1px solid #1F2630; border-radius: 8px; padding: 10px; display: flex; flex-direction: column"><span style="font: 700 20px 'JetBrains Mono', monospace">7</span><span style="font-size: 12px; color: #9AA4B2">файлов</span></div>
+      </div>
+      <div class="mrow" style="color: #9AA4B2; font-size: 11.5px">Метод<span>Строк</span><span>Влож.</span><span>Время</span></div>
+      <div class="mrow rise d1"><span>OrderService.merge</span><span>12</span><span>3</span><span style="color: #FF8A80; font-family: 'JetBrains Mono', monospace">O(n·m)</span></div>
+      <div class="mrow rise d2"><span>ReportPrinter.print</span><span style="color: #FBBF24">41</span><span style="color: #FBBF24">4</span><span style="color: #FBBF24; font-family: 'JetBrains Mono', monospace">O(n²)</span></div>
+      <div class="mrow rise d3"><span>OrderService.total</span><span>6</span><span>1</span><span style="font-family: 'JetBrains Mono', monospace">O(n)</span></div>
+      <div class="mrow rise d4"><span>Main.readInput</span><span>14</span><span>2</span><span style="color: #A9C6FF; font-family: 'JetBrains Mono', monospace">O(n)?</span></div>
+    </sc-if>
+  </aside>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#5B9BFF","options":["#5B9BFF","#8B5CF6","#22D3EE","#F59E0B"]},"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { tab: 'p', bottom: 'code', comments: true, sel: 1 };
+  }
+  renderVals() {
+    const s = this.state;
+    const t = (on) => on ? 'tab on' : 'tab';
+    const i = (n) => s.sel === n ? 'issue on' : 'issue';
+    return {
+      accent: this.props.accent ?? '#5B9BFF',
+      showComments: s.comments,
+      toggleComments: () => this.setState({ comments: !s.comments }),
+      isP: s.tab === 'p', isW: s.tab === 'w', isM: s.tab === 'm',
+      tP: t(s.tab === 'p'), tW: t(s.tab === 'w'), tM: t(s.tab === 'm'),
+      toP: () => this.setState({ tab: 'p' }),
+      toW: () => this.setState({ tab: 'w' }),
+      toM: () => this.setState({ tab: 'm' }),
+      i1: i(1), i2: i(2), i3: i(3),
+      pick1: () => this.setState({ sel: 1 }),
+      pick2: () => this.setState({ sel: 2 }),
+      pick3: () => this.setState({ sel: 3 }),
+      hotCls: s.sel === 1 ? 'hot' : '',
+      isCode: s.bottom === 'code', isCons: s.bottom === 'cons', isTest: s.bottom === 'test',
+      bCode: t(s.bottom === 'code'), bCons: t(s.bottom === 'cons'), bTest: t(s.bottom === 'test'),
+      toCode: () => this.setState({ bottom: 'code' }),
+      toCons: () => this.setState({ bottom: 'cons' }),
+      toTest: () => this.setState({ bottom: 'test' }),
+      showConsole: () => this.setState({ bottom: 'cons' })
+    };
+  }
+}
+</script>
+</body>
+</html>

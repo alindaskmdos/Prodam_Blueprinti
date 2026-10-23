@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Cyanotype — редактор метода</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0E345C}
+a{color:#FFD08A}a:hover{color:#FFE3B8}
+.c-btn{font:500 13px 'IBM Plex Mono',monospace;color:#F2F6FB;background:transparent;border:1.5px solid #8FB3DA;border-radius:2px;padding:0 14px;height:34px;display:inline-flex;align-items:center;gap:8px;cursor:pointer;text-transform:uppercase;letter-spacing:.06em}
+.c-h{font:500 12px Oswald,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:#B9CCE3}
+.c-node{border:1.5px solid #F2F6FB;background:rgba(14,52,92,.85);min-width:250px}
+.c-nh{display:flex;align-items:center;gap:8px;padding:5px 10px;border-bottom:1px solid rgba(242,246,251,.45);font:500 11.5px Oswald,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#F2F6FB}
+.c-nb{padding:8px 12px;font:500 13px 'IBM Plex Mono',monospace;color:#F2F6FB;white-space:nowrap}
+.c-wire{width:0;height:24px;border-left:1.5px solid #F2F6FB;margin:0 auto;position:relative}
+.c-wire:after{content:"";position:absolute;left:-6px;bottom:-1px;border-left:5px solid transparent;border-right:5px solid transparent;border-top:8px solid #F2F6FB}
+.c-cont{border:1.5px dashed rgba(242,246,251,.7);padding:0 20px 20px;display:flex;flex-direction:column;align-items:center;position:relative}
+.c-tag{position:absolute;top:-10px;left:12px;background:#0E345C;padding:0 6px;font:500 11px Oswald,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#B9CCE3}
+.c-tree{font:400 13px 'IBM Plex Mono',monospace;color:#DCE7F3;padding:4px 8px;display:flex;align-items:center;gap:8px}
+.c-cell{padding:8px 10px;border-right:1px solid rgba(242,246,251,.35);border-bottom:1px solid rgba(242,246,251,.35);font:400 12.5px 'IBM Plex Mono',monospace;color:#F2F6FB}
+.c-mono{font-family:'IBM Plex Mono',monospace}
+</style>
+</helmet>
+<div style="min-height: 960px; background-color: #0E345C; background-image: linear-gradient(rgba(255,255,255,.09) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.09) 1px, transparent 1px), linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px); background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px; font-family: 'IBM Plex Mono', monospace; color: #F2F6FB; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: stretch; border-bottom: 1.5px solid #F2F6FB; background: rgba(9,38,69,.92)">
+  <div style="padding: 12px 20px; border-right: 1.5px solid #F2F6FB; display: flex; flex-direction: column; justify-content: center">
+    <span style="font: 600 22px Oswald, sans-serif; letter-spacing: .12em; text-transform: uppercase; line-height: 1">Java Blueprints</span>
+    <span class="c-h" style="font-size: 10.5px; margin-top: 4px">визуальная среда · demo-shop</span>
+  </div>
+  <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 16px; flex: 1 1 400px">
+    <button class="c-btn" type="button">Загрузить</button>
+    <button class="c-btn" type="button">Экспорт</button>
+    <div style="flex: 1 1 10px"></div>
+    <button class="c-btn" type="button">▶ Запуск</button>
+    <button class="c-btn" type="button" style="background: {{accent}}; border-color: {{accent}}; color: #0B2440; font-weight: 600">Проверить поведение</button>
+  </div>
+</header>
+
+<div style="display: flex; flex-wrap: wrap; flex: 1 1 auto">
+
+  <aside style="flex: 1 1 220px; max-width: 250px; border-right: 1.5px solid #F2F6FB; background: rgba(9,38,69,.85); padding: 16px 12px; display: flex; flex-direction: column; gap: 3px">
+    <span class="c-h" style="padding: 0 8px 8px">Листы проекта</span>
+    <div class="c-tree" style="color: #B9CCE3">com.shop/</div>
+    <div class="c-tree" style="padding-left: 22px">01 Main</div>
+    <div class="c-tree" style="padding-left: 22px">02 OrderService</div>
+    <div class="c-tree" style="padding-left: 40px; outline: 1.5px solid {{accent}}; color: {{accent}}">02.1 merge()</div>
+    <div class="c-tree" style="padding-left: 40px">02.2 total()</div>
+    <div class="c-tree" style="padding-left: 22px">03 ReportPrinter</div>
+    <div class="c-tree" style="color: #B9CCE3">com.shop.model/</div>
+    <div class="c-tree" style="padding-left: 22px">04 Order</div>
+    <div class="c-tree" style="padding-left: 22px">05 Customer</div>
+    <div class="c-tree" style="color: #B9CCE3">tests/ <span style="margin-left: auto">5+3</span></div>
+    <span class="c-h" style="padding: 20px 8px 8px">Элементы</span>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px">
+      <div class="c-tree" style="border: 1px solid rgba(242,246,251,.5)">▭ перем.</div>
+      <div class="c-tree" style="border: 1px solid rgba(242,246,251,.5)">◇ условие</div>
+      <div class="c-tree" style="border: 1px solid rgba(242,246,251,.5)">↻ цикл</div>
+      <div class="c-tree" style="border: 1px solid rgba(242,246,251,.5)">ƒ вызов</div>
+      <div class="c-tree" style="border: 1px solid rgba(242,246,251,.5)">↵ возврат</div>
+      <div class="c-tree" style="border: 1px solid rgba(242,246,251,.5)">✎ примеч.</div>
+    </div>
+  </aside>
+
+  <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+    <div style="flex: 1 1 auto; min-height: 600px; overflow: auto; position: relative">
+      <div style="padding: 40px 24px 160px; display: flex; flex-direction: column; align-items: center; min-width: 640px">
+        <div class="c-node" style="border-width: 2.5px">
+          <div class="c-nh">Метод <span style="margin-left: auto">лист 02.1</span></div>
+          <div class="c-nb">List&lt;Report&gt; merge(orders, customers)</div>
+        </div>
+        <div class="c-wire"></div>
+        <div class="c-node"><div class="c-nh">Переменная</div><div class="c-nb">result = new ArrayList&lt;&gt;()</div></div>
+        <div class="c-wire"></div>
+        <div class="c-cont">
+          <span class="c-tag">цикл · n</span>
+          <div style="height: 18px"></div>
+          <div class="c-node"><div class="c-nh">For-each</div><div class="c-nb">Order o : orders</div></div>
+          <div class="c-wire"></div>
+          <div class="c-cont" style="border: 2px solid {{accent}}">
+            <span class="c-tag" style="color: {{accent}}">цикл · m · замечание 1</span>
+            <div style="height: 18px"></div>
+            <div class="c-node" style="border-color: {{accent}}"><div class="c-nh" style="color: {{accent}}">For-each</div><div class="c-nb">Customer c : customers</div></div>
+            <div class="c-wire"></div>
+            <div class="c-cont">
+              <span class="c-tag">если</span>
+              <div style="height: 18px"></div>
+              <div class="c-node" style="transform: none"><div class="c-nh">◇ Условие</div><div class="c-nb">c.id() == o.customerId()</div></div>
+              <div class="c-wire"></div>
+              <div class="c-node"><div class="c-nh">Вызов</div><div class="c-nb">result.add(new Report(o, c))</div></div>
+            </div>
+          </div>
+          <div style="position: absolute; right: -200px; top: 110px; width: 180px; display: flex; flex-direction: column; gap: 4px">
+            <div style="height: 0; border-top: 1.5px solid {{accent}}; width: 60px; margin-left: -60px"></div>
+            <span style="font: 500 12px Oswald, sans-serif; letter-spacing: .14em; text-transform: uppercase; color: {{accent}}">① O(n·m)</span>
+            <span style="font-size: 12px; color: #DCE7F3; line-height: 1.45">внутренний перебор клиентов на каждый заказ</span>
+          </div>
+        </div>
+        <div class="c-wire"></div>
+        <div class="c-node"><div class="c-nh">Возврат</div><div class="c-nb">return result</div></div>
+      </div>
+
+      <div style="position: absolute; right: 16px; bottom: 16px; display: grid; grid-template-columns: 110px 150px 110px; border: 2px solid #F2F6FB; border-right: 1px solid rgba(242,246,251,.35); border-bottom: 1px solid rgba(242,246,251,.35); background: rgba(9,38,69,.95)" aria-label="Штамп метода">
+        <div class="c-cell" style="font: 500 11px Oswald, sans-serif; letter-spacing: .14em; text-transform: uppercase; color: #B9CCE3">Метод</div>
+        <div class="c-cell" style="grid-column: span 2">OrderService.merge</div>
+        <div class="c-cell" style="font: 500 11px Oswald, sans-serif; letter-spacing: .14em; text-transform: uppercase; color: #B9CCE3">Время</div>
+        <div class="c-cell" style="color: {{accent}}">O(n·m)</div>
+        <div class="c-cell">→ O(n+m)</div>
+        <div class="c-cell" style="font: 500 11px Oswald, sans-serif; letter-spacing: .14em; text-transform: uppercase; color: #B9CCE3">n = 10⁴</div>
+        <div class="c-cell" style="grid-column: span 2">≈10⁸ → ≈2·10⁴ опер.</div>
+        <div class="c-cell" style="font: 500 11px Oswald, sans-serif; letter-spacing: .14em; text-transform: uppercase; color: #B9CCE3">Версия</div>
+        <div class="c-cell">14</div>
+        <div class="c-cell" style="color: #9FE3B4">тесты 8/8</div>
+      </div>
+    </div>
+
+    <section style="border-top: 1.5px solid #F2F6FB; background: rgba(9,38,69,.92); display: flex; flex-wrap: wrap">
+      <div style="padding: 14px 20px; border-right: 1.5px solid #F2F6FB; display: flex; flex-direction: column; gap: 4px; flex: 0 1 260px">
+        <span class="c-h">Проверка поведения</span>
+        <span style="font: 600 20px Oswald, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #9FE3B4">совпадает</span>
+        <span style="font-size: 12px; color: #B9CCE3">8 из 8 · один контейнер · 2,4 с</span>
+      </div>
+      <div style="flex: 1 1 360px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); font-size: 12.5px">
+        <div class="c-cell" style="border-bottom: 0">✓ empty-orders<br><span style="color: #B9CCE3">IO · 41 мс</span></div>
+        <div class="c-cell" style="border-bottom: 0">✓ duplicate-ids<br><span style="color: #B9CCE3">IO · 48 мс</span></div>
+        <div class="c-cell" style="border-bottom: 0">✓ large-10k<br><span style="color: #B9CCE3">IO · 1 шумная</span></div>
+        <div class="c-cell" style="border-bottom: 0">✓ keepsOrder<br><span style="color: #B9CCE3">JUnit · 12 мс</span></div>
+      </div>
+    </section>
+  </main>
+
+  <aside style="flex: 1 1 300px; max-width: 360px; border-left: 1.5px solid #F2F6FB; background: rgba(9,38,69,.88); display: flex; flex-direction: column">
+    <div style="padding: 16px 16px 10px; display: flex; flex-direction: column; gap: 10px">
+      <span class="c-h">Ведомость замечаний</span>
+      <div style="display: flex; gap: 6px; flex-wrap: wrap">
+        <button class="c-btn" type="button" style="height: 28px; font-size: 11.5px; border-color: #F2F6FB">Проблемы 3</button>
+        <button class="c-btn" type="button" style="height: 28px; font-size: 11.5px; border-color: rgba(143,179,218,.6); color: #B9CCE3">Возможно 2</button>
+        <button class="c-btn" type="button" style="height: 28px; font-size: 11.5px; border-color: rgba(143,179,218,.6); color: #B9CCE3">Метрики</button>
+      </div>
+    </div>
+    <div style="padding: 14px 16px; border-top: 1.5px solid #F2F6FB; display: flex; flex-direction: column; gap: 8px; background: rgba(255,179,71,.06)">
+      <div style="display: flex; align-items: baseline; gap: 10px"><span style="font: 600 24px Oswald, sans-serif; color: {{accent}}">①</span><span style="font: 500 15px Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase">Вложенный цикл</span><span style="margin-left: auto; font-size: 11.5px; color: #B9CCE3">:31 · высокая</span></div>
+      <span style="font-size: 12.5px; line-height: 1.55; color: #DCE7F3">Индекс клиентов по id в LinkedHashMap. Порядок перебора сохраняется.</span>
+      <span style="font-size: 13px"><span style="color: {{accent}}">O(n·m)</span> → <span style="color: #9FE3B4">O(n + m)</span></span>
+      <button class="c-btn" type="button" style="align-self: flex-start; background: {{accent}}; border-color: {{accent}}; color: #0B2440; font-weight: 600">Применить фикс</button>
+    </div>
+    <div style="padding: 14px 16px; border-top: 1px solid rgba(242,246,251,.35); display: flex; flex-direction: column; gap: 6px">
+      <div style="display: flex; align-items: baseline; gap: 10px"><span style="font: 600 20px Oswald, sans-serif; color: #DCE7F3">②</span><span style="font: 500 14px Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase">contains в цикле</span><span style="margin-left: auto; font-size: 11.5px; color: #B9CCE3">средняя</span></div>
+      <span style="font-size: 12.5px; color: #DCE7F3">ReportPrinter:18 · → LinkedHashSet</span>
+    </div>
+    <div style="padding: 14px 16px; border-top: 1px solid rgba(242,246,251,.35); display: flex; flex-direction: column; gap: 6px">
+      <div style="display: flex; align-items: baseline; gap: 10px"><span style="font: 600 20px Oswald, sans-serif; color: #DCE7F3">③</span><span style="font: 500 14px Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase">Строки через +=</span><span style="margin-left: auto; font-size: 11.5px; color: #B9CCE3">средняя</span></div>
+      <span style="font-size: 12.5px; color: #DCE7F3">ReportPrinter:42 · → StringBuilder</span>
+    </div>
+  </aside>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#FFB347","options":["#FFB347","#FF7A6B","#7FE7FF","#C6F432"]},"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#FFB347' };
+  }
+}
+</script>
+</body>
+</html>

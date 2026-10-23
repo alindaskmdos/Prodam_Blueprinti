@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Split — код и ноды рядом</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#1E1F22}
+a{color:#FF9D5C}a:hover{color:#FFC199}
+.s-btn{font:500 13px Onest,sans-serif;color:#DFE1E5;background:#2B2D30;border:1px solid #3C3F45;border-radius:6px;padding:0 12px;height:32px;display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.s-ph{display:flex;align-items:center;gap:10px;height:38px;padding:0 14px;border-bottom:1px solid #393B40;font:600 12.5px Onest,sans-serif;color:#DFE1E5;background:#26282B}
+.s-code{font:400 13px/22px 'JetBrains Mono',monospace;color:#BCBEC4;white-space:pre}
+.s-ln{display:inline-block;width:30px;color:#6F737A;text-align:right;margin-right:16px}
+.k{color:#CF8E6D}.t{color:#6AAB73}.f{color:#56A8F5}.n{color:#2AACB8}.c{color:#8C8F96;font-style:italic}
+.s-blk{display:flex;align-items:center;gap:10px;height:34px;padding:0 12px;border-radius:6px;font:500 13px 'JetBrains Mono',monospace;color:#1E1F22;white-space:nowrap;align-self:flex-start}
+.s-kind{font:700 10.5px Onest,sans-serif;letter-spacing:.08em;text-transform:uppercase;opacity:.75}
+.s-c{display:flex;flex-direction:column;gap:6px;align-self:flex-start}
+.s-cbody{display:flex;flex-direction:column;gap:6px;padding:6px 0 6px 14px;margin-left:0;border-left:14px solid;border-radius:0 0 0 6px}
+.s-cfoot{height:12px;width:120px;border-radius:0 0 6px 6px}
+.s-card{background:#2B2D30;border:1px solid #393B40;border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;flex:1 1 230px;min-width:0}
+</style>
+</helmet>
+<div style="min-height: 960px; background: #1E1F22; font-family: Onest, sans-serif; color: #DFE1E5; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 12px; background: #2B2D30; border-bottom: 1px solid #393B40">
+  <span style="font: 700 14px Onest, sans-serif; padding: 4px 8px; border-radius: 6px; background: {{accent}}; color: #1E1F22">JB</span>
+  <span style="font-weight: 600">demo-shop</span>
+  <span style="color: #9DA0A8; font-size: 13px">OrderService.java</span>
+  <div style="flex: 1 1 20px"></div>
+  <div role="group" aria-label="Раскладка" style="display: inline-flex; border: 1px solid #3C3F45; border-radius: 6px; overflow: hidden">
+    <button class="s-btn" type="button" style="border: 0; border-radius: 0">Код</button>
+    <button class="s-btn" type="button" style="border: 0; border-radius: 0; background: #3C3F45; color: #FFFFFF">Код + ноды</button>
+    <button class="s-btn" type="button" style="border: 0; border-radius: 0">Ноды</button>
+  </div>
+  <button class="s-btn" type="button">Экспорт</button>
+  <button class="s-btn" type="button">▶ Запуск</button>
+  <button class="s-btn" type="button" style="background: {{accent}}; border-color: {{accent}}; color: #1E1F22; font-weight: 600">Проверить поведение</button>
+</header>
+
+<div style="display: flex; flex-wrap: wrap; flex: 1 1 auto; min-height: 640px">
+
+  <nav aria-label="Проект" style="flex: 0 1 200px; background: #232427; border-right: 1px solid #393B40; padding: 10px 6px; display: flex; flex-direction: column; gap: 2px; font-size: 13px">
+    <span style="font: 600 11px Onest, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #9DA0A8; padding: 4px 8px 8px">Проект</span>
+    <span style="padding: 4px 8px; color: #9DA0A8">com.shop</span>
+    <span style="padding: 4px 8px 4px 20px">Main</span>
+    <span style="padding: 4px 8px 4px 20px">OrderService</span>
+    <span style="padding: 4px 8px 4px 34px; background: #2E436E; border-radius: 4px; color: #FFFFFF">merge <span style="float: right; color: #FF8A80; font: 600 11px 'JetBrains Mono', monospace">n·m</span></span>
+    <span style="padding: 4px 8px 4px 34px">total</span>
+    <span style="padding: 4px 8px 4px 20px">ReportPrinter</span>
+    <span style="padding: 4px 8px; color: #9DA0A8">com.shop.model</span>
+    <span style="padding: 4px 8px 4px 20px">Order</span>
+    <span style="padding: 4px 8px 4px 20px">Customer</span>
+    <span style="padding: 4px 8px; color: #9DA0A8">tests</span>
+  </nav>
+
+  <section style="flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; border-right: 1px solid #393B40">
+    <div class="s-ph">Код <span style="margin-left: auto; font-weight: 400; color: #9DA0A8">строки 29–40</span></div>
+    <div style="padding: 12px 6px; overflow-x: auto; flex: 1 1 auto">
+<div class="s-code"><span class="s-ln">29</span><span class="k">static</span> List&lt;Report&gt; <span class="f">merge</span>(List&lt;Order&gt; orders,
+<span class="s-ln"></span>                          List&lt;Customer&gt; customers) {
+<span class="s-ln">30</span>    List&lt;Report&gt; result = <span class="k">new</span> ArrayList&lt;&gt;();
+<span class="s-ln">31</span>    <span class="k">for</span> (Order o : orders) {
+<span style="display: inline-block; width: 100%; background: rgba(255,138,61,.14); box-shadow: inset 3px 0 0 {{accent}}"><span class="s-ln" style="color: {{accent}}">32</span>        <span class="k">for</span> (Customer c : customers) {</span>
+<span style="display: inline-block; width: 100%; background: rgba(255,138,61,.08)"><span class="s-ln">33</span>            <span class="k">if</span> (c.<span class="f">id</span>() == o.<span class="f">customerId</span>()) {</span>
+<span style="display: inline-block; width: 100%; background: rgba(255,138,61,.08)"><span class="s-ln">34</span>                result.<span class="f">add</span>(<span class="k">new</span> Report(o, c));</span>
+<span style="display: inline-block; width: 100%; background: rgba(255,138,61,.08)"><span class="s-ln">35</span>            }</span>
+<span style="display: inline-block; width: 100%; background: rgba(255,138,61,.08)"><span class="s-ln">36</span>        }</span>
+<span class="s-ln">37</span>    }
+<span class="s-ln">38</span>    <span class="c">// порядок отчётов = порядок заказов</span>
+<span class="s-ln">39</span>    <span class="k">return</span> result;
+<span class="s-ln">40</span>}</div>
+    </div>
+    <div style="padding: 8px 14px; border-top: 1px solid #393B40; font: 400 12px 'JetBrains Mono', monospace; color: #9DA0A8; display: flex; gap: 16px; flex-wrap: wrap"><span>Java 21</span><span>UTF-8</span><span style="color: #6AAB73">● синхронизировано · v14</span></div>
+  </section>
+
+  <section style="flex: 1 1 480px; min-width: 0; display: flex; flex-direction: column">
+    <div class="s-ph">Ноды <span style="margin-left: auto; font: 600 12px 'JetBrains Mono', monospace; color: #FF8A80">O(n·m)</span></div>
+    <div style="flex: 1 1 auto; overflow: auto; padding: 22px 26px; background-color: #1E1F22; background-image: radial-gradient(#2E3035 1.2px, transparent 1.2px); background-size: 18px 18px">
+      <div style="display: flex; flex-direction: column; gap: 6px; min-width: 420px">
+        <div class="s-blk" style="background: #B79CF7; height: 44px; border-radius: 10px 10px 6px 6px"><span class="s-kind">метод</span>merge(orders, customers)</div>
+        <div class="s-blk" style="background: #7DB8FF"><span class="s-kind">var</span>result = new ArrayList&lt;&gt;()</div>
+        <div class="s-c">
+          <div class="s-blk" style="background: #C4A4FF; border-radius: 6px 6px 6px 0"><span class="s-kind">цикл n</span>for (Order o : orders)</div>
+          <div class="s-cbody" style="border-color: #C4A4FF">
+            <div class="s-c" style="outline: 2px solid {{accent}}; outline-offset: 4px; border-radius: 6px">
+              <div class="s-blk" style="background: #C4A4FF; border-radius: 6px 6px 6px 0"><span class="s-kind">цикл m</span>for (Customer c : customers) <span style="background: {{accent}}; color: #1E1F22; border-radius: 4px; padding: 1px 6px; font: 700 11px Onest, sans-serif">!</span></div>
+              <div class="s-cbody" style="border-color: #C4A4FF">
+                <div class="s-c">
+                  <div class="s-blk" style="background: #F5C76B; border-radius: 6px 6px 6px 0"><span class="s-kind">если</span>c.id() == o.customerId()</div>
+                  <div class="s-cbody" style="border-color: #F5C76B">
+                    <div class="s-blk" style="background: #6FD3E0"><span class="s-kind">вызов</span>result.add(new Report(o, c))</div>
+                    <button type="button" style="align-self: flex-start; height: 26px; padding: 0 10px; border-radius: 13px; border: 1px dashed #6F737A; background: none; color: #9DA0A8; font: 500 12px Onest, sans-serif; cursor: pointer">+ блок</button>
+                  </div>
+                  <div class="s-cfoot" style="background: #F5C76B"></div>
+                </div>
+              </div>
+              <div class="s-cfoot" style="background: #C4A4FF"></div>
+            </div>
+          </div>
+          <div class="s-cfoot" style="background: #C4A4FF"></div>
+        </div>
+        <div class="s-blk" style="background: #FFF3B0; font-style: italic"><span class="s-kind">//</span>порядок отчётов = порядок заказов</div>
+        <div class="s-blk" style="background: #8EE09F"><span class="s-kind">return</span>result</div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<section style="border-top: 1px solid #393B40; background: #232427; padding: 12px; display: flex; flex-wrap: wrap; gap: 10px">
+  <div class="s-card" style="border-color: {{accent}}; flex: 2 1 320px">
+    <div style="display: flex; align-items: center; gap: 8px"><span style="font: 700 11px Onest, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: #FF8A80">высокая</span><span style="font-weight: 600">Вложенный цикл</span><span style="margin-left: auto; font: 500 12px 'JetBrains Mono', monospace; color: #9DA0A8">:32</span></div>
+    <span style="font: 500 13px 'JetBrains Mono', monospace"><span style="color: #FF8A80">O(n·m)</span> → <span style="color: #8EE09F">O(n + m)</span> <span style="color: #9DA0A8">· ≈10⁸ → ≈2·10⁴ при n = 10⁴</span></span>
+    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap"><button class="s-btn" type="button" style="background: {{accent}}; border-color: {{accent}}; color: #1E1F22; font-weight: 600">Индекс по id</button><span style="font-size: 12px; color: #9DA0A8">асимптотическая оценка</span></div>
+  </div>
+  <div class="s-card">
+    <div style="display: flex; gap: 8px"><span style="font: 700 11px Onest, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: #F5C76B">средняя</span><span style="font-weight: 600">contains в цикле</span></div>
+    <span style="font-size: 13px; color: #BCBEC4">ReportPrinter:18 → LinkedHashSet</span>
+  </div>
+  <div class="s-card">
+    <div style="display: flex; gap: 8px"><span style="font: 700 11px Onest, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: #F5C76B">средняя</span><span style="font-weight: 600">Строки через +=</span></div>
+    <span style="font-size: 13px; color: #BCBEC4">ReportPrinter:42 → StringBuilder</span>
+  </div>
+  <div class="s-card" style="flex: 1 1 220px; background: #1F3326; border-color: #2F5A3B">
+    <span style="font-weight: 600; color: #8EE09F">✓ Поведение совпадает</span>
+    <span style="font-size: 13px; color: #BCBEC4">5 IO + 3 JUnit · 2,4 с</span>
+    <span style="font-size: 12px; color: #9DA0A8">1 шумная строка в large-10k</span>
+  </div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#FF8A3D","options":["#FF8A3D","#56A8F5","#B79CF7","#8EE09F"]},"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#FF8A3D' };
+  }
+}
+</script>
+</body>
+</html>
