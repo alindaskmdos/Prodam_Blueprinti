@@ -18,7 +18,7 @@
 - [ ] BE-07 Валидация текста нод (parseExpression/parseStatement), эндпоинты PUT blocks / PUT files | blocks, app | BE-06, BE-04 | §5, §12
 - [ ] BE-36 Экспорт исполняемого .jar из чистого кода (манифест Main-Class, без tests/ и .blueprints/), тест через `java -jar` на IO-тестах | runner, app | BE-08, BE-09 | §11
 - [x] BE-08 Runner: Docker, лимиты, таймаут, переписывание для запуска (seed) | runner | BE-01 | §11а, §10.4
-- [ ] BE-09 IoTestSource: `tests/*.json`, импорт `*.in/*.out`, режимы original/manual, ignoreLines | testing | BE-08 | §10.1
+- [x] BE-09 IoTestSource: `tests/*.json`, импорт `*.in/*.out`, режимы original/manual, ignoreLines | testing | BE-08 | §10.1
 - [ ] BE-10 BehaviorVerifier: двойной прогон, шумные строки, правило сравнения, блок при отсутствии stdin-тестов | testing | BE-09 | §10.3–10.5
 - [ ] BE-11 JUnitTestSource: console launcher, XML-отчёт, private→package-private, статус «не компилируется» | testing | BE-08 | §10.2
 - [ ] BE-12 Символы размера коллекций + алгебра Big O + таблица JDK + граф вызовов | analysis | BE-04 | §8.1, §8.2
