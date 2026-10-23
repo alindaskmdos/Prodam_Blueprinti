@@ -7,6 +7,7 @@ dependencies {
     implementation(platform(libs.spring.boot.bom))
     implementation(libs.spring.boot.starter.web)
     testImplementation(libs.spring.boot.starter.test)
+    testImplementation(libs.json.schema.validator)
     listOf("model", "source", "blocks", "analysis", "runner", "testing", "fixes", "benchmark")
         .forEach { implementation(project(":$it")) }
 }
