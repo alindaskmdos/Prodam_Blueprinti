@@ -8,8 +8,8 @@
 ## Backend
 
 **Готово:** BE-01, BE-02, BE-03, BE-04, BE-05, BE-08, BE-09, BE-10, BE-11; CT-01 (+ arrow-switch в Block, `<init>~N`)
-**В работе:** be-11w — command-job в Runner/JUnitTestSource не работает на Windows-хосте (6 Docker-тестов красные на Windows) + `.gitattributes` (LF в рабочей копии).
-**Висящие ветки/worktree:** be-11w. Папки старых worktree в .claude/worktrees не удаляются из-за длинных путей Windows, стирать вручную. На origin висит устаревшая ветка be-5 (остатки отменённого merge BE-09) — удалить: `git push origin --delete be-5`.
+**В работе:** BE-06 (Станислав).
+**Висящие ветки/worktree:** —. Папки старых worktree в .claude/worktrees не удаляются из-за длинных путей Windows, стирать вручную. На origin висит устаревшая ветка be-5 (остатки отменённого merge BE-09) — удалить: `git push origin --delete be-5`.
 **Заблокировано:** —
 **Следующие шаги:** BE-06 (BlocksToJava + RoundTripCorpusTest, Станислав; первым шагом — локальные enum/interface, см. decisions.md; учесть: текст полей блоков сохраняет `\r\n` у CRLF-файлов, комментарий внутри типа уходит блоком перед оператором/в слот catches) и BE-12 (анализ); BE-18 Quality Gate — после BE-10 ✓ и BE-11 ✓, доступна (текст «нет тестов» — по decisions.md); BE-07 — после BE-06 и BE-04. В бриф BE-07 передать: ApiErrorHandler — добавить HttpMessageNotReadableException и MultipartException в bad() (сейчас 500 вместо 400).
 
@@ -28,7 +28,8 @@
 - app: export jar → 501 (заглушка до BE-36, кода 501 нет в контракте).
 - CLAUDE.md и .claude/ в .gitignore — правила и агенты не переносятся на другие устройства через git.
 - JavaParser 3.26.2 не разбирает локальные enum/interface (samples/roundtrip/NestedClasses.java) — решается в BE-06.
-- Windows-хост: command-job (JUnit, BehaviorVerifier) ломается при передаче argv в docker.exe — чинится в be-11w.
+- Windows: после пуля с .gitattributes уже склонированные копии нужно один раз перевыписать (`git ls-files -z | xargs -0 rm -f && git checkout -- .` при чистом дереве), иначе .out останутся с CRLF и IO-тесты упадут.
+- Windows: 2 теста RunnerTest (fakeDocker) пропускаются — нужен /bin/bash.
 - testing: TestResult/IoTestCase пока свои типы в `testing` — после BE-05 заменить на `model` адаптером.
 - testing/JUnit: причина compile_error («тесты» vs «программа») определяется по простому имени файла — при совпадении имён может быть неверной.
 - Фронт: у `passed` IO- и JUnit-теста (пропущенный @Disabled) `error` может быть непустым — это пояснение («оригинал не проходит этот тест — правка его исправила»), не ошибка.
@@ -45,3 +46,4 @@
 - BE-11: JUnitTestSource (console launcher 1.11.3 из ресурсов, XML-отчёт, имя = FQN.метод, private→package-private в копии, compile_error), Runner: command-job, доп. read-only файлы, Config.commandTimeout 30 с; IO и JUnit в одном контейнере.
 - BE-10: BehaviorVerifier (один runBatch: IO текущей + оригинал ×2 + JUnit; шумные строки → noisyLines; >50% шума, нестабильный выход оригинала, нет тестов → incomplete; stdin без входных тестов → blocked; warning о пропущенных). Приоритет blocked > red > incomplete > green.
 - BE-05: model (record'ы по контракту, без зависимостей) + AstToBlocks (все kind, модификаторы префиксом в type, комментарии comment-блоками, тексты из TokenRange, arrow/pattern-switch).
+- BE-11 (Windows): command-job через файл-скрипт /app/jobs/<k>.sh (read-only, аргументы в одинарных кавычках), .gitattributes с LF. Полная сборка main зелёная на Windows с Docker (2 пропуска fakeDocker).
