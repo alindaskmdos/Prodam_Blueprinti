@@ -15,7 +15,7 @@ enum с телом, record, interface, generics.
 | service/Validator.java | `checkLines` | LinearSearchInLoop: `seen.contains` в цикле |
 | util/Texts.java | `join` | StringConcatInLoop: `out += ...` |
 | service/ReportService.java | `fullReport` | StringConcatInLoop (`report += ...`) и LongMethod (> 50 строк) |
-| service/ReportService.java | `hotProducts` | DeepNesting: вложенность 5 |
+| service/ReportService.java | `hotProducts` | DeepNesting: вложенность 7 (тело метода — уровень 1) |
 
 ## Тесты
 
