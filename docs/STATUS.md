@@ -7,11 +7,11 @@
 
 ## Backend
 
-**Готово:** BE-01, BE-02, BE-03, BE-04, BE-05, BE-08, BE-09, BE-10, BE-11, BE-12, BE-13; CT-01 (+ arrow-switch в Block, `<init>~N`)
+**Готово:** BE-01, BE-02, BE-03, BE-04, BE-05, BE-08, BE-09, BE-10, BE-11, BE-12, BE-13, BE-14; CT-01 (+ arrow-switch в Block, `<init>~N`)
 **В работе:** BE-06 (Станислав).
 **Висящие ветки/worktree:** —. Папки старых worktree в .claude/worktrees не удаляются из-за длинных путей Windows, стирать вручную. На origin висит устаревшая ветка be-5 (остатки отменённого merge BE-09) — удалить: `git push origin --delete be-5`.
 **Заблокировано:** —
-**Следующие шаги:** BE-06 (BlocksToJava + RoundTripCorpusTest, Станислав; первым шагом — локальные enum/interface, см. decisions.md; учесть: текст полей блоков сохраняет `\r\n` у CRLF-файлов, комментарий внутри типа уходит блоком перед оператором/в слот catches) ; BE-14..BE-17 (детекторы, после BE-12 ✓; blockId подставляет app по диапазону строк — decisions.md); BE-18 Quality Gate — после BE-10 ✓ и BE-11 ✓, доступна (текст «нет тестов» — по decisions.md); BE-07 — после BE-06 и BE-04. В бриф BE-07 передать: ApiErrorHandler — добавить HttpMessageNotReadableException и MultipartException в bad() (сейчас 500 вместо 400).
+**Следующие шаги:** BE-06 (BlocksToJava + RoundTripCorpusTest, Станислав; первым шагом — локальные enum/interface, см. decisions.md; учесть: текст полей блоков сохраняет `\r\n` у CRLF-файлов, комментарий внутри типа уходит блоком перед оператором/в слот catches) ; BE-15..BE-17 (детекторы, после BE-12 ✓; blockId подставляет app по диапазону строк — decisions.md); BE-18 Quality Gate — после BE-10 ✓ и BE-11 ✓, доступна (текст «нет тестов» — по decisions.md); BE-07 — после BE-06 и BE-04. В бриф BE-07 передать: ApiErrorHandler — добавить HttpMessageNotReadableException и MultipartException в bad() (сейчас 500 вместо 400).
 
 ## Frontend
 
@@ -49,3 +49,4 @@
 - BE-11 (Windows): command-job через файл-скрипт /app/jobs/<k>.sh (read-only, аргументы в одинарных кавычках), .gitattributes с LF. Полная сборка main зелёная на Windows с Docker (2 пропуска fakeDocker).
 - BE-12: analysis — ProjectAnalysis.of(files) → MethodAnalysis (complexity/confidence, size, loopSize, callCost), BigO (бейдж n,m,k по старшей степени), JdkCosts, CallGraph (Тарьян). Символы квалифицированы (FQN|поле, methodId|имя). Detector.detect(MethodAnalysis, ProjectAnalysis) абстрактный. Типы — текстом, без Symbol Solver; перегрузки одной арности не различаются; стримы только через forEach.
 - BE-13: NestedLoopSameCollection (общий символ размера у вложенных циклов; fresh-символ или while/do → low; общий курсор while-while не сообщается). Issues.of — общий хелпер (id rule:methodId:строка:колонка, blockId=null, ops при n=10000). На demo — только OrderService.merge.
+- BE-14: LinearSearchInLoop (contains/indexOf/lastIndexOf/remove(Object) у List в цикле; remove(int) и выражения-индексы не сообщаются; Collection/неизвестный тип → low; нераспознанное число итераций confidence не понижает — decisions.md). На demo 3 high: InventoryService.watched, distinctIds, Validator.checkLines.
