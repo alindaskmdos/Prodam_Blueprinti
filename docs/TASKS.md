@@ -25,7 +25,7 @@
 - [x] BE-13 Детектор NestedLoopSameCollection | analysis | BE-12 | §8.3
 - [x] BE-14 Детектор LinearSearchInLoop | analysis | BE-12 | §8.3
 - [x] BE-15 Детектор ExpensiveCallInLoop | analysis | BE-12 | §8.3
-- [ ] BE-16 Детектор StringConcatInLoop | analysis | BE-12 | §8.3
+- [x] BE-16 Детектор StringConcatInLoop | analysis | BE-12 | §8.3
 - [ ] BE-17 Детекторы LongMethod / DeepNesting | analysis | BE-12 | §8.3
 - [ ] BE-18 Quality Gate: применить → компиляция → все тесты → откат | fixes | BE-10, BE-11 | §9
 - [ ] BE-19 Фикс StringBuilder | fixes | BE-16, BE-18 | §9
