@@ -14,8 +14,12 @@ import com.github.javaparser.ast.expr.*;
 import com.github.javaparser.ast.stmt.DoStmt;
 import com.github.javaparser.ast.stmt.ForEachStmt;
 import com.github.javaparser.ast.stmt.ForStmt;
+import com.github.javaparser.ast.stmt.IfStmt;
 import com.github.javaparser.ast.stmt.LocalClassDeclarationStmt;
 import com.github.javaparser.ast.stmt.LocalRecordDeclarationStmt;
+import com.github.javaparser.ast.stmt.SwitchStmt;
+import com.github.javaparser.ast.stmt.SynchronizedStmt;
+import com.github.javaparser.ast.stmt.TryStmt;
 import com.github.javaparser.ast.stmt.WhileStmt;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.Type;
@@ -204,6 +208,54 @@ public final class MethodAnalysis {
     /** id вызываемого метода проекта ({@link MethodCallExpr}/{@link ObjectCreationExpr}) или null. */
     public String callTarget(Expression call) {
         return callTargets.get(call);
+    }
+
+    /** Строки метода: диапазон объявления от сигнатуры (с аннотациями, без javadoc) до закрывающей скобки, включая пустые и комментарии. */
+    public int lines() {
+        Span s = span();
+        return s.endLine() - s.startLine() + 1;
+    }
+
+    /**
+     * Глубина вложенности: тело метода — уровень 1, каждая управляющая конструкция добавляет уровень
+     * (метод без конструкций — 1); см. {@link #deepestConstruct()}.
+     */
+    public int maxNesting() {
+        Node d = deepestConstruct();
+        return d == null ? 1 : nesting(d);
+    }
+
+    /**
+     * Первая (в порядке исходника) конструкция с наибольшей глубиной или null. Уровень дают if/for/for-each/while/do/
+     * switch/try/synchronized; else-if не углубляет; лямбда прозрачна (её тело — на уровне лямбды);
+     * тела анонимных и локальных классов не считаются — это другой код (аргументы конструктора анонимного класса — считаются).
+     */
+    public Node deepestConstruct() {
+        Node best = null;
+        int max = 1;
+        for (Node n : decl.findAll(Node.class, MethodAnalysis::isLevel)) {
+            int d = nesting(n);
+            if (d > max) { max = d; best = n; }
+        }
+        return best;
+    }
+
+    /** Глубина конструкции с учётом тела метода (1) или 0, если она внутри тела анонимного/локального класса. */
+    private int nesting(Node n) {
+        int d = 1;
+        for (Node child = null, p = n; p != null && p != decl; child = p, p = p.getParentNode().orElse(null)) {
+            if (p instanceof LocalClassDeclarationStmt || p instanceof LocalRecordDeclarationStmt) return 0;
+            Node c = child;
+            if (p instanceof ObjectCreationExpr oc && oc.getAnonymousClassBody().map(b -> b.stream().anyMatch(x -> x == c)).orElse(false)) return 0;
+            if (isLevel(p)) d++;
+        }
+        return d;
+    }
+
+    private static boolean isLevel(Node n) {
+        if (n instanceof IfStmt i) return !(i.getParentNode().orElse(null) instanceof IfStmt p && p.getElseStmt().orElse(null) == i);
+        return n instanceof ForStmt || n instanceof ForEachStmt || n instanceof WhileStmt || n instanceof DoStmt
+                || n instanceof SwitchStmt || n instanceof SwitchExpr || n instanceof TryStmt || n instanceof SynchronizedStmt;
     }
 
     // ---- для ProjectAnalysis ----

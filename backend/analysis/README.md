@@ -49,4 +49,15 @@ after O(L), severity medium. Неизвестный тип хоть одной �
 поля/параметра, внешний цикл, число итераций, тип известен) — те же правила, что у детектора; фильтровать по `loop`.
 `ProjectAnalysis.isInstanceField(FQN|поле)` — нестатическое поле класса проекта.
 
+Метрики метода (для `MethodMetrics` контракта): `MethodAnalysis.lines()` — диапазон объявления от сигнатуры
+(с аннотациями, без javadoc) до `}` включительно, пустые строки и комментарии в счёт (как `span()`);
+`maxNesting()` — глубина вложенности: тело метода — уровень 1 (метод без конструкций = 1, как в фикстуре контракта),
+каждая if/for/for-each/while/do/switch (оператор и выражение)/try/synchronized добавляет уровень; else-if не углубляет,
+лямбда прозрачна (её тело на уровне лямбды), тела анонимных и локальных классов не считаются (аргументы `new X(…) {…}` — считаются);
+`deepestConstruct()` — первая из самых глубоких конструкций или null.
+`LongMethod` — `lines() > LongMethod.MAX_LINES` (50: больше экрана; при 40 шумел плоский диспетчер `Main.dispatch` в demo — 50 строк);
+span — объявление метода. `DeepNesting` — `maxNesting() > DeepNesting.MAX_NESTING` (4: тело + цикл/цикл/условие ещё читаются);
+одна находка на метод, span — `deepestConstruct()`. Оба: severity low, confidence high, без complexity и fixes, рекомендация «Выделить метод».
+На demo: LongMethod — `ReportService.fullReport` (56 строк), DeepNesting — `ReportService.hotProducts` (7 уровней); `OrderService.merge` — 19 строк, 4 уровня.
+
 Зависит от: model, source. Тесты: `./gradlew :analysis:test` (в т.ч. прогон по `samples/demo` и `samples/roundtrip`).
