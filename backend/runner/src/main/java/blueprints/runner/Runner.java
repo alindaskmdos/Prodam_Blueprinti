@@ -36,8 +36,17 @@ public final class Runner {
      *                сервера должен совпадать (если сервер сам в контейнере с docker.sock —
      *                смонтировать эту папку по тому же пути). Env: BLUEPRINTS_RUN_DIR.
      * @param image   образ с JDK 21. Env: BLUEPRINTS_RUN_IMAGE.
+     * @param timeout таймаут запуска программы (main), 10 с
+     * @param commandTimeout таймаут command-запуска пакета (JUnit launcher: старт платформы + все тесты), 30 с
      */
-    public record Config(Path baseDir, String image, String memory, String cpus, Duration timeout) {
+    public record Config(Path baseDir, String image, String memory, String cpus, Duration timeout, Duration commandTimeout) {
+        public static final Duration DEFAULT_COMMAND_TIMEOUT = Duration.ofSeconds(30);
+
+        /** commandTimeout — {@link #DEFAULT_COMMAND_TIMEOUT}. */
+        public Config(Path baseDir, String image, String memory, String cpus, Duration timeout) {
+            this(baseDir, image, memory, cpus, timeout, DEFAULT_COMMAND_TIMEOUT);
+        }
+
         public static Config defaults() {
             String dir = System.getenv("BLUEPRINTS_RUN_DIR");
             String image = System.getenv("BLUEPRINTS_RUN_IMAGE");
@@ -65,21 +74,57 @@ public final class Runner {
         }
     }
 
-    /** Программа пакетного запуска: исходники (путь → текст) и main-класс (null — единственный main). */
-    public record Program(Map<String, String> sources, String mainClass) {}
+    /**
+     * Программа пакетного запуска: исходники (путь → текст) и main-класс (null — единственный main).
+     *
+     * @param rewrite   переписывание копии именно этой программы; null — общее {@code rewrite} пакета
+     * @param classpath дополнительный classpath компиляции (в процессе сервера), например jar JUnit
+     */
+    public record Program(Map<String, String> sources, String mainClass, Rewrite rewrite, List<Path> classpath) {
+        public Program {
+            classpath = classpath == null ? List.of() : List.copyOf(classpath);
+        }
 
-    /** Один запуск в пакете: индекс программы в списке {@link Program} и stdin. */
-    public record Job(int program, String stdin) {}
+        public Program(Map<String, String> sources, String mainClass) {
+            this(sources, mainClass, null, List.of());
+        }
+    }
+
+    /**
+     * Один запуск в пакете: индекс программы в списке {@link Program} и stdin.
+     *
+     * @param command null — {@code java -cp /app/p<i> <main>}; иначе argv, выполняемый в контейнере вместо него
+     *                (классы программы — в {@link #programDir}, таймаут {@code Config.commandTimeout()};
+     *                {@code JDK_JAVA_OPTIONS=-Xmx...}).
+     *                Main-класс программы, у которой все запуски — command, не ищется.
+     */
+    public record Job(int program, String stdin, List<String> command) {
+        public Job {
+            command = command == null ? null : List.copyOf(command);
+        }
+
+        public Job(int program, String stdin) {
+            this(program, stdin, null);
+        }
+    }
 
     /** Опции переписывания копии для запуска (§10.4). */
     public record Rewrite(boolean seedRandom, boolean packagePrivate) {
         public static final Rewrite RUN = new Rewrite(true, false);
         public static final Rewrite NONE = new Rewrite(false, false);
+        /** Сборка с JUnit-тестами (§10.2): seed + {@code private} → package-private. */
+        public static final Rewrite JUNIT = new Rewrite(true, true);
+    }
+
+    /** Папка классов программы {@code i} в контейнере пакетного запуска. */
+    public static String programDir(int i) {
+        return "/app/p" + i;
     }
 
     private static final int MAX_OUTPUT = 1 << 20;
     static final String SANDBOX_DEAD = "прогон прерван: песочница не отвечала";
     private static final Pattern MAIN_NAME = Pattern.compile("[\\w.$]+");
+    private static final Pattern MOUNT_DST = Pattern.compile("(/[\\w.-]+)+");
     private static final Pattern MAIN = Pattern.compile("public\\s+static\\s+void\\s+main\\s*\\(\\s*(final\\s+)?String");
     private static final Pattern PACKAGE = Pattern.compile("(?m)^\\s*package\\s+([\\w.]+)\\s*;");
     private static final String SEED_CLASS = "bp.rt.Seed";
@@ -131,6 +176,11 @@ public final class Runner {
 
     /** Компилирует все .java из srcDir в outDir одним вызовом. Пустой список — успех. */
     public static List<String> compile(Path srcDir, Path outDir) throws IOException {
+        return compile(srcDir, outDir, List.of());
+    }
+
+    /** То же с дополнительным classpath (пустой — без {@code -cp}, как {@link #compile(Path, Path)}). */
+    public static List<String> compile(Path srcDir, Path outDir, List<Path> classpath) throws IOException {
         JavaCompiler jc = ToolProvider.getSystemJavaCompiler();
         if (jc == null) throw new IllegalStateException("Нужен JDK, а не JRE");
         List<Path> files;
@@ -140,7 +190,12 @@ public final class Runner {
         Files.createDirectories(outDir);
         DiagnosticCollector<JavaFileObject> diags = new DiagnosticCollector<>();
         try (StandardJavaFileManager fm = jc.getStandardFileManager(diags, null, StandardCharsets.UTF_8)) {
-            boolean ok = jc.getTask(null, fm, diags, List.of("-d", outDir.toString(), "-proc:none"), null,
+            List<String> opts = new ArrayList<>(List.of("-d", outDir.toString(), "-proc:none"));
+            if (!classpath.isEmpty()) {
+                opts.addAll(List.of("-cp", String.join(java.io.File.pathSeparator,
+                        classpath.stream().map(Path::toString).toList())));
+            }
+            boolean ok = jc.getTask(null, fm, diags, opts, null,
                     fm.getJavaFileObjectsFromPaths(files)).call();
             List<String> errors = new ArrayList<>();
             for (var d : diags.getDiagnostics()) {
@@ -165,7 +220,7 @@ public final class Runner {
         Path work = config.baseDir().toAbsolutePath().resolve("run-" + id);
         try {
             Path classes = work.resolve("classes");
-            List<String> errors = prepare(sources, rewrite, work.resolve("src"), classes);
+            List<String> errors = prepare(sources, rewrite, List.of(), work.resolve("src"), classes);
             if (!errors.isEmpty()) return new RunResult(false, errors, "", "", -1, false, 0, false);
             return runInDocker(classes, mainClass, stdin, id);
         } catch (IOException e) {
@@ -195,7 +250,33 @@ public final class Runner {
      * @return по результату на каждый job, в том же порядке
      */
     public List<RunResult> runBatch(List<Program> programs, List<Job> jobs, Rewrite rewrite) {
-        List<String> mains = programs.stream().map(p -> resolveMain(p.sources(), p.mainClass())).toList();
+        return runBatch(programs, jobs, rewrite, Map.of());
+    }
+
+    /**
+     * {@link #runBatch(List, List, Rewrite)} с дополнительными файлами, смонтированными в контейнер read-only
+     * (например, jar JUnit launcher'а для command-запусков).
+     *
+     * @param files абсолютный путь в контейнере (не под {@code /app}) → файл в процессе сервера; копируется в
+     *              рабочую папку запуска, поэтому виден Docker'у так же, как классы программ
+     */
+    public List<RunResult> runBatch(List<Program> programs, List<Job> jobs, Rewrite rewrite, Map<String, Path> files) {
+        for (var f : files.entrySet()) {
+            String dst = f.getKey();
+            if (!MOUNT_DST.matcher(dst).matches() || dst.equals("/app") || dst.startsWith("/app/") || dst.contains("/..")) {
+                throw new IllegalArgumentException("Недопустимая точка монтирования: " + dst);
+            }
+            if (!Files.isRegularFile(f.getValue())) throw new IllegalArgumentException("Нет файла: " + f.getValue());
+        }
+        List<String> mains = new ArrayList<>();
+        for (int i = 0; i < programs.size(); i++) {
+            Program p = programs.get(i);
+            int idx = i;
+            // main не нужен, только если программу запускают исключительно command-запуски
+            boolean onlyCommands = jobs.stream().anyMatch(j -> j.program() == idx)
+                    && jobs.stream().filter(j -> j.program() == idx).allMatch(j -> j.command() != null);
+            mains.add(onlyCommands ? null : resolveMain(p.sources(), p.mainClass()));
+        }
         for (Job j : jobs) {
             if (j.program() < 0 || j.program() >= programs.size()) {
                 throw new IllegalArgumentException("Нет программы с индексом " + j.program());
@@ -210,12 +291,22 @@ public final class Runner {
             for (int i = 0; i < programs.size(); i++) {
                 Path c = work.resolve("p" + i).resolve("classes");
                 classes.add(c);
-                errors.add(prepare(programs.get(i).sources(), rewrite, work.resolve("p" + i).resolve("src"), c));
+                Program p = programs.get(i);
+                errors.add(prepare(p.sources(), p.rewrite() != null ? p.rewrite() : rewrite, p.classpath(),
+                        work.resolve("p" + i).resolve("src"), c));
             }
             if (jobs.stream().noneMatch(j -> errors.get(j.program()).isEmpty())) {
                 return jobs.stream().map(j -> compileFailed(errors.get(j.program()))).toList();
             }
-            return runBatchInDocker(classes, mains, errors, jobs, id);
+            Map<Path, String> extra = new java.util.LinkedHashMap<>();
+            int k = 0;
+            for (var f : files.entrySet()) {
+                Path copy = work.resolve("files").resolve("f" + k++).resolve(f.getValue().getFileName().toString());
+                Files.createDirectories(copy.getParent());
+                Files.copy(f.getValue(), copy);
+                extra.put(copy, f.getKey());
+            }
+            return runBatchInDocker(classes, mains, errors, jobs, id, extra);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         } finally {
@@ -242,8 +333,8 @@ public final class Runner {
     }
 
     /** Пишет переписанную копию исходников в src и компилирует в classes. Пустой список — успех. */
-    private static List<String> prepare(Map<String, String> sources, Rewrite rewrite, Path src, Path classes)
-            throws IOException {
+    private static List<String> prepare(Map<String, String> sources, Rewrite rewrite, List<Path> classpath,
+                                        Path src, Path classes) throws IOException {
         for (var e : sources.entrySet()) {
             Path p = src.resolve(e.getKey()).normalize();
             if (!p.startsWith(src)) throw new IllegalArgumentException("Путь вне проекта: " + e.getKey());
@@ -254,7 +345,7 @@ public final class Runner {
             Files.createDirectories(src.resolve("bp/rt"));
             Files.writeString(src.resolve("bp/rt/Seed.java"), SEED_SOURCE);
         }
-        return compile(src, classes);
+        return compile(src, classes, classpath);
     }
 
     /** Общие флаги изоляции контейнера (§11а), без образа и команды. mounts: папка классов → точка монтирования. */
@@ -268,14 +359,17 @@ public final class Runner {
     }
 
     private List<RunResult> runBatchInDocker(List<Path> classes, List<String> mains, List<List<String>> errors,
-                                             List<Job> jobs, String id) throws IOException {
+                                             List<Job> jobs, String id, Map<Path, String> extraMounts) throws IOException {
         String name = "bp-batch-" + id;
-        long perRunMs = config.timeout().toMillis();
-        long runnable = jobs.stream().filter(j -> errors.get(j.program()).isEmpty()).count();
-        // общий таймаут контейнера: каждый запуск + запас на старт JVM/exec; по нему контейнер завершится и сам (sleep)
-        long totalMs = runnable * (perRunMs + execSlackMs) + startTimeoutMs;
+        long mainMs = config.timeout().toMillis();
+        long commandMs = config.commandTimeout().toMillis();
+        // общий таймаут контейнера: каждый запуск (со своим таймаутом) + запас на старт JVM/exec; по нему контейнер
+        // завершится и сам (sleep)
+        long totalMs = jobs.stream().filter(j -> errors.get(j.program()).isEmpty())
+                .mapToLong(j -> (j.command() == null ? mainMs : commandMs) + execSlackMs).sum() + startTimeoutMs;
         Map<Path, String> mounts = new java.util.LinkedHashMap<>();
-        for (int i = 0; i < classes.size(); i++) mounts.put(classes.get(i), "/app/p" + i);
+        for (int i = 0; i < classes.size(); i++) mounts.put(classes.get(i), programDir(i));
+        mounts.putAll(extraMounts);
         List<String> start = new ArrayList<>(List.of(docker, "run", "-d", "--rm"));
         start.addAll(sandboxArgs(name, mounts));
         start.addAll(List.of(config.image(), "sleep", Long.toString(totalMs / 1000 + 1)));
@@ -297,7 +391,6 @@ public final class Runner {
                 throw new IllegalStateException("Не удалось запустить контейнер: " + startOut.toString(StandardCharsets.UTF_8).strip());
             }
             long deadline = System.nanoTime() + totalMs * 1_000_000;
-            String secs = String.format(Locale.ROOT, "%.3f", perRunMs / 1000.0);
             String abortReason = null;
             for (Job job : jobs) {
                 int i = job.program();
@@ -311,10 +404,20 @@ public final class Runner {
                     results.add(RunResult.aborted(abortReason));
                     continue;
                 }
+                long perRunMs = job.command() == null ? mainMs : commandMs;
+                String secs = String.format(Locale.ROOT, "%.3f", perRunMs / 1000.0);
                 // mainClass проверен MAIN_NAME и передаётся как $0, не через подстановку в строку
-                List<String> cmd = List.of(docker, "exec", "-i", name, "sh", "-c",
-                        "find /tmp -mindepth 1 -delete 2>/dev/null; exec timeout -k 1 " + secs
-                                + " java -Xmx" + heapFor(config.memory()) + " -cp /app/p" + i + " \"$0\"", mains.get(i));
+                List<String> cmd;
+                if (job.command() == null) {
+                    cmd = List.of(docker, "exec", "-i", name, "sh", "-c",
+                            "find /tmp -mindepth 1 -delete 2>/dev/null; exec timeout -k 1 " + secs
+                                    + " java -Xmx" + heapFor(config.memory()) + " -cp /app/p" + i + " \"$0\"", mains.get(i));
+                } else {
+                    // argv команды передаётся как "$@", не подстановкой в строку
+                    cmd = new ArrayList<>(List.of(docker, "exec", "-i", "-e", "JDK_JAVA_OPTIONS=-Xmx" + heapFor(config.memory()),
+                            name, "sh", "-c", "find /tmp -mindepth 1 -delete 2>/dev/null; exec timeout -k 1 " + secs + " \"$@\"", "sh"));
+                    cmd.addAll(job.command());
+                }
                 RunResult r = execute(cmd, job.stdin(), perRunMs + execSlackMs, name);
                 if (r.timedOut()) {
                     // docker exec не вернулся даже после таймаута программы: песочница не отвечает,

@@ -2,6 +2,7 @@ package blueprints.testing;
 
 import blueprints.runner.Runner;
 import blueprints.testing.io.IoTestSource;
+import blueprints.testing.junit.JUnitTestSource;
 import java.util.List;
 
 /** Список источников тестов; новый источник = новый класс + строка в {@link #defaults}. */
@@ -14,7 +15,8 @@ public final class TestSourceRegistry {
 
     public static TestSourceRegistry defaults(Runner runner) {
         return new TestSourceRegistry(List.of(
-                new IoTestSource(runner)));
+                new IoTestSource(runner),
+                new JUnitTestSource(runner)));
     }
 
     public List<TestSource> sources() {

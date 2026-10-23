@@ -8,8 +8,8 @@ import org.junit.jupiter.api.Test;
 
 class TestSourceRegistryTest {
     @Test
-    void defaultsContainIoSource() {
+    void defaultsContainIoAndJUnitSources() {
         var reg = TestSourceRegistry.defaults(new Runner(Runner.Config.defaults()));
-        assertEquals(List.of("io"), reg.sources().stream().map(TestSource::id).toList());
+        assertEquals(List.of("io", "junit"), reg.sources().stream().map(TestSource::id).toList());
     }
 }

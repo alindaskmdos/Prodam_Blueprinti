@@ -13,9 +13,14 @@
   Если `docker exec` завис — контейнер убивается, этот и остальные запуски получают `aborted=true` (не `timedOut`).
   Если контейнер не стартовал за 120 с — `IllegalStateException`, `docker rm -f` сразу и повторно в фоне.
   `runAll(sources, mainClass, stdins, rewrite)` — то же для одной программы. Ошибка компиляции — `compiled=false` у её запусков.
+- Добавления BE-11: `runBatch(programs, jobs, rewrite, files)` — `files` (путь в контейнере → файл сервера) копируются в
+  рабочую папку и монтируются read-only (не под `/app`); `Job(program, stdin, command)` — вместо `java ... main` выполняется
+  argv `command` (классы — в `programDir(i)` = `/app/p<i>`, свой таймаут `Config.commandTimeout()` = 30 с — у java-запусков
+  остаётся `timeout()` = 10 с, общий таймаут контейнера — сумма по запускам; `JDK_JAVA_OPTIONS=-Xmx...`), main у программы
+  только с command-запусками не ищется; `Program(sources, main, rewrite, classpath)` — свой rewrite и classpath компиляции.
 - `mainClass == null`: берётся единственный `main`, при нескольких — `IllegalArgumentException` со списком (`findMainClasses`).
 - `Rewrite.RUN`: `new Random()` → `new Random(42)`, `Math.random()` → `bp.rt.Seed.random()` (класс добавляется в копию);
-  `packagePrivate=true` убирает `private` (для JUnit, BE-11). Исходники не меняются. Замена регулярками, не AST.
+  `Rewrite.JUNIT` = seed + `packagePrivate` (убирает `private`, для JUnit). Исходники не меняются. Замена регулярками, не AST.
 
 Компиляция идёт в процессе сервера, но с `-proc:none`: пользовательский код при компиляции не исполняется. Вывод усечён до 1 МБ на поток (`truncated`), `-Xmx` = 75% лимита памяти.
 

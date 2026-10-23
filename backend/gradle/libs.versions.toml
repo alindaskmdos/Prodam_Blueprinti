@@ -2,6 +2,8 @@
 spring-boot = "3.3.5"
 javaparser = "3.26.2"
 junit = "5.11.3"
+# JUnit Platform идёт в паре с Jupiter: 5.x.y ↔ 1.x.y
+junit-platform = "1.11.3"
 jackson = "2.17.2"
 
 [libraries]
@@ -12,6 +14,7 @@ javaparser-symbol-solver = { module = "com.github.javaparser:javaparser-symbol-s
 jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 json-schema-validator = { module = "com.networknt:json-schema-validator", version = "1.4.0" }
+junit-platform-console-standalone = { module = "org.junit.platform:junit-platform-console-standalone", version.ref = "junit-platform" }
 
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
