@@ -13,7 +13,8 @@ public final class DetectorRegistry {
     }
 
     public static DetectorRegistry defaults() {
-        return new DetectorRegistry(List.of(new NestedLoopSameCollection(), new LinearSearchInLoop(), new ExpensiveCallInLoop()));
+        return new DetectorRegistry(List.of(new NestedLoopSameCollection(), new LinearSearchInLoop(), new ExpensiveCallInLoop(),
+                new StringConcatInLoop()));
     }
 
     public List<Detector> detectors() {
