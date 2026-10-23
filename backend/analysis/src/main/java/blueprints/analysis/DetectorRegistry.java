@@ -1,5 +1,6 @@
 package blueprints.analysis;
 
+import blueprints.model.Issue;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -17,5 +18,12 @@ public final class DetectorRegistry {
 
     public List<Detector> detectors() {
         return detectors;
+    }
+
+    /** Все проблемы проекта: методы по порядку файлов, внутри метода — детекторы по порядку регистрации. */
+    public List<Issue> run(ProjectAnalysis project) {
+        List<Issue> out = new ArrayList<>();
+        for (MethodAnalysis m : project.methods()) for (Detector d : detectors) out.addAll(d.detect(m, project));
+        return out;
     }
 }
