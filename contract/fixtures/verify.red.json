@@ -1,0 +1,17 @@
+{
+  "status": "red",
+  "results": [
+    { "name": "basic", "type": "io", "status": "passed", "durationMs": 640, "noisyLines": [] },
+    {
+      "name": "merge",
+      "type": "io",
+      "status": "failed",
+      "durationMs": 655,
+      "expected": "merged=2\n",
+      "actual": "merged=1\n",
+      "noisyLines": []
+    },
+    { "name": "OrderServiceTest", "type": "junit", "status": "compile_error", "durationMs": 0, "error": "OrderServiceTest.java:12: cannot find symbol" }
+  ],
+  "warnings": []
+}

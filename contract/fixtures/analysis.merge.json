@@ -1,0 +1,36 @@
+{
+  "version": 3,
+  "n": 10000,
+  "issues": [
+    {
+      "id": "ISSUE-1",
+      "rule": "NestedLoopSameCollection",
+      "severity": "high",
+      "confidence": "high",
+      "source": "blueprints",
+      "span": { "file": "src/com/demo/service/OrderService.java", "startLine": 44, "endLine": 52 },
+      "methodId": "com.demo.service.OrderService.merge~0",
+      "blockId": "com.demo.service.OrderService.merge~0/body/1/body/2",
+      "message": "Вложенный цикл по orders: O(n·n)",
+      "recommendation": "Построить индекс customerId → первый заказ (LinkedHashMap)",
+      "complexity": { "before": "O(n·n)", "after": "O(n)", "opsBefore": 100000000, "opsAfter": 10000 },
+      "fixes": ["index-by-key"]
+    },
+    {
+      "id": "ISSUE-2",
+      "rule": "LinearSearchInLoop",
+      "severity": "medium",
+      "confidence": "low",
+      "source": "blueprints",
+      "span": { "file": "src/com/demo/service/InventoryService.java", "startLine": 20, "endLine": 24 },
+      "methodId": "com.demo.service.InventoryService.watched~0",
+      "blockId": "com.demo.service.InventoryService.watched~0/body/1/body/0",
+      "message": "Возможно, contains по списку в цикле",
+      "recommendation": "LinkedHashSet",
+      "fixes": []
+    }
+  ],
+  "metrics": [
+    { "methodId": "com.demo.service.OrderService.merge~0", "complexity": "O(n²)", "lines": 19, "maxNesting": 4 }
+  ]
+}

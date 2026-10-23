@@ -1,0 +1,9 @@
+{
+  "status": "green",
+  "results": [
+    { "name": "basic", "type": "io", "status": "passed", "durationMs": 640, "noisyLines": [] },
+    { "name": "merge", "type": "io", "status": "passed", "durationMs": 655, "noisyLines": [3] },
+    { "name": "OrderServiceTest", "type": "junit", "status": "passed", "durationMs": 210 }
+  ],
+  "warnings": []
+}

@@ -1,0 +1,13 @@
+{
+  "applied": true,
+  "version": 4,
+  "diff": "--- a/src/com/demo/service/OrderService.java\n+++ b/src/com/demo/service/OrderService.java\n@@ -37,19 +37,15 @@\n     public int merge() {\n-        int merged = 0;\n-        for (int i = 0; i < orders.size(); i++) {\n-            ...\n+        Map<Integer, Order> byCustomer = new LinkedHashMap<>();\n+        ...\n     }\n",
+  "verify": {
+    "status": "green",
+    "results": [
+      { "name": "basic", "type": "io", "status": "passed", "durationMs": 640, "noisyLines": [] },
+      { "name": "merge", "type": "io", "status": "passed", "durationMs": 655, "noisyLines": [] }
+    ],
+    "warnings": []
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "name": "OrderServiceTest",
+  "type": "junit",
+  "source": "package com.demo.service;\n\nimport static org.junit.jupiter.api.Assertions.assertEquals;\n\nimport org.junit.jupiter.api.Test;\n\nclass OrderServiceTest {\n    @Test\n    void mergeCountsMergedOrders() {\n        OrderService s = new OrderService();\n        assertEquals(0, s.merge());\n    }\n}\n"
+}

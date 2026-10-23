@@ -1,0 +1,126 @@
+{
+  "methodId": "com.demo.service.OrderService.merge~0",
+  "signature": "public int merge()",
+  "complexity": "O(n²)",
+  "root": {
+    "id": "com.demo.service.OrderService.merge~0",
+    "kind": "method",
+    "fields": { "signature": "public int merge()" },
+    "span": { "file": "src/com/demo/service/OrderService.java", "startLine": 37, "endLine": 55 },
+    "issues": [],
+    "collapsed": false,
+    "slots": {
+      "body": [
+        {
+          "id": "com.demo.service.OrderService.merge~0/body/0",
+          "kind": "var",
+          "fields": { "type": "int", "name": "merged", "init": "0" },
+          "slots": {},
+          "span": { "file": "src/com/demo/service/OrderService.java", "startLine": 38, "endLine": 38 }
+        },
+        {
+          "id": "com.demo.service.OrderService.merge~0/body/1",
+          "kind": "for",
+          "fields": { "init": "int i = 0", "cond": "i < orders.size()", "update": "i++" },
+          "span": { "file": "src/com/demo/service/OrderService.java", "startLine": 39, "endLine": 53 },
+          "issues": [],
+          "collapsed": false,
+          "slots": {
+            "body": [
+              {
+                "id": "com.demo.service.OrderService.merge~0/body/1/body/0",
+                "kind": "var",
+                "fields": { "type": "Order", "name": "a", "init": "orders.get(i)" },
+                "slots": {},
+                "span": { "file": "src/com/demo/service/OrderService.java", "startLine": 40, "endLine": 40 }
+              },
+              {
+                "id": "com.demo.service.OrderService.merge~0/body/1/body/1",
+                "kind": "if",
+                "fields": { "cond": "!a.getStatus().canMerge()" },
+                "span": { "file": "src/com/demo/service/OrderService.java", "startLine": 41, "endLine": 43 },
+                "slots": {
+                  "then": [
+                    {
+                      "id": "com.demo.service.OrderService.merge~0/body/1/body/1/then/0",
+                      "kind": "continue",
+                      "fields": {},
+                      "slots": {},
+                      "span": { "file": "src/com/demo/service/OrderService.java", "startLine": 42, "endLine": 42 }
+                    }
+                  ],
+                  "else": []
+                }
+              },
+              {
+                "id": "com.demo.service.OrderService.merge~0/body/1/body/2",
+                "kind": "for",
+                "fields": { "init": "int j = i + 1", "cond": "j < orders.size()", "update": "j++" },
+                "span": { "file": "src/com/demo/service/OrderService.java", "startLine": 44, "endLine": 52 },
+                "issues": ["ISSUE-1"],
+                "collapsed": false,
+                "slots": {
+                  "body": [
+                    {
+                      "id": "com.demo.service.OrderService.merge~0/body/1/body/2/body/0",
+                      "kind": "var",
+                      "fields": { "type": "Order", "name": "b", "init": "orders.get(j)" },
+                      "slots": {},
+                      "span": { "file": "src/com/demo/service/OrderService.java", "startLine": 45, "endLine": 45 }
+                    },
+                    {
+                      "id": "com.demo.service.OrderService.merge~0/body/1/body/2/body/1",
+                      "kind": "if",
+                      "fields": { "cond": "b.getStatus().canMerge() && a.getCustomerId() == b.getCustomerId()" },
+                      "span": { "file": "src/com/demo/service/OrderService.java", "startLine": 46, "endLine": 51 },
+                      "slots": {
+                        "then": [
+                          {
+                            "id": "com.demo.service.OrderService.merge~0/body/1/body/2/body/1/then/0",
+                            "kind": "expr",
+                            "fields": { "text": "absorb(a, b)" },
+                            "slots": {},
+                            "span": { "file": "src/com/demo/service/OrderService.java", "startLine": 47, "endLine": 47 }
+                          },
+                          {
+                            "id": "com.demo.service.OrderService.merge~0/body/1/body/2/body/1/then/1",
+                            "kind": "expr",
+                            "fields": { "text": "b.setStatus(OrderStatus.MERGED)" },
+                            "slots": {},
+                            "span": { "file": "src/com/demo/service/OrderService.java", "startLine": 48, "endLine": 48 }
+                          },
+                          {
+                            "id": "com.demo.service.OrderService.merge~0/body/1/body/2/body/1/then/2",
+                            "kind": "expr",
+                            "fields": { "text": "b.setNote(\"merged into \" + a.getId())" },
+                            "slots": {},
+                            "span": { "file": "src/com/demo/service/OrderService.java", "startLine": 49, "endLine": 49 }
+                          },
+                          {
+                            "id": "com.demo.service.OrderService.merge~0/body/1/body/2/body/1/then/3",
+                            "kind": "expr",
+                            "fields": { "text": "merged++" },
+                            "slots": {},
+                            "span": { "file": "src/com/demo/service/OrderService.java", "startLine": 50, "endLine": 50 }
+                          }
+                        ],
+                        "else": []
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "com.demo.service.OrderService.merge~0/body/2",
+          "kind": "return",
+          "fields": { "value": "merged" },
+          "slots": {},
+          "span": { "file": "src/com/demo/service/OrderService.java", "startLine": 54, "endLine": 54 }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "applied": false,
+  "version": 3,
+  "reason": "исправление не подтверждено: тест merge не проходит после фикса",
+  "verify": {
+    "status": "red",
+    "results": [
+      { "name": "basic", "type": "io", "status": "passed", "durationMs": 640, "noisyLines": [] },
+      { "name": "merge", "type": "io", "status": "failed", "durationMs": 655, "expected": "merged=2\n", "actual": "merged=1\n", "noisyLines": [] }
+    ],
+    "warnings": []
+  }
+}
