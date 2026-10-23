@@ -24,7 +24,7 @@
 - [x] BE-12 Символы размера коллекций + алгебра Big O + таблица JDK + граф вызовов | analysis | BE-04 | §8.1, §8.2
 - [x] BE-13 Детектор NestedLoopSameCollection | analysis | BE-12 | §8.3
 - [x] BE-14 Детектор LinearSearchInLoop | analysis | BE-12 | §8.3
-- [ ] BE-15 Детектор ExpensiveCallInLoop | analysis | BE-12 | §8.3
+- [x] BE-15 Детектор ExpensiveCallInLoop | analysis | BE-12 | §8.3
 - [ ] BE-16 Детектор StringConcatInLoop | analysis | BE-12 | §8.3
 - [ ] BE-17 Детекторы LongMethod / DeepNesting | analysis | BE-12 | §8.3
 - [ ] BE-18 Quality Gate: применить → компиляция → все тесты → откат | fixes | BE-10, BE-11 | §9
