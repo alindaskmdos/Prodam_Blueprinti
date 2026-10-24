@@ -46,7 +46,7 @@
 - [x] BE-44 Долги app: PUT files пересчитывает предупреждения загрузки/mainClasses/дубликаты FQN; verify не пропускает main при битых tests/*.json; ProjectsApiTest.javaJar ждёт/убивает процесс java | app | BE-07, BE-38, BE-36 | §11, §12
 - [x] BE-45 runner: `--release 21` в Runner.run (на JDK 22 demo приходит original_fails); Instrumenter — при отказе вставки/некомпилируемой копии файл без вставок, атомарная запись trace-файла, `docker exec cat` в общем бюджете времени; тесты на jar без инструментации и halt → hits null | runner | BE-27 | §11а, §14а.6
 - [x] BE-46 `GET /health` по контракту: `docker` (реальная проверка доступности Docker, как у Runner) и `llm` (задан ли LLM_API_KEY); тест на схему ответа | app | BE-38 | §2, §11а
-- [ ] BE-47 `backend/Dockerfile` под Coolify (см. decisions «Деплой через Coolify»): многоэтапная сборка Gradle → JRE 21 + docker CLI; при старте фоном `docker pull $BLUEPRINTS_RUN_IMAGE`, если образа нет; JVM по лимиту контейнера (MaxRAMPercentage); HEALTHCHECK на /api/health; `.dockerignore`; проверка: образ собирается, в контейнере с docker.sock и папкой запуска /health → docker:true и verify на samples/demo зелёный | backend (Dockerfile) | BE-46 | §2
+- [x] BE-47 `backend/Dockerfile` под Coolify (см. decisions «Деплой через Coolify»): многоэтапная сборка Gradle → JDK 21 (компиляция через javax.tools в процессе) + docker CLI; при старте фоном `docker pull $BLUEPRINTS_RUN_IMAGE`, если образа нет; JVM по лимиту контейнера (MaxRAMPercentage); HEALTHCHECK на /api/health; `.dockerignore`; проверка: образ собирается, в контейнере с docker.sock и папкой запуска /health → docker:true и verify на samples/demo зелёный | backend (Dockerfile) | BE-46 | §2
 
 ## Frontend
 
