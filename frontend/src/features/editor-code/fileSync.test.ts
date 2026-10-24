@@ -140,7 +140,7 @@ describe('FileSync', () => {
     expect(sync.getState().status).toBe('synced');
   });
 
-  it('409: тост-данные из error.conflict.json, правка отброшена, текст перезагружен', async () => {
+  it('409: тост-данные из error.conflict.json, текст перезагружен, правка — в stale (conflict)', async () => {
     const srv = serverFile({ text: 'server v1', version: 2 });
     const onConflict = vi.fn();
     const sync = await created({ onConflict });
@@ -160,6 +160,7 @@ describe('FileSync', () => {
       version: 3,
       loadSeq: 2,
       conflict: { clientVersion: 2, serverVersion: 3, message: errorConflictJson.message, seq: 1 },
+      stale: { text: 'my edit', reason: 'conflict' },
     });
 
     sync.dismissConflict();
@@ -274,7 +275,7 @@ describe('FileSync', () => {
       version: 2,
       loadedText: 'a theirs',
       loadSeq: 2,
-      stale: { text: 'a mine' },
+      stale: { text: 'a mine', reason: 'external' },
     });
 
     sync.takeTheirs();
@@ -291,7 +292,7 @@ describe('FileSync', () => {
     srv.file.version = 2;
     sync.adoptVersion(2);
     await sync.idle();
-    expect(sync.getState().stale).toEqual({ text: 'a mine' });
+    expect(sync.getState().stale).toEqual({ text: 'a mine', reason: 'external' });
 
     sync.keepMine();
     expect(sync.getState()).toMatchObject({ stale: null, loadedText: 'a mine', loadSeq: 3 });
@@ -417,6 +418,196 @@ describe('FileSync', () => {
     await sync.idle();
     expect(srv.gets()).toBe(1); // первый GET перехвачен once-обработчиком
     expect(sync.getState()).toMatchObject({ version: 2, loadedText: 'new', stale: null });
+  });
+
+  /** Задержанный GET files (once): отвечает текущим srv.file в момент release. */
+  function gatedGet(srv: ReturnType<typeof serverFile>) {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    server.use(
+      http.get(
+        `${API}/projects/:projectId/files`,
+        async ({ request }) => {
+          await gate;
+          const path = new URL(request.url).searchParams.get('path') ?? '';
+          return HttpResponse.json<Schemas['FileText']>({ path, text: srv.file.text, version: srv.file.version });
+        },
+        { once: true },
+      ),
+    );
+    return () => release();
+  }
+
+  it('внешняя версия, файл не изменился: неотправленная правка уходит с новой версией, без stale', async () => {
+    const srv = serverFile({ text: 'a', version: 1 });
+    const sync = await created();
+    sync.edit('a mine');
+    srv.file.version = 2; // правка другого файла
+    sync.adoptVersion(2);
+    await settle(sync, 1000);
+    expect(srv.puts).toEqual([{ path: PATH, version: 2, text: 'a mine' }]);
+    expect(sync.getState()).toMatchObject({ status: 'synced', version: 3, stale: null, loadSeq: 1 });
+  });
+
+  it('правка во время GET files (файл не изменился) не теряется: уходит PUT с новой версией', async () => {
+    const srv = serverFile({ text: 'a', version: 1 });
+    const sync = await created();
+    const release = gatedGet(srv);
+    srv.file.version = 2;
+    sync.adoptVersion(2);
+    expect(sync.getState().status).toBe('loading');
+    sync.edit('a typed');
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(srv.puts).toHaveLength(0);
+    release();
+    await settle(sync, 1000);
+    expect(srv.puts).toEqual([{ path: PATH, version: 2, text: 'a typed' }]);
+    expect(sync.getState()).toMatchObject({ status: 'synced', version: 3, stale: null, loadSeq: 1 });
+  });
+
+  it('правка во время GET files (файл изменился) → stale с набранным текстом, в редакторе новый', async () => {
+    const srv = serverFile({ text: 'a', version: 1 });
+    const sync = await created();
+    const release = gatedGet(srv);
+    srv.file.text = 'a theirs';
+    srv.file.version = 2;
+    sync.adoptVersion(2);
+    sync.edit('a typed');
+    release();
+    await settle(sync, 1000);
+    expect(srv.puts).toHaveLength(0);
+    expect(sync.getState()).toMatchObject({
+      status: 'synced',
+      version: 2,
+      loadedText: 'a theirs',
+      loadSeq: 2,
+      stale: { text: 'a typed', reason: 'external' },
+    });
+  });
+
+  it('при открытой плашке правки не принимаются (readOnly), «Оставить мои» отправляет черновик', async () => {
+    const srv = serverFile({ text: 'a', version: 1 });
+    const sync = await created();
+    sync.edit('a mine');
+    srv.file.text = 'a theirs';
+    srv.file.version = 2;
+    sync.adoptVersion(2);
+    await sync.idle();
+    sync.edit('a theirs + typed');
+    await settle(sync, 1000);
+    expect(srv.puts).toHaveLength(0);
+    expect(sync.getState()).toMatchObject({ status: 'synced', stale: { text: 'a mine' } });
+    sync.keepMine();
+    await sync.idle();
+    expect(srv.puts).toEqual([{ path: PATH, version: 2, text: 'a mine' }]);
+  });
+
+  it('повторная внешняя версия при открытой плашке: черновик сохраняется, обновляется только новый текст', async () => {
+    const srv = serverFile({ text: 'a', version: 1 });
+    const sync = await created();
+    sync.edit('a mine');
+    srv.file.text = 'a theirs';
+    srv.file.version = 2;
+    sync.adoptVersion(2);
+    await sync.idle();
+    srv.file.text = 'a theirs 2';
+    srv.file.version = 3;
+    sync.adoptVersion(3);
+    await sync.idle();
+    expect(srv.gets()).toBe(3);
+    expect(sync.getState()).toMatchObject({
+      status: 'synced',
+      version: 3,
+      loadedText: 'a theirs 2',
+      loadSeq: 3,
+      stale: { text: 'a mine', reason: 'external' },
+    });
+    sync.keepMine();
+    await sync.idle();
+    expect(srv.puts).toEqual([{ path: PATH, version: 3, text: 'a mine' }]);
+  });
+
+  it('409: правка, набранная во время перезагрузки, тоже попадает в stale; «Оставить мои» — PUT с новой версией', async () => {
+    const srv = serverFile({ text: 'v1', version: 2 });
+    const sync = await created();
+    srv.file.text = 'v2 theirs';
+    srv.file.version = 3;
+    server.use(
+      http.put(`${API}/projects/:projectId/files`, () => HttpResponse.json(errorConflictJson, { status: 409 }), {
+        once: true,
+      }),
+    );
+    const release = gatedGet(srv);
+    sync.edit('v1 mine');
+    await vi.advanceTimersByTimeAsync(500);
+    await vi.waitFor(() => expect(sync.getState().status).toBe('loading'));
+    sync.edit('v1 mine more');
+    release();
+    await settle(sync, 1000);
+    expect(sync.getState()).toMatchObject({
+      status: 'synced',
+      version: 3,
+      loadedText: 'v2 theirs',
+      stale: { text: 'v1 mine more', reason: 'conflict' },
+    });
+    expect(srv.puts).toHaveLength(0);
+    sync.keepMine();
+    await sync.idle();
+    expect(srv.puts).toEqual([{ path: PATH, version: 3, text: 'v1 mine more' }]);
+    expect(sync.getState()).toMatchObject({ status: 'synced', version: 4, stale: null });
+  });
+
+  it('«Оставить мои» после упавшего GET: черновик не теряется, GET повторяется, затем PUT', async () => {
+    const srv = serverFile({ text: 'a', version: 1 });
+    const sync = await created();
+    sync.edit('a mine');
+    srv.file.text = 'a theirs';
+    srv.file.version = 2;
+    sync.adoptVersion(2);
+    await sync.idle();
+    // Ещё одна внешняя версия (другой файл), но GET падает.
+    srv.file.version = 3;
+    server.use(
+      http.get(
+        `${API}/projects/:projectId/files`,
+        () => HttpResponse.json<Schemas['Error']>({ code: 'INTERNAL', message: 'упал' }, { status: 500 }),
+        { once: true },
+      ),
+    );
+    sync.adoptVersion(3);
+    await sync.idle();
+    expect(sync.getState()).toMatchObject({ status: 'error', version: 2, stale: { text: 'a mine' } });
+
+    sync.keepMine();
+    expect(sync.getState()).toMatchObject({ loadedText: 'a mine', stale: null });
+    await sync.idle();
+    expect(srv.puts).toEqual([{ path: PATH, version: 3, text: 'a mine' }]);
+    expect(sync.getState()).toMatchObject({ status: 'synced', version: 4, stale: null });
+  });
+
+  it('«Оставить мои» после упавшего GET, а файл тем временем изменился: плашка возвращается с тем же черновиком', async () => {
+    const srv = serverFile({ text: 'a', version: 1 });
+    const sync = await created();
+    sync.edit('a mine');
+    srv.file.text = 'a theirs';
+    srv.file.version = 2;
+    sync.adoptVersion(2);
+    await sync.idle();
+    srv.file.text = 'a theirs 2';
+    srv.file.version = 3;
+    server.use(http.get(`${API}/projects/:projectId/files`, () => HttpResponse.error(), { once: true }));
+    sync.adoptVersion(3);
+    await sync.idle();
+    expect(sync.getState().status).toBe('error');
+    sync.keepMine();
+    await sync.idle();
+    expect(srv.puts).toHaveLength(0);
+    expect(sync.getState()).toMatchObject({
+      status: 'synced',
+      version: 3,
+      loadedText: 'a theirs 2',
+      stale: { text: 'a mine', reason: 'external' },
+    });
   });
 
   it('dispose отменяет отложенную отправку', async () => {

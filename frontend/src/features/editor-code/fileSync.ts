@@ -32,12 +32,14 @@ export interface ConflictInfo {
 }
 
 /**
- * Файл изменился извне (правка нод, фикс), пока у пользователя были неотправленные правки.
- * В редакторе уже новый серверный текст; правки пользователя сохранены здесь и не отправлены.
+ * Файл изменился (правка нод, фикс — `external`; 409 на PUT — `conflict`), пока у пользователя были
+ * неотправленные правки. В редакторе уже новый серверный текст, редактор только для чтения до выбора;
+ * правки пользователя сохранены здесь и не отправлены.
  */
 export interface StaleEdit {
   /** Текст пользователя, который не ушёл на сервер. */
   text: string;
+  reason: 'external' | 'conflict';
 }
 
 export interface FileSyncState {
@@ -122,48 +124,22 @@ export class FileSync {
     return () => this.listeners.delete(listener);
   };
 
-  /** GET files: текст и версия. Сбрасывает неотправленные правки (stale-черновик не трогает). */
+  /**
+   * GET files: текст и версия. Неотправленные правки (и набранные во время GET) не теряются:
+   * серверный текст совпал с базой правок — они уходят PUT с новой версией, иначе — в `stale`.
+   */
   load(): Promise<void> {
-    this.clearTimer();
-    this.pendingText = null;
-    this.caughtUp = this.externalVersion;
-    const gen = ++this.generation;
-    this.set({ status: 'loading', error: null, parseError: null });
-    const { client, projectId, path } = this.options;
-    const p = client
-      .GET('/projects/{projectId}/files', { params: { path: { projectId }, query: { path } } })
-      .then(({ data, error, response }) => {
-        if (this.isStale(gen)) return;
-        if (data) {
-          this.serverText = data.text;
-          this.localText = data.text;
-          this.set({
-            status: 'synced',
-            version: data.version,
-            loadedText: data.text,
-            loadSeq: this.state.loadSeq + 1,
-          });
-          this.options.onVersion?.(data.version);
-        } else {
-          this.set({ status: 'error', error: error?.message ?? `HTTP ${response.status}` });
-        }
-      })
-      .catch((e: unknown) => {
-        if (!this.isStale(gen)) this.set({ status: 'error', error: errorMessage(e) });
-      });
-    this.inFlight = p.finally(() => {
-      if (this.generation !== gen) return;
-      this.inFlight = null;
-      // Внешняя версия выросла во время загрузки — догнать.
-      this.reconcile();
-    });
-    return this.inFlight;
+    return this.fetchText('external');
   }
 
-  /** Новый полный текст из редактора. */
+  /**
+   * Новый полный текст из редактора. Во время GET files — только запоминается (решение после ответа).
+   * При открытой плашке `stale` редактор только для чтения — правки не принимаются.
+   */
   edit(text: string): void {
-    if (this.disposed || this.state.status === 'loading') return;
+    if (this.disposed || this.state.stale) return;
     this.localText = text;
+    if (this.state.status === 'loading') return;
     if (text === this.serverText && !this.inFlight) {
       // Вернули текст к принятому сервером — отправлять нечего.
       this.clearTimer();
@@ -183,8 +159,8 @@ export class FileSync {
   /**
    * Версия проекта стала известна извне (правка нод, фикс). Новее нашей — текст файла мог измениться:
    * перезагружаем его (GET files), а не подменяем только версию — иначе следующий PUT со старым текстом
-   * и свежей версией затёр бы чужую правку. Неотправленные правки не уходят, а откладываются в `stale`.
-   * PUT в полёте — проверим после ответа.
+   * и свежей версией затёр бы чужую правку. Неотправленные правки: файл не изменился — уходят с новой
+   * версией, изменился — откладываются в `stale`. PUT в полёте — проверим после ответа.
    */
   adoptVersion(version: number): void {
     if (this.externalVersion !== null && version <= this.externalVersion) return;
@@ -199,7 +175,8 @@ export class FileSync {
 
   /**
    * stale → «Оставить мои»: вернуть текст пользователя в редактор и отправить его с актуальной версией
-   * (осознанная перезапись изменений извне).
+   * (осознанная перезапись изменений извне). Если догнать версию не удалось (упал GET), сначала снова
+   * GET files: текст изменился — плашка вернётся с тем же черновиком.
    */
   keepMine(): void {
     const { stale, status } = this.state;
@@ -232,6 +209,67 @@ export class FileSync {
     this.disposed = true;
     this.clearTimer();
     this.listeners.clear();
+  }
+
+  private fetchText(reason: StaleEdit['reason']): Promise<void> {
+    this.clearTimer();
+    this.pendingText = null;
+    const prevCaughtUp = this.caughtUp;
+    this.caughtUp = this.externalVersion;
+    const gen = ++this.generation;
+    let ok = false;
+    this.set({ status: 'loading', error: null, parseError: null });
+    const { client, projectId, path } = this.options;
+    const p = client
+      .GET('/projects/{projectId}/files', { params: { path: { projectId }, query: { path } } })
+      .then(({ data, error, response }) => {
+        if (this.isStale(gen)) return;
+        if (data) {
+          ok = true;
+          this.applyLoaded(data, reason);
+        } else {
+          this.set({ status: 'error', error: error?.message ?? `HTTP ${response.status}` });
+        }
+      })
+      .catch((e: unknown) => {
+        if (!this.isStale(gen)) this.set({ status: 'error', error: errorMessage(e) });
+      });
+    this.inFlight = p.finally(() => {
+      if (this.generation !== gen) return;
+      this.inFlight = null;
+      if (!ok) {
+        // Догнать не удалось: следующая отправка снова начнётся с GET. Черновик остаётся в редакторе.
+        this.caughtUp = prevCaughtUp;
+        return;
+      }
+      // Отправить продолженные правки или догнать версию, выросшую во время загрузки.
+      this.afterRequest();
+    });
+    return this.inFlight;
+  }
+
+  /** Ответ GET files: решить судьбу неотправленного текста (см. load). */
+  private applyLoaded(data: Schemas['FileText'], reason: StaleEdit['reason']): void {
+    const base = this.serverText;
+    const local = this.localText;
+    const unsent = local !== null && base !== null && local !== base ? local : null;
+    this.serverText = data.text;
+    if (unsent !== null && reason === 'external' && data.text === base) {
+      // Файл не изменился (версия выросла из-за другого файла) — правки ложатся поверх, редактор не трогаем.
+      this.pendingText = unsent;
+      this.set({ status: 'pending', version: data.version });
+    } else {
+      this.localText = data.text;
+      this.set({
+        status: 'synced',
+        version: data.version,
+        loadedText: data.text,
+        loadSeq: this.state.loadSeq + 1,
+        // Уже открытая плашка сохраняется: при ней редактор только для чтения, новых правок нет.
+        ...(unsent !== null ? { stale: { text: unsent, reason } } : {}),
+      });
+    }
+    this.options.onVersion?.(data.version);
   }
 
   private flush(): void {
@@ -290,13 +328,13 @@ export class FileSync {
       if (this.isStale(gen)) return;
       this.inFlight = null;
       if (outcome === 'reload') {
-        return this.load();
+        return this.fetchText('conflict');
       }
       this.afterRequest();
     });
   }
 
-  /** После ответа PUT: отправить накопленную правку или выставить итоговый статус. */
+  /** После ответа PUT или GET: отправить накопленную правку или выставить итоговый статус. */
   private afterRequest(): void {
     if (this.needsCatchUp()) {
       this.reconcile();
@@ -321,15 +359,11 @@ export class FileSync {
   }
 
   /**
-   * Догнать внешнюю версию, когда нет запроса в полёте: таймер отменяется, неотправленный текст
-   * (pending, отклонённый 422 или упавший PUT) откладывается в `stale`, затем GET files.
+   * Догнать внешнюю версию, когда нет запроса в полёте: GET files. Неотправленный текст (pending,
+   * отклонённый 422 или упавший PUT) остаётся в localText — его судьбу решит ответ (applyLoaded).
    */
   private reconcile(): void {
     if (this.disposed || this.inFlight || !this.needsCatchUp()) return;
-    this.clearTimer();
-    this.pendingText = null;
-    const unsent = this.localText !== null && this.localText !== this.serverText ? this.localText : null;
-    if (unsent !== null) this.set({ stale: { text: unsent } });
     void this.load();
   }
 

@@ -98,8 +98,15 @@ export function CodeEditor({ client = api, projectId, path, version, onVersion, 
       )}
       {stale && (
         <div className={styles.stale} role="alert">
-          <span className={styles.staleTitle}>Файл изменён (на схеме или фиксом). Ваши правки не отправлены</span>
-          <span>В редакторе новый текст. «Оставить мои» вернёт ваш текст и перезапишет изменения.</span>
+          <span className={styles.staleTitle}>
+            {stale.reason === 'conflict'
+              ? 'Проект изменён — ваши правки не отправлены'
+              : 'Файл изменён (на схеме или фиксом). Ваши правки не отправлены'}
+          </span>
+          <span>
+            В редакторе новый текст, он только для чтения, пока вы не выберете. «Оставить мои» вернёт ваш текст и
+            перезапишет изменения.
+          </span>
           <div className={styles.staleActions}>
             <button type="button" onClick={takeTheirs}>
               Взять новый текст
@@ -128,6 +135,7 @@ export function CodeEditor({ client = api, projectId, path, version, onVersion, 
               loadSeq={loadSeq}
               parseError={parseError}
               onChange={edit}
+              readOnly={stale !== null}
             />
           </Suspense>
         ) : (

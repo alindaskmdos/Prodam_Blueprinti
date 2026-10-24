@@ -10,7 +10,7 @@ import { CodeEditor } from './CodeEditor';
 // Monaco в jsdom не работает — подменяем представление textarea с тем же интерфейсом.
 vi.mock('./MonacoView', async () => {
   const { useEffect, useState } = await import('react');
-  function FakeMonaco({ text, loadSeq, parseError, onChange }: MonacoViewProps) {
+  function FakeMonaco({ text, loadSeq, parseError, onChange, readOnly }: MonacoViewProps) {
     const [value, setValue] = useState(text);
     useEffect(() => setValue(text), [text, loadSeq]);
     return (
@@ -18,6 +18,7 @@ vi.mock('./MonacoView', async () => {
         aria-label="код"
         data-error-line={parseError?.line ?? ''}
         value={value}
+        readOnly={readOnly}
         onChange={(e) => {
           setValue(e.target.value);
           onChange(e.target.value);
@@ -71,6 +72,10 @@ describe('<CodeEditor>', () => {
     expect(toast.parentElement).toHaveTextContent('Ваша правка относилась к версии 2, сейчас 3. Состояние перезагружено.');
     await waitFor(() => expect(area).toHaveValue('class Main { /* с сервера */ }'));
     expect(onConflict).toHaveBeenCalledTimes(1);
+    // Черновик не потерян: плашка с тремя кнопками, редактор только для чтения.
+    expect(screen.getByText('Проект изменён — ваши правки не отправлены')).toBeInTheDocument();
+    expect(area).toHaveAttribute('readonly');
+    expect(screen.getByRole('button', { name: 'Оставить мои' })).toBeEnabled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }));
     expect(screen.queryByText('Проект изменён')).not.toBeInTheDocument();
@@ -134,9 +139,12 @@ describe('<CodeEditor>', () => {
     expect(await screen.findByText('Файл изменён (на схеме или фиксом). Ваши правки не отправлены')).toBeInTheDocument();
     await waitFor(() => expect(area).toHaveValue('class Main { /* нода */ }'));
     expect(puts).toHaveLength(0);
+    expect(area).toHaveAttribute('readonly');
+    expect(screen.getByText(/только для чтения, пока вы не выберете/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Оставить мои' }));
     await waitFor(() => expect(area).toHaveValue('class Main { int mine; }'));
+    expect(area).not.toHaveAttribute('readonly');
     await waitFor(() => expect(puts).toEqual([{ version: 2, text: 'class Main { int mine; }' }]));
     expect(screen.queryByText(/Ваши правки не отправлены/)).not.toBeInTheDocument();
 

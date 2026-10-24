@@ -14,10 +14,12 @@ export interface MonacoViewProps {
   loadSeq: number;
   parseError: ParseError | null;
   onChange: (text: string) => void;
+  /** Только для чтения (открыта плашка «Ваши правки не отправлены»). */
+  readOnly?: boolean;
 }
 
 /** Monaco без логики синхронизации: показывает текст, отдаёт правки, рисует маркер ошибки. */
-export default function MonacoView({ text, loadSeq, parseError, onChange }: MonacoViewProps) {
+export default function MonacoView({ text, loadSeq, parseError, onChange, readOnly = false }: MonacoViewProps) {
   const editorRef = useRef<CodeEditorInstance | null>(null);
   const suppress = useRef(false);
   const onChangeRef = useRef(onChange);
@@ -82,6 +84,7 @@ export default function MonacoView({ text, loadSeq, parseError, onChange }: Mona
         tabSize: 4,
         renderLineHighlight: 'line',
         padding: { top: 8, bottom: 8 },
+        readOnly,
       }}
     />
   );
