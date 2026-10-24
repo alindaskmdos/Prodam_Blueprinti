@@ -15,12 +15,11 @@
 
 ## Frontend
 
-**Готово:** FE-01, FE-02, FE-04
-**В работе:** FE-03 — ветка `worktree-agent-aaf55bf265b376b80`, worktree `.claude/worktrees/agent-aaf55bf265b376b80`. Коммит e30a386 прошёл verifier (зелёный); reviewer дал замечания, исполнителю отправлены правки: (1) неизвестный kind → фолбэк как raw, blockText/estimateSize всегда строка, тест; (2) hex-цвета в toFlow.ts/MethodCanvas.tsx → var(--jb-*); (3) layout.ts:41 сброс кэша elkPromise при ошибке. Если сессия прервалась — проверить `git -C <worktree> status/log`: есть ли коммит с правками; нет → запустить исполнителя заново на ту же ветку с этим списком. Затем verifier + reviewer → merge --squash (lock-файл пересобрать `npm install`, проверить).
-Также в работе (запущены 2026-10-24, исполнители в worktree `.claude/worktrees/agent-*`, ветки `worktree-agent-*` — смотреть `git worktree list`): FE-15 (upload, App.tsx выбор экрана, кнопки шапки, commands.ts, мок POST /projects) и FE-11 (analysis-panel, вкладки в panels.ts, выбранная проблема в store, мок GET analysis). Если сессия прервалась: есть коммит FE-xx в ветке → verifier + reviewer; нет → перезапустить исполнителя на ту же ветку.
-**Висящие ветки/worktree:** FE-03, FE-15, FE-11 (см. выше). Локальный main впереди origin: FE-02, фикстура file.order-service.json, FE-04 — нужен push.
+**Готово:** FE-01, FE-02, FE-03, FE-04
+**В работе:** Также в работе (запущены 2026-10-24, исполнители в worktree `.claude/worktrees/agent-*`, ветки `worktree-agent-*` — смотреть `git worktree list`): FE-15 (upload, App.tsx выбор экрана, кнопки шапки, commands.ts, мок POST /projects) и FE-11 (analysis-panel, вкладки в panels.ts, выбранная проблема в store, мок GET analysis). Если сессия прервалась: есть коммит FE-xx в ветке → verifier + reviewer; нет → перезапустить исполнителя на ту же ветку.
+**Висящие ветки/worktree:** FE-15, FE-11 (см. выше). Локальный main впереди origin: FE-02, фикстура file.order-service.json, FE-04 — нужен push.
 **Заблокировано:** —
-**Следующие шаги:** после FE-03 — интеграция: MethodCanvas в проп `canvas` у App (FE-02), CodeEditor в `bottom.code` в panels.ts, мок GET files по умолчанию из contract/fixtures/file.order-service.json (добавлена по разрешению человека 2026-10-24). Дальше FE-05, FE-06, FE-07, FE-11, FE-14. Агенты из `.claude/agents` подхватываются, только если сессия открыта из Prodam_Blueprinti/ (иначе general-purpose + путь к промпту роли).
+**Следующие шаги:** интеграция (FE-03 влит): MethodCanvas в проп `canvas` у App (FE-02), CodeEditor в `bottom.code` в panels.ts, мок GET files по умолчанию из contract/fixtures/file.order-service.json (добавлена по разрешению человека 2026-10-24). Дальше FE-05, FE-06, FE-07, FE-11, FE-14. Агенты из `.claude/agents` подхватываются, только если сессия открыта из Prodam_Blueprinti/ (иначе general-purpose + путь к промпту роли).
 **Мелочи с ревью (на будущее):** mock PUT blocks по умолчанию нет; fixture<T>() — просто `as T`, нет сверки фикстур со схемой; store.version приходит только из GET tree, selectedMethodId не сверяется после перезагрузки; panels.ts findPanel — мёртвый код; фичи импортируют app/store (обратная зависимость); fileSync: после сетевой ошибки/5xx нет повтора PUT; FE-04: fileText из ответа PUT в редактор не подставляется (намеренно, курсор).
 
 ## Известные проблемы
@@ -79,3 +78,4 @@
 - BE-40: FixController (POST issues/{id}/fix: 409 до и после QualityGate атомарно, 404 на неизвестную проблему/fixId; applied → version+1, unified diff; rejected → версия не меняется), Issue.fixes = canApply по RefactoringRegistry (low → пусто). Docker-тест: applied Texts.join, rejected fullReport.
 - FE-02: каркас редактора (шапка, дерево проекта из GET tree, слот холста, панели с вкладками из panels.ts {id,title,area,component}, zustand store projectId/version/selectedMethodId, react-resizable-panels).
 - FE-04: CodeEditor (Monaco локально, ленивый чанк), fileSync: debounce 500 мс, полный текст + version, 409 → тост и перезагрузка, 422 → маркер, один запрос в полёте; мок PUT files по умолчанию.
+- FE-03: MethodCanvas/MethodGraph (GET blocks), blocksToGraph — чистая функция дерево → ноды/рёбра, ELK layered в воркере (bundled-фолбэк), все kind + фолбэк неизвестного как raw, стрелки не редактируются, цвета из tokens.css. 2 круга ревью.
