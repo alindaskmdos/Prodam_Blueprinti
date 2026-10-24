@@ -178,7 +178,6 @@ export function MethodGraph({
     setRawSelection(s ? { ...s, root: view.root } : null);
   const selected = selection?.path ?? null;
   const editRef = useRef(edit);
-  editRef.current = edit;
 
   useEffect(() => {
     if (!insertable || selected === null || selected === 'root') return;
@@ -201,21 +200,28 @@ export function MethodGraph({
     return () => document.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setSelection пересоздаётся на каждый рендер
   }, [insertable, selected]);
-  const [state, setState] = useState<{ graph: typeof graph; root: Schemas['Block']; layout: LayoutState }>({
+  const [state, setState] = useState<{
+    graph: typeof graph;
+    root: Schemas['Block'];
+    methodId: string;
+    layout: LayoutState;
+  }>({
     graph,
     root: view.root,
+    methodId,
     layout: { status: 'pending' },
   });
 
   useEffect(() => {
     let cancelled = false;
     const root = view.root;
+    const methodId = view.methodId;
     layoutGraph(graph)
       .then((laid) => {
-        if (!cancelled) setState({ graph, root, layout: { status: 'ready', flow: toFlow(laid) } });
+        if (!cancelled) setState({ graph, root, methodId, layout: { status: 'ready', flow: toFlow(laid) } });
       })
       .catch((e: unknown) => {
-        if (!cancelled) setState({ graph, root, layout: { status: 'error', message: errorText(e) } });
+        if (!cancelled) setState({ graph, root, methodId, layout: { status: 'error', message: errorText(e) } });
       });
     return () => {
       cancelled = true;
@@ -223,14 +229,35 @@ export function MethodGraph({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- root входит в graph
   }, [graph]);
 
-  // Раскладка от другого дерева не показывается, пока не готова новая. Изменился только вид (сворачивание,
-  // комментарии) — старая схема остаётся до новой раскладки: React Flow не пересоздаётся, масштаб и сдвиг те же.
+  // Пока считается новая раскладка того же метода, на экране прежняя схема с устаревшими путями нод, а
+  // edit работает по новому дереву: правки (двойной клик, «+», Delete, ↑↓, drag из палитры) на это время выключены.
+  const layoutStale = state.graph !== graph;
+  const guardedEdit = useMemo<NodeEditApi | undefined>(
+    () =>
+      edit && layoutStale
+        ? {
+            ...edit,
+            structure: false,
+            startEdit: () => {},
+            requestInsert: () => {},
+            canDrop: () => false,
+            dropInsert: () => {},
+            remove: () => {},
+            move: () => {},
+            canMove: () => false,
+          }
+        : edit,
+    [edit, layoutStale],
+  );
+  editRef.current = guardedEdit;
+
+  // Раскладка другого метода не показывается, пока не готова новая. Тот же метод (правка, «+», удаление,
+  // сворачивание, комментарии) — прежняя схема остаётся до новой раскладки: React Flow не пересоздаётся,
+  // масштаб и сдвиг те же (FE-29); fitView только при первом открытии метода и при смене метода.
   const layout: LayoutState =
-    state.graph === graph
+    state.graph === graph || (state.layout.status === 'ready' && state.methodId === methodId)
       ? state.layout
-      : state.layout.status === 'ready' && state.root === view.root
-        ? state.layout
-        : { status: 'pending' };
+      : { status: 'pending' };
   const flowNodes = layout.status === 'ready' ? layout.flow.nodes : null;
   const highlightId = flowNodes && highlightBlockId ? flowNodeOfBlock(flowNodes, highlightBlockId) : null;
   const pulseId = flowNodes && pulseBlockId ? flowNodeOfBlock(flowNodes, pulseBlockId) : null;
@@ -256,7 +283,7 @@ export function MethodGraph({
     focusNodeId !== null && focusDone.current !== focusSeq ? { nodes: [{ id: focusNodeId }], maxZoom: FOCUS_ZOOM } : undefined;
 
   return (
-    <NodeEditContext.Provider value={edit ?? null}>
+    <NodeEditContext.Provider value={guardedEdit ?? null}>
     <CollapseContext.Provider value={collapseApi}>
     <div className={styles.canvas} data-testid="method-canvas">
       {layout.status === 'pending' && <div className={styles.status}>Раскладка схемы…</div>}

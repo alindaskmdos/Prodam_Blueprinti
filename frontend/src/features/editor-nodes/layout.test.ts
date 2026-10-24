@@ -3,7 +3,7 @@ import { fixtures } from '../../mocks/fixtures';
 import { blocksToGraph } from './blocksToGraph';
 import { getElk, layoutGraph, resetElkForTests, type Positioned } from './layout';
 import { toFlow } from './toFlow';
-import { allKindsMethod } from './testTree';
+import { allKindsMethod, b } from './testTree';
 
 describe('layoutGraph (ELK)', () => {
   it('раскладывает все kind: дети внутри родителя, цепочка сверху вниз, соседи не пересекаются', async () => {
@@ -122,5 +122,59 @@ describe('layoutGraph — с местами вставки (FE-08)', () => {
         }
       }
     }
+  });
+});
+
+describe('layoutGraph — switch с множеством case (FE-29)', () => {
+  const MAX_WIDTH = 900;
+  const switchOf = (n: number) =>
+    b('method', { signature: 'void f()' }, {
+      body: [
+        b('switch', { selector: 'x' }, {
+          cases: Array.from({ length: n }, (_, i) => b('case', { label: String(i) }, { body: [b('expr', { text: `run${i}()` })] })),
+        }),
+      ],
+    });
+
+  it('16 case не раскладываются в одну строку: ширина switch не больше порога, ветки столбцом', async () => {
+    const { nodes } = await layoutGraph(blocksToGraph(switchOf(16)));
+    const sw = nodes.find((n) => n.type === 'container' && n.data.kind === 'switch') as Positioned;
+    expect(sw.width).toBeLessThanOrEqual(MAX_WIDTH);
+    const slots = nodes.filter((n) => n.type === 'container' && n.data.kind === 'case');
+    expect(slots).toHaveLength(16);
+    expect(new Set(slots.map((s) => Math.round(s.x))).size).toBe(1);
+    expect(sw.height).toBeGreaterThan(sw.width);
+  });
+
+  it('switch с несколькими case по-прежнему в строку', async () => {
+    const { nodes } = await layoutGraph(blocksToGraph(switchOf(2)));
+    const sw = nodes.find((n) => n.type === 'container' && n.data.kind === 'switch') as Positioned;
+    const slots = nodes.filter((n) => n.type === 'container' && n.data.kind === 'case');
+    expect(slots).toHaveLength(2);
+    expect(sw.width).toBeGreaterThan(0);
+    expect(new Set(slots.map((s) => Math.round(s.y))).size).toBe(1);
+  });
+});
+
+describe('layoutGraph — веер без «+» и catch (FE-29)', () => {
+  const caseBlocks = (n: number) =>
+    Array.from({ length: n }, (_, i) => b('case', { label: String(i) }, { body: [b('expr', { text: `run${i}()` })] }));
+
+  it('try с 5 catch раскладывается столбцом', async () => {
+    const catches = Array.from({ length: 5 }, (_, i) => b('catch', { type: `E${i}`, var: 'e' }, { body: [b('expr', { text: `h${i}()` })] }));
+    const root = b('method', { signature: 'void f()' }, {
+      body: [b('try', {}, { body: [b('expr', { text: 'run()' })], catches })],
+    });
+    const { nodes } = await layoutGraph(blocksToGraph(root));
+    const cs = nodes.filter((n) => n.type === 'container' && n.data.kind === 'catch');
+    expect(cs).toHaveLength(5);
+    expect(new Set(cs.map((c) => Math.round(c.x))).size).toBe(1);
+  });
+
+  it('3 case в режиме правки («+ case» не в счёте) остаются в строке', async () => {
+    const root = b('method', { signature: 'void f()' }, { body: [b('switch', { selector: 'x' }, { cases: caseBlocks(3) })] });
+    const { nodes } = await layoutGraph(blocksToGraph(root, { insertable: true }));
+    const cs = nodes.filter((n) => n.type === 'container' && n.data.kind === 'case');
+    expect(new Set(cs.map((c) => Math.round(c.y))).size).toBe(1);
   });
 });

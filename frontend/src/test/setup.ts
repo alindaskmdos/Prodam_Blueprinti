@@ -10,6 +10,32 @@ import { server } from '../mocks/server';
 const NodeFormData = (await new Response('', { headers: { 'content-type': 'application/x-www-form-urlencoded' } }).formData()).constructor;
 Object.assign(globalThis, { FormData: NodeFormData, File: NodeFile, Blob: NodeBlob });
 
+// Node ≥ 25 даёт глобальный localStorage-геттер, который без --localstorage-file возвращает undefined
+// и перекрывает jsdom-овский Storage. Если хранилище недоступно — подставляем рабочее in-memory (как в браузере).
+function installStorage(name: 'localStorage' | 'sessionStorage') {
+  let usable = false;
+  try {
+    usable = typeof globalThis[name]?.getItem === 'function';
+  } catch {
+    usable = false;
+  }
+  if (usable) return;
+  const data = new Map<string, string>();
+  const storage = {
+    get length() {
+      return data.size;
+    },
+    key: (i: number) => [...data.keys()][i] ?? null,
+    getItem: (k: string) => data.get(String(k)) ?? null,
+    setItem: (k: string, v: string) => void data.set(String(k), String(v)),
+    removeItem: (k: string) => void data.delete(String(k)),
+    clear: () => data.clear(),
+  } as Storage;
+  Object.defineProperty(globalThis, name, { value: storage, configurable: true, writable: true });
+}
+installStorage('localStorage');
+installStorage('sessionStorage');
+
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
   cleanup();

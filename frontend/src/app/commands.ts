@@ -25,6 +25,8 @@ export interface CommandDef {
   group?: string;
   /** Подсказка сочетания клавиш, напр. 'Ctrl+Enter'. */
   shortcut?: string;
+  /** true — команда нужна только UI с параметрами (fix.apply) и в палитре не показывается. */
+  paletteHidden?: boolean;
   /** false — команда видна, но недоступна (напр. нет Docker). */
   isEnabled?: () => boolean;
   /** `args` — параметры команды из UI (напр. fix.apply: issueId, fixId). */
@@ -68,6 +70,8 @@ export const commands: readonly CommandDef[] = [
     id: 'fix.apply',
     title: 'Применить фикс (Quality Gate)',
     group: 'Анализ',
+    // В палитре фиксы показываются по проблемам (command-palette), а не одной командой без параметров.
+    paletteHidden: true,
     isEnabled: sandboxReady,
     run: (args) => {
       const issueId = args?.issueId;

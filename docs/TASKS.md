@@ -65,9 +65,10 @@
 - [x] FE-13 Кнопки: применить фикс, запуск, проверить поведение | analysis-panel, tests-panel | FE-11, FE-12 | §9, §10
 - [x] FE-14 `frontend/Dockerfile` (сборка Vite → nginx) + `docker-compose.yml` под Coolify по стыку из decisions «Деплой через Coolify»: nginx-проксирование /api, лимит тела и таймаут, только `expose`, healthcheck фронта, depends_on backend healthy | docker-compose.yml, frontend (Dockerfile) | FE-01, BE-47 (стык зафиксирован — можно параллельно) | §2
 - [x] FE-15 Экран загрузки: drag&drop файлов, .zip/.jar, папки целиком (`webkitdirectory`); показ предупреждений и ошибок загрузки; экспорт .zip с галочкой «настройки Java Blueprints» и .jar (неактивна с причиной, если не компилируется; подпись «требует Java 21+») | upload | FE-02 | §11
-- [ ] FE-29 Холст после правки: правка ноды / «+» / удаление не сбрасывают viewport на fitView всей схемы; switch с множеством case не раскладывается в одну широкую строку (читаемо при fitView) | editor-nodes | FE-09 | §6
+- [x] FE-29 Холст после правки: правка ноды / «+» / удаление не сбрасывают viewport на fitView всей схемы; switch с множеством case не раскладывается в одну широкую строку (читаемо при fitView) | editor-nodes | FE-09 | §6
 - [x] FE-30 Красный тест на main: UploadScreen «папка (webkitdirectory) уходит multipart-запросом» получает content-type text/plain — найти причину (код загрузки или тестовое окружение) и починить | upload | FE-15 | §11
 - [ ] FE-31 e2e на Playwright в `frontend/e2e/`: загрузка samples/demo, проблема → схема, правка ноды, фикс через Quality Gate, запуск со STDIN, verify зелёный и красный, экспорт zip/jar, drag из палитры; против URL из env (локально или compose) | frontend (e2e) | FE-14 | §2
+- [x] FE-32 Красный тест на main при Node 26: MethodCanvas.collapse «Комментарии выкл» — `localStorage` undefined (Node-овский Web Storage перекрывает jsdom); in-memory Storage в setup.ts | frontend (test env) | FE-30 | —
 - [ ] CI-01 `.github/workflows/ci.yml`: job `compose` — `docker compose up`, /health → docker:true, FE-31 e2e; job `deploy` только на main после всех зелёных — POST на webhook Coolify (секреты COOLIFY_WEBHOOK, COOLIFY_TOKEN) | .github | BE-47, FE-14, FE-31 | §2
 
 ## Если успеем (только после того, как обязательный путь работает целиком; по порядку)
@@ -101,7 +102,7 @@
 - [ ] FE-25 Автодополнение в Monaco и полях нод (локальная фильтрация) | editor-code, editor-nodes | FE-07, CT-04 | §14а.12
 - [ ] BE-34 Запись значений `Trace.value` на одном тесте: 10 000 шагов, без `toString()` у объектов | runner, app | BE-27, CT-04 | §14а.13
 - [ ] FE-26 Пошаговое воспроизведение: подсветка ноды, переменные, ползунок | debug | FE-03, CT-04 | §14а.13
-- [ ] FE-28 Командная палитра (cmdk): поиск по классам/методам/полям/нодам/проблемам, реестр команд `commands.ts` | command-palette | FE-02, FE-05 | §14а.14
+- [x] FE-28 Командная палитра (cmdk): поиск по классам/методам/полям/нодам/проблемам, реестр команд `commands.ts` | command-palette | FE-02, FE-05 | §14а.14
 - [ ] BE-35 Модуль `report`: HTML-отчёт | report, app | BE-28, CT-04 | §14а.15
 - [ ] FE-27 Кнопка экспорта отчёта | analysis-panel | FE-13, CT-04 | §14а.15
 

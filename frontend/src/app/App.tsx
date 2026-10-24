@@ -1,11 +1,12 @@
 import { useCallback, useEffect, type ReactNode } from 'react';
 import { api, type ApiClient, type Schemas } from '../features/api';
 import { FixConflictToast, isFixRunning, QualityGateDialog, useFixStore } from '../features/fix';
+import { CommandPalette } from '../features/command-palette';
 import { CanvasSlot, EditorHeader, EditorLayout, PanelTabs } from '../features/layout';
 import { ProjectTree } from '../features/project-tree';
 import { RunDialog, SandboxNotice, sandboxDisabledReason, useSandbox, useSandboxStore } from '../features/sandbox';
 import { ExportDialog, UploadScreen, useUploadUi, type SaveFile } from '../features/upload';
-import { runCommand } from './commands';
+import { commands, runCommand } from './commands';
 import { SelectedMethodCanvas } from './methodViews';
 import { panels as defaultPanels, panelsIn, type PanelDef } from './panels';
 import { useAppStore } from './store';
@@ -101,6 +102,7 @@ function EditorScreen({ client, projectId, canvas, panels, saveFile }: EditorScr
           />
         }
       />
+      <CommandPalette client={client} commands={commands} runCommand={runCommand} />
       <RunDialog />
       <QualityGateDialog />
       <SandboxNotice />
