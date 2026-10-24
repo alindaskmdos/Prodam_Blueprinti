@@ -73,25 +73,49 @@ export function removeBlock(root: Block, path: BlockPath): Block {
   return withSlot(root, p.parent, p.slot, (items) => items.filter((_, i) => i !== p.index)) ?? root;
 }
 
-/** Можно ли сдвинуть блок на delta внутри его слота (через границы контейнеров — нельзя). */
-export function canMove(root: Block, path: BlockPath, delta: -1 | 1): boolean {
+/**
+ * Пропуск блоков при ↑↓ (FE-06): скрытые на схеме блоки (комментарии при выключенном переключателе)
+ * не считаются соседями — блок меняется местами с ближайшим видимым, скрытые остаются на своих местах.
+ */
+export type MoveSkip = (block: Block) => boolean;
+
+/** Скрытые комментарии (переключатель «Комментарии» выключен). */
+export const skipComments: MoveSkip = (block) => block.kind === 'comment';
+
+/** Индекс соседа, с которым меняется блок; нет — null. */
+function moveTarget(root: Block, path: BlockPath, delta: -1 | 1, skip?: MoveSkip): number | null {
   const p = parentOf(path);
-  if (!p) return false;
+  if (!p) return null;
   const items = at(root, p.parent)?.slots?.[p.slot];
-  if (!items || p.index >= items.length) return false;
-  const to = p.index + delta;
-  return to >= 0 && to < items.length;
+  if (!items || p.index >= items.length) return null;
+  for (let to = p.index + delta; to >= 0 && to < items.length; to += delta) {
+    const item = items[to];
+    if (item && !skip?.(item)) return to;
+  }
+  return null;
 }
 
-/** Перестановка с соседом в том же слоте. На границе слота — то же дерево и тот же путь. */
-export function moveBlock(root: Block, path: BlockPath, delta: -1 | 1): { root: Block; path: BlockPath } {
+/** Можно ли сдвинуть блок на delta внутри его слота (через границы контейнеров — нельзя). */
+export function canMove(root: Block, path: BlockPath, delta: -1 | 1, skip?: MoveSkip): boolean {
+  return moveTarget(root, path, delta, skip) !== null;
+}
+
+/**
+ * Перестановка с соседом в том же слоте (со skip — с ближайшим не пропускаемым; блоки между ними на месте).
+ * На границе слота — то же дерево и тот же путь.
+ */
+export function moveBlock(root: Block, path: BlockPath, delta: -1 | 1, skip?: MoveSkip): { root: Block; path: BlockPath } {
   const p = parentOf(path);
-  if (!p || !canMove(root, path, delta)) return { root, path };
-  const to = p.index + delta;
+  const to = moveTarget(root, path, delta, skip);
+  if (!p || to === null) return { root, path };
   const next = withSlot(root, p.parent, p.slot, (items) => {
     const copy = [...items];
-    const [moved] = copy.splice(p.index, 1);
-    if (moved) copy.splice(to, 0, moved);
+    const a = copy[p.index];
+    const b = copy[to];
+    if (a && b) {
+      copy[p.index] = b;
+      copy[to] = a;
+    }
     return copy;
   });
   return next ? { root: next, path: childPath(p.parent, p.slot, to) } : { root, path };

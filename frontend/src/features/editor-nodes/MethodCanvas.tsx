@@ -1,20 +1,42 @@
-import { Background, BackgroundVariant, Controls, ReactFlow, useReactFlow, type Edge, type Node } from '@xyflow/react';
+import {
+  Background,
+  BackgroundVariant,
+  Controls,
+  MiniMap,
+  Panel,
+  ReactFlow,
+  useReactFlow,
+  type Edge,
+  type Node,
+} from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore, type LineSpan } from '../../app/store';
 import { api, type ApiClient, type Schemas } from '../api';
 import { blockAt, withFields, type BlockPath } from './blockEdit';
 import { currentRoot, type ConflictInfo, type InvalidEdit } from './blockSync';
-import { canMove, insertOptions, nestedCount, type InsertOption, type InsertPoint } from './blockTree';
+import {
+  canMove,
+  insertOptions,
+  nestedCount,
+  parentOf,
+  skipComments,
+  type InsertOption,
+  type InsertPoint,
+} from './blockTree';
 import { blockAtLine } from './blockLocate';
 import { blocksToGraph, type GraphNodeData } from './blocksToGraph';
+import { collapsedPaths, containerEntries, keysInSlot, lockedPaths, revealKeys } from './collapse';
+import { CollapseContext, type CollapseApi } from './collapseContext';
 import { NodeEditContext, type NodeEditApi } from './editContext';
 import { FOCUS_ZOOM, flowNodeOfBlock, useFocusCenter, type FocusRequest } from './focus';
 import { layoutGraph } from './layout';
 import { edgeTypes, nodeTypes } from './nodeTypes';
+import { kindMeta } from './kinds';
 import { InsertMenu } from './structureUi';
 import { toFlow } from './toFlow';
 import { useBlockSync } from './useBlockSync';
+import { useCollapseOverrides, useEditorView } from './viewStore';
 import styles from './MethodCanvas.module.css';
 
 type Flow = { nodes: Node<GraphNodeData>[]; edges: Edge[] };
@@ -25,6 +47,20 @@ type LayoutState =
   | { status: 'error'; message: string };
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+/** Ноды без собственного цвета на мини-карте: рамки контейнеров/веток и «+». */
+const MINI_FRAMES = new Set(['container', 'slot', 'insert']);
+const miniColor = (n: Node<GraphNodeData>) =>
+  MINI_FRAMES.has(n.type ?? '') ? 'transparent' : kindMeta(n.data.kind).color;
+const miniStroke = (n: Node<GraphNodeData>) =>
+  n.type === 'container' ? kindMeta(n.data.kind).color : 'transparent';
+
+/** Множество с той же ссылкой, пока не изменилось содержимое (чтобы схема не пересчитывалась зря). */
+function useStableSet(set: Set<string>): ReadonlySet<string> {
+  const key = [...set].sort().join('\n');
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- зависимость — содержимое (key), не ссылка
+  return useMemo(() => set, [key]);
+}
 
 export interface MethodGraphProps {
   view: Schemas['MethodView'];
@@ -71,15 +107,73 @@ export function MethodGraph({
   onPaneClick,
 }: MethodGraphProps) {
   const insertable = edit !== undefined;
-  const graph = useMemo(
-    () => blocksToGraph(view.root, { methodBadge: view.complexity, insertable, ...(errors ? { errors } : {}) }),
-    [view, errors, insertable],
+  const methodId = view.methodId;
+  // Вид (FE-06): сворачивание и комментарии — состояние клиента, дерево и PUT не меняются.
+  const showComments = useEditorView((s) => s.showComments);
+  const setShowComments = useEditorView((s) => s.setShowComments);
+  const setCollapsedKeys = useEditorView((s) => s.setCollapsed);
+  const overrides = useCollapseOverrides(methodId);
+  // Открытый редактор и красные ноды всегда видны: их контейнеры не сворачиваются, комментарий не скрывается.
+  const editingPath = edit?.editing ?? null;
+  const forcedOpen = useMemo(
+    () => [...(editingPath !== null ? [editingPath] : []), ...Object.keys(errors ?? {})],
+    [editingPath, errors],
   );
+  const collapsed = useStableSet(collapsedPaths(view.root, overrides, forcedOpen));
+  const locked = useStableSet(lockedPaths(view.root, forcedOpen));
+  const keepVisible = useStableSet(new Set(forcedOpen));
+  const graph = useMemo(
+    () =>
+      blocksToGraph(view.root, {
+        methodBadge: view.complexity,
+        insertable,
+        collapsed,
+        collapseLocked: locked,
+        hideComments: !showComments,
+        keepVisible,
+        ...(errors ? { errors } : {}),
+      }),
+    [view, errors, insertable, collapsed, locked, showComments, keepVisible],
+  );
+  const collapseApi = useMemo<CollapseApi>(
+    () => ({ setCollapsed: (key, value) => setCollapsedKeys(methodId, [key], value) }),
+    [setCollapsedKeys, methodId],
+  );
+  const setAll = (value: boolean) =>
+    setCollapsedKeys(
+      methodId,
+      containerEntries(view.root).map((c) => c.key),
+      value,
+    );
+
+  // Проблема (focus) или строка кода (highlight) внутри свёрнутого контейнера — путь к ноде разворачивается.
+  // Один раз на запрос: свернуть контейнер обратно можно, пока цель не сменилась.
+  const revealRef = useRef({ root: view.root, collapsed });
+  revealRef.current = { root: view.root, collapsed };
+  const reveal = useCallback(
+    (blockId: string) => {
+      const { root, collapsed: c } = revealRef.current;
+      setCollapsedKeys(methodId, revealKeys(root, blockId, c), false);
+    },
+    [setCollapsedKeys, methodId],
+  );
+  const focusBlockId = focus?.blockId ?? null;
+  const focusSeqKey = focus?.seq ?? null;
+  useEffect(() => {
+    if (focusBlockId !== null) reveal(focusBlockId);
+  }, [focusBlockId, focusSeqKey, reveal]);
+  useEffect(() => {
+    if (highlightBlockId !== null) reveal(highlightBlockId);
+  }, [highlightBlockId, reveal]);
   // Выделение своё: ноды React Flow контролируемые (без onNodesChange), selected проставляется при рендере.
   // Выделение привязано к дереву, на котором сделано: любая смена дерева (↑↓✕, вставка, 409, правка извне)
   // его сбрасывает — иначе путь указал бы на другой блок и Delete удалил бы не тот.
   const [rawSelection, setRawSelection] = useState<{ id: string; path: BlockPath; root: Schemas['Block'] } | null>(null);
-  const selection = rawSelection && rawSelection.root === view.root ? rawSelection : null;
+  // Нода, скрытая сворачиванием или переключателем комментариев, не выделена: Delete её не удалит.
+  const selection =
+    rawSelection && rawSelection.root === view.root && graph.nodes.some((n) => n.id === rawSelection.id && n.data.path === rawSelection.path)
+      ? rawSelection
+      : null;
   const setSelection = (s: { id: string; path: BlockPath } | null) =>
     setRawSelection(s ? { ...s, root: view.root } : null);
   const selected = selection?.path ?? null;
@@ -107,27 +201,36 @@ export function MethodGraph({
     return () => document.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setSelection пересоздаётся на каждый рендер
   }, [insertable, selected]);
-  const [state, setState] = useState<{ graph: typeof graph; layout: LayoutState }>({
+  const [state, setState] = useState<{ graph: typeof graph; root: Schemas['Block']; layout: LayoutState }>({
     graph,
+    root: view.root,
     layout: { status: 'pending' },
   });
 
   useEffect(() => {
     let cancelled = false;
+    const root = view.root;
     layoutGraph(graph)
       .then((laid) => {
-        if (!cancelled) setState({ graph, layout: { status: 'ready', flow: toFlow(laid) } });
+        if (!cancelled) setState({ graph, root, layout: { status: 'ready', flow: toFlow(laid) } });
       })
       .catch((e: unknown) => {
-        if (!cancelled) setState({ graph, layout: { status: 'error', message: errorText(e) } });
+        if (!cancelled) setState({ graph, root, layout: { status: 'error', message: errorText(e) } });
       });
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- root входит в graph
   }, [graph]);
 
-  // Раскладка от предыдущего метода не показывается, пока не готова новая.
-  const layout: LayoutState = state.graph === graph ? state.layout : { status: 'pending' };
+  // Раскладка от другого дерева не показывается, пока не готова новая. Изменился только вид (сворачивание,
+  // комментарии) — старая схема остаётся до новой раскладки: React Flow не пересоздаётся, масштаб и сдвиг те же.
+  const layout: LayoutState =
+    state.graph === graph
+      ? state.layout
+      : state.layout.status === 'ready' && state.root === view.root
+        ? state.layout
+        : { status: 'pending' };
   const flowNodes = layout.status === 'ready' ? layout.flow.nodes : null;
   const highlightId = flowNodes && highlightBlockId ? flowNodeOfBlock(flowNodes, highlightBlockId) : null;
   const pulseId = flowNodes && pulseBlockId ? flowNodeOfBlock(flowNodes, pulseBlockId) : null;
@@ -154,6 +257,7 @@ export function MethodGraph({
 
   return (
     <NodeEditContext.Provider value={edit ?? null}>
+    <CollapseContext.Provider value={collapseApi}>
     <div className={styles.canvas} data-testid="method-canvas">
       {layout.status === 'pending' && <div className={styles.status}>Раскладка схемы…</div>}
       {layout.status === 'error' && (
@@ -169,6 +273,13 @@ export function MethodGraph({
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           onNodeClick={(_, n) => {
+            if (n.data.collapse?.collapsed) {
+              // Клик по свёрнутому контейнеру разворачивает его (выделение не ставится).
+              collapseApi.setCollapsed(n.data.collapse.key, false);
+              setSelection(null);
+              onBlockClick?.(n.data.blockId, n.data.span ?? null);
+              return;
+            }
             setSelection(n.selectable === false || n.data.path === 'root' ? null : { id: n.id, path: n.data.path });
             if (n.selectable !== false) onBlockClick?.(n.data.blockId, n.data.span ?? null);
           }}
@@ -196,10 +307,37 @@ export function MethodGraph({
             bgColor="var(--jb-bg)"
           />
           <Controls showInteractive={false} />
+          <MiniMap
+            className={styles.minimap}
+            nodeColor={miniColor}
+            nodeStrokeColor={miniStroke}
+            nodeStrokeWidth={2}
+            nodeBorderRadius={4}
+            bgColor="var(--jb-panel)"
+            maskColor="rgba(11, 14, 19, 0.6)"
+            pannable
+            zoomable
+            ariaLabel="Мини-карта схемы"
+          />
+          <Panel position="top-right">
+            <div className={styles.viewBar} data-testid="view-bar">
+              <label>
+                <input type="checkbox" checked={showComments} onChange={(e) => setShowComments(e.target.checked)} />
+                Комментарии
+              </label>
+              <button type="button" onClick={() => setAll(false)}>
+                Развернуть всё
+              </button>
+              <button type="button" onClick={() => setAll(true)}>
+                Свернуть всё
+              </button>
+            </div>
+          </Panel>
           <FocusCenter targetNodeId={focusNodeId} seq={focusSeq} done={focusDone} />
         </ReactFlow>
       )}
     </div>
+    </CollapseContext.Provider>
     </NodeEditContext.Provider>
   );
 }
@@ -295,6 +433,25 @@ export function MethodCanvas({ projectId, methodId, client = api, version, onVer
     if (useAppStore.getState().highlight?.source === 'canvas') setHighlight(null);
   }, [setHighlight]);
 
+  const showComments = useEditorView((s) => s.showComments);
+  const moveSkip = showComments ? undefined : skipComments;
+  // id блоков позиционные: после своих вставки / удаления / ↑↓ состояние сворачивания слота сбрасывается,
+  // чтобы соседям не досталось чужое.
+  const resetCollapsed = useEditorView((s) => s.resetCollapsed);
+  const forgetSlotOf = useCallback(
+    (parent: string, slot: string) => {
+      if (root) resetCollapsed(methodId, keysInSlot(root, parent, slot));
+    },
+    [root, resetCollapsed, methodId],
+  );
+  const forgetSlot = useCallback(
+    (path: string) => {
+      const p = parentOf(path);
+      if (p) forgetSlotOf(p.parent, p.slot);
+    },
+    [forgetSlotOf],
+  );
+
   const edit = useMemo<NodeEditApi>(
     () => ({
       editing,
@@ -321,12 +478,17 @@ export function MethodCanvas({ projectId, methodId, client = api, version, onVer
         if (!block) return;
         const n = nestedCount(block);
         if (n > 0 && !window.confirm(`Удалить блок вместе с содержимым (вложенных блоков: ${n})?`)) return;
+        forgetSlot(path);
         void sync.remove(path);
       },
-      move: (path, delta) => void sync.move(path, delta),
-      canMove: (path, delta) => (root ? canMove(root, path, delta) : false),
+      // Скрытые комментарии ↑↓ не считает соседями: иначе код менялся бы, а схема — нет.
+      move: (path, delta) => {
+        forgetSlot(path);
+        void sync.move(path, delta, moveSkip);
+      },
+      canMove: (path, delta) => (root ? canMove(root, path, delta, moveSkip) : false),
     }),
-    [sync, editing, status, stale, pending, root],
+    [sync, editing, status, stale, pending, root, moveSkip, forgetSlot],
   );
 
   useEffect(() => {
@@ -388,6 +550,7 @@ export function MethodCanvas({ projectId, methodId, client = api, version, onVer
           onClose={closeMenu}
           onPick={(o) => {
             setMenu(null);
+            forgetSlotOf(menu.point.parent, menu.point.slot);
             void sync.insert(menu.point, o.kind);
           }}
         />

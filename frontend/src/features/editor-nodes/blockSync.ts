@@ -1,7 +1,17 @@
 import type { ApiClient, Schemas } from '../api';
 import { blockAt, draftOf, editableFields, findPathById, mergeFields, sameFields, withFields, type BlockPath } from './blockEdit';
 import { blockText } from './blockText';
-import { editsOnInsert, insertBlock, moveBlock, parentOf, removeBlock, sameShape, templateFor, type InsertPoint } from './blockTree';
+import {
+  editsOnInsert,
+  insertBlock,
+  moveBlock,
+  parentOf,
+  removeBlock,
+  sameShape,
+  templateFor,
+  type InsertPoint,
+  type MoveSkip,
+} from './blockTree';
 
 export type BlockSyncStatus =
   /** GET blocks в процессе (первая загрузка или перезагрузка после 409). */
@@ -374,13 +384,13 @@ export class BlockSync {
     if (root !== view.root) await this.sendStructure(root);
   }
 
-  /** Вверх (-1) / вниз (+1) внутри того же слота. На границе — ничего. */
-  async move(path: BlockPath, delta: -1 | 1): Promise<void> {
+  /** Вверх (-1) / вниз (+1) внутри того же слота (skip — скрытые на схеме соседи). На границе — ничего. */
+  async move(path: BlockPath, delta: -1 | 1, skip?: MoveSkip): Promise<void> {
     const asked = this.state.view?.root;
     await this.idle();
     const { view } = this.state;
     if (!this.structureOpen() || !view || !asked || !sameShape(asked, view.root)) return;
-    const { root } = moveBlock(view.root, path, delta);
+    const { root } = moveBlock(view.root, path, delta, skip);
     if (root !== view.root) await this.sendStructure(root);
   }
 

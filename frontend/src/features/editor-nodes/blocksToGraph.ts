@@ -1,5 +1,6 @@
 import { editableFields } from './blockEdit';
-import { insertableSlots, type InsertPoint } from './blockTree';
+import { insertableSlots, nestedCount, type InsertPoint } from './blockTree';
+import { blockKey, blocksLabel, subtreeIssues } from './collapse';
 import { blockText } from './blockText';
 import { isContainer, isKnownKind, kindMeta, orderedSlots, type Block, type BlockKind, type SlotSpec } from './kinds';
 
@@ -35,6 +36,12 @@ export interface GraphNodeData {
   error?: string;
   /** Только у insert: куда вставит «+» (конец слота или пустой слот). */
   insert?: InsertPoint;
+  /**
+   * Сворачивание (FE-06): у заголовка развёрнутого контейнера и у свёрнутого контейнера.
+   * key — ключ состояния (collapse.ts: blockKey); hidden — число вложенных блоков свёрнутого;
+   * locked — свернуть сейчас нельзя (внутри открыт редактор / красная нода / вставка).
+   */
+  collapse?: { key: string; collapsed: boolean; locked: boolean; hidden?: number };
 }
 
 export interface GraphNode {
@@ -116,7 +123,21 @@ export interface ToGraphOptions {
    * каждого слота и в пустых известных слотах (if без else, пустое тело цикла).
    */
   insertable?: boolean;
+  /**
+   * Пути свёрнутых контейнеров (FE-06, collapse.ts: collapsedPaths): контейнер рисуется одной нодой —
+   * заголовок и сводка (число вложенных блоков, бейдж проблем внутри), без детей и мест вставки внутри.
+   */
+  collapsed?: ReadonlySet<string>;
+  /** Пути контейнеров, которые сейчас нельзя свернуть (collapse.ts: lockedPaths). */
+  collapseLocked?: ReadonlySet<string>;
+  /** Скрыть comment-блоки (переключатель «Комментарии»). Пути остальных блоков не меняются. */
+  hideComments?: boolean;
+  /** Пути, которые видны всегда (открытый редактор, красная нода): такой комментарий не скрывается. */
+  keepVisible?: ReadonlySet<string>;
 }
+
+/** Ширина бейджа «N блоков» в заголовке свёрнутого контейнера (для оценки размера). */
+const COLLAPSED_EXTRA = '  ▸ 00 блоков ';
 
 // Строка сообщения об ошибке под текстом ноды (Inter 12px).
 const ERROR_CHAR_W = 6.6;
@@ -228,11 +249,39 @@ export function blocksToGraph(root: Block, options: ToGraphOptions = {}): Graph 
     });
   };
 
+  const collapsed = options.collapsed;
+  const locked = options.collapseLocked;
+  const hideComments = options.hideComments === true;
+  const keep = options.keepVisible;
+  /** Видимые элементы слота slotPath с исходными индексами (пути и места вставки — по исходным). */
+  const visible = (items: Block[], slotPath: string): { item: Block; index: number }[] =>
+    items
+      .map((item, index) => ({ item, index }))
+      .filter(({ item, index }) => !(hideComments && item.kind === 'comment' && !keep?.has(`${slotPath}/${index}`)));
+
   /** Добавляет блок; возвращает id ноды, к которой подводятся/от которой выходят стрелки. */
   const visit = (block: Block, path: string, parentId: string | undefined): string => {
     const id = uniqueId(block, path);
     if (!isContainer(block)) {
       pushLeaf(block, id, path, parentId, leafType(block.kind));
+      return id;
+    }
+    const key = blockKey(block, path);
+    if (collapsed?.has(path)) {
+      // Свёрнутый контейнер — одна нода: заголовок и сводка; дети и «+» внутри не рисуются.
+      const type = isKnownKind(block.kind) ? 'block' : 'raw';
+      const data = dataOf(block, id, path);
+      const hidden = nestedCount(block);
+      data.issues = subtreeIssues(block);
+      data.collapse = { key, collapsed: true, locked: false, hidden };
+      const size = estimateSize(type, `${data.title}${COLLAPSED_EXTRA}${blocksLabel(hidden)}`, data.text);
+      nodes.push({
+        id,
+        type,
+        ...(parentId ? { parentId } : {}),
+        data,
+        ...(data.error !== undefined ? withErrorSize(size, data.error) : size),
+      });
       return id;
     }
 
@@ -244,8 +293,14 @@ export function blocksToGraph(root: Block, options: ToGraphOptions = {}): Graph 
     });
     const headId = `${id}${HEAD_SUFFIX}`;
     pushLeaf(block, headId, path, id, isKnownKind(block.kind) ? 'block' : 'raw');
+    const head = nodes[nodes.length - 1];
+    if (head) {
+      head.data.collapse = { key, collapsed: false, locked: locked?.has(path) === true };
+      head.width = Math.max(head.width ?? 0, estimateSize('block', `${head.data.title}  ▾ `, '').width);
+    }
 
-    const slots = orderedSlots(block);
+    // Ветки, где после скрытия комментариев ничего не осталось, не рисуются (как пустые).
+    const slots = orderedSlots(block).filter((s) => visible(s.items, `${path}/${s.spec.key}`).length > 0);
     const only = slots[0];
     if (slots.length === 1 && only) {
       layoutSlot(only.spec, only.items, path, id, headId, block, id);
@@ -298,8 +353,9 @@ export function blocksToGraph(root: Block, options: ToGraphOptions = {}): Graph 
     const path = `${ownerPath}/${spec.key}`;
     const canInsert = insertable && insertableSlots(owner).includes(spec.key);
     const at = (index: number): InsertPoint => ({ parent: ownerPath, slot: spec.key, index });
+    const shown = visible(items, path);
     if (spec.mode === 'parallel') {
-      items.forEach((item, i) => {
+      shown.forEach(({ item, index: i }) => {
         const itemId = visit(item, `${path}/${i}`, parentId);
         if (from) addEdge(from, itemId, parentId, spec.label, at(i));
       });
@@ -310,9 +366,9 @@ export function blocksToGraph(root: Block, options: ToGraphOptions = {}): Graph 
       return;
     }
     let prev = from;
-    items.forEach((item, i) => {
+    shown.forEach(({ item, index: i }, n) => {
       const itemId = visit(item, `${path}/${i}`, parentId);
-      if (prev) addEdge(prev, itemId, parentId, i === 0 ? spec.label : undefined, at(i));
+      if (prev) addEdge(prev, itemId, parentId, n === 0 ? spec.label : undefined, at(i));
       prev = itemId;
     });
     if (canInsert) {
@@ -326,7 +382,7 @@ export function blocksToGraph(root: Block, options: ToGraphOptions = {}): Graph 
     pushLeaf(root, rootId, 'root', undefined, 'block', options.methodBadge);
     let prev = rootId;
     const body = root.slots?.body ?? [];
-    body.forEach((item, i) => {
+    visible(body, 'root/body').forEach(({ item, index: i }) => {
       const itemId = visit(item, `root/body/${i}`, undefined);
       addEdge(prev, itemId, undefined, undefined, { parent: 'root', slot: 'body', index: i });
       prev = itemId;

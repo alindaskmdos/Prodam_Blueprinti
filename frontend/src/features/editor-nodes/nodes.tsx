@@ -2,6 +2,8 @@ import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import type { CSSProperties, ReactNode } from 'react';
 import { editableFields } from './blockEdit';
 import type { GraphNodeData } from './blocksToGraph';
+import { blocksLabel } from './collapse';
+import { useCollapse } from './collapseContext';
 import { useNodeEdit } from './editContext';
 import { JavaText } from './JavaText';
 import { kindMeta } from './kinds';
@@ -29,6 +31,42 @@ function IssueBadge({ issues }: { issues: string[] }) {
   return (
     <span className={styles.issueBadge} title={issues.join(', ')}>
       !
+    </span>
+  );
+}
+
+/**
+ * Шеврон сворачивания (FE-06) в заголовке контейнера: ▾ — развёрнут (свернуть), ▸ — свёрнут (развернуть).
+ * locked — внутри открыт редактор или красная нода: свернуть нельзя.
+ */
+function CollapseToggle({ data }: { data: GraphNodeData }) {
+  const api = useCollapse();
+  const c = data.collapse;
+  if (!c || !api) return null;
+  return (
+    <button
+      type="button"
+      className={`${styles.chevron} nodrag`}
+      aria-label={c.collapsed ? `Развернуть: ${data.title}` : `Свернуть: ${data.title}`}
+      aria-expanded={!c.collapsed}
+      title={c.locked ? 'Внутри идёт правка — свернуть нельзя' : c.collapsed ? 'Развернуть' : 'Свернуть'}
+      disabled={c.locked}
+      onClick={(ev) => {
+        ev.stopPropagation();
+        api.setCollapsed(c.key, !c.collapsed);
+      }}
+    >
+      {c.collapsed ? '▸' : '▾'}
+    </button>
+  );
+}
+
+/** Сводка свёрнутого контейнера: «N блоков». */
+function HiddenBadge({ data }: { data: GraphNodeData }) {
+  if (!data.collapse?.collapsed) return null;
+  return (
+    <span className={styles.badge} data-testid="collapsed-count">
+      {blocksLabel(data.collapse.hidden ?? 0)}
     </span>
   );
 }
@@ -125,11 +163,16 @@ export function BlockNode({ data }: NodeProps<FlowNode>) {
       data-kind={data.kind}
       data-testid={`node-${data.kind}`}
       data-invalid={data.error !== undefined || undefined}
+      data-collapsed={data.collapse?.collapsed || undefined}
     >
       <Pins />
       <div className={`${styles.header} ${data.kind === 'method' ? styles.headerLight : ''}`}>
-        <span>{data.error !== undefined ? `${data.title} · ошибка` : data.title}</span>
+        <span>
+          <CollapseToggle data={data} />
+          {data.error !== undefined ? `${data.title} · ошибка` : data.title}
+        </span>
         {data.badge && <span className={styles.badge}>{data.badge}</span>}
+        <HiddenBadge data={data} />
         <IssueBadge issues={data.issues} />
         <EditButton data={data} />
         <NodeTools data={data} />
@@ -147,10 +190,15 @@ export function RawNode({ data }: NodeProps<FlowNode>) {
       data-kind={data.kind}
       data-testid="node-raw"
       data-invalid={data.error !== undefined || undefined}
+      data-collapsed={data.collapse?.collapsed || undefined}
     >
       <Pins />
       <div className={`${styles.header} ${styles.rawHeader}`}>
-        <span>{data.title}</span>
+        <span>
+          <CollapseToggle data={data} />
+          {data.title}
+        </span>
+        <HiddenBadge data={data} />
         <IssueBadge issues={data.issues} />
         <EditButton data={data} />
         <NodeTools data={data} />

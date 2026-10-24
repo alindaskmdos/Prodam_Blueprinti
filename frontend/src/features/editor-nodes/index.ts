@@ -43,3 +43,13 @@ export {
 } from './blockSync';
 export { blockAtLine, findBlockById, spanOfBlock } from './blockLocate';
 export { centerOnNode, flowNodeOfBlock, useFocusCenter, type CenterApi, type FocusRequest } from './focus';
+export {
+  COLLAPSE_DEPTH,
+  blockKey,
+  collapsedPaths,
+  containerEntries,
+  defaultCollapsed,
+  revealKeys,
+  type CollapseOverrides,
+} from './collapse';
+export { resetEditorView, useEditorView, SHOW_COMMENTS_KEY } from './viewStore';

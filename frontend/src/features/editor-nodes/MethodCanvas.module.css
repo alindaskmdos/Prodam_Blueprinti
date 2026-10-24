@@ -93,8 +93,84 @@
   font: 600 11px var(--jb-font-code);
 }
 
-.badge + .issueBadge {
+.badge + .issueBadge,
+.badge + .badge {
   margin-left: 0;
+}
+
+/* ── Сворачивание контейнеров (FE-06, Kit.dc.html «свёрнутый контейнер») ── */
+
+.chevron {
+  margin: 0 4px 0 -2px;
+  padding: 0 3px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: 700 11px var(--jb-font-ui);
+  line-height: 16px;
+  cursor: pointer;
+}
+
+.chevron:hover,
+.chevron:focus-visible {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.chevron:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Свёрнутый контейнер: рамка цвета kind, как у раскрытого. */
+.node[data-collapsed] {
+  border-color: color-mix(in srgb, var(--kind) 75%, #000);
+  cursor: pointer;
+}
+
+.node[data-collapsed].hasIssue {
+  border-color: var(--jb-severity-high);
+}
+
+/* Панель вида: «Комментарии», «Развернуть всё», «Свернуть всё». */
+.viewBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border: 1px solid var(--jb-border);
+  border-radius: 8px;
+  background: var(--jb-panel);
+  color: var(--jb-text-secondary);
+  font: 500 12px var(--jb-font-ui);
+}
+
+.viewBar label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.viewBar button {
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--jb-border-strong);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--jb-text);
+  font: 500 12px var(--jb-font-ui);
+  cursor: pointer;
+}
+
+.viewBar button:hover {
+  border-color: var(--jb-accent);
+}
+
+.minimap {
+  border: 1px solid var(--jb-border);
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .body {

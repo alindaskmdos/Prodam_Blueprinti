@@ -10,6 +10,7 @@ import {
   parentOf,
   removeBlock,
   sameShape,
+  skipComments,
   templateBlock,
   templateFor,
 } from './blockTree';
@@ -179,3 +180,31 @@ function must<T>(v: T | null | undefined): T {
   if (v === null || v === undefined) throw new Error('ожидалось значение');
   return v;
 }
+
+describe('moveBlock / canMove со скрытыми комментариями (FE-06)', () => {
+  /** method { a; // c1; b; // c2 } */
+  const withComments = (): Block =>
+    b('method', { signature: 'void m()' }, {
+      body: [b('expr', { text: 'a()' }), b('comment', { text: '// c1' }), b('expr', { text: 'b()' }), b('comment', { text: '// c2' })],
+    });
+  const order = (root: Block) => root.slots.body?.map((x) => x.fields.text);
+
+  it('меняется местами с ближайшим видимым соседом, комментарии на своих местах', () => {
+    const root = withComments();
+    const down = moveBlock(root, 'root/body/0', 1, skipComments);
+    expect(order(down.root)).toEqual(['b()', '// c1', 'a()', '// c2']);
+    expect(down.path).toBe('root/body/2');
+    const up = moveBlock(root, 'root/body/2', -1, skipComments);
+    expect(order(up.root)).toEqual(['b()', '// c1', 'a()', '// c2']);
+    // Без skip — обычный сосед (комментарий).
+    expect(order(moveBlock(root, 'root/body/0', 1).root)).toEqual(['// c1', 'a()', 'b()', '// c2']);
+  });
+
+  it('за скрытыми комментариями видимых соседей нет — граница', () => {
+    const root = withComments();
+    expect(canMove(root, 'root/body/2', 1, skipComments)).toBe(false);
+    expect(canMove(root, 'root/body/2', 1)).toBe(true);
+    expect(moveBlock(root, 'root/body/2', 1, skipComments).root).toBe(root);
+    expect(canMove(root, 'root/body/0', -1, skipComments)).toBe(false);
+  });
+});
