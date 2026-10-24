@@ -10,14 +10,21 @@ import org.springframework.stereotype.Component;
 /** Проекты в памяти. Любая мутация — через {@link #update}: сверка версии (409) и инкремент атомарно. */
 @Component
 public class ProjectStore {
-    /** original — проект как загружен: эталон оригинала для POST /verify (§10.1). */
-    public record Stored(String id, int version, LoadedProject content, LoadedProject original) {}
+    /**
+     * original — проект как загружен: эталон оригинала для POST /verify (§10.1).
+     * pmdRuleset — текст {@code .blueprints/pmd-ruleset.xml} (прошёл {@code PmdDetector.validate}) или null — стандартный набор.
+     */
+    public record Stored(String id, int version, LoadedProject content, LoadedProject original, String pmdRuleset) {}
 
     private final Map<String, Stored> projects = new ConcurrentHashMap<>();
     private final AtomicInteger seq = new AtomicInteger();
 
     public Stored create(LoadedProject content) {
-        Stored s = new Stored("p-" + seq.incrementAndGet(), 1, content, content);
+        return create(content, null);
+    }
+
+    public Stored create(LoadedProject content, String pmdRuleset) {
+        Stored s = new Stored("p-" + seq.incrementAndGet(), 1, content, content, pmdRuleset);
         projects.put(s.id(), s);
         return s;
     }
@@ -36,7 +43,16 @@ public class ProjectStore {
         return projects.compute(id, (k, cur) -> {
             if (cur == null) throw new ApiException(404, "NOT_FOUND", "проект не найден: " + id);
             if (cur.version() != clientVersion) throw conflict(clientVersion, cur.version());
-            return new Stored(id, cur.version() + 1, change.apply(cur.content()), cur.original());
+            return new Stored(id, cur.version() + 1, change.apply(cur.content()), cur.original(), cur.pmdRuleset());
+        });
+    }
+
+    /** Новый ruleset PMD (null — стандартный набор): сверка версии как в {@link #update}, version+1, код не меняется. */
+    public Stored setPmdRuleset(String id, int clientVersion, String pmdRuleset) {
+        return projects.compute(id, (k, cur) -> {
+            if (cur == null) throw new ApiException(404, "NOT_FOUND", "проект не найден: " + id);
+            if (cur.version() != clientVersion) throw conflict(clientVersion, cur.version());
+            return new Stored(id, cur.version() + 1, cur.content(), cur.original(), pmdRuleset);
         });
     }
 

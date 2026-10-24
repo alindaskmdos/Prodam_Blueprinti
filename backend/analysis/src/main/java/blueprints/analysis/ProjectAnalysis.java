@@ -48,9 +48,11 @@ public final class ProjectAnalysis {
     private DependencyGraph dependencies;
     private final CallGraph callGraph;
     private final long n;
+    private final List<SourceFile> files;
 
     private ProjectAnalysis(List<SourceFile> files, long n) {
         this.n = n;
+        this.files = List.copyOf(files);
         JavaParser parser = new JavaParser(new ParserConfiguration().setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21));
         for (SourceFile f : files) {
             ParseResult<CompilationUnit> r = parser.parse(f.text());
@@ -78,6 +80,11 @@ public final class ProjectAnalysis {
 
     public long n() {
         return n;
+    }
+
+    /** Исходники проекта, как переданы в {@link #of} (для внешних анализаторов, напр. PMD). */
+    public List<SourceFile> files() {
+        return files;
     }
 
     /** Все методы и конструкторы проекта в порядке файлов; сложность посчитана. */

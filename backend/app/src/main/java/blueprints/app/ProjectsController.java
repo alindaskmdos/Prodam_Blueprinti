@@ -1,16 +1,26 @@
 package blueprints.app;
 
+import blueprints.analysis.PmdDetector;
 import blueprints.runner.Runner;
+import blueprints.source.LoadWarning;
 import blueprints.source.LoadedProject;
 import blueprints.source.ProjectExporter;
 import blueprints.source.ProjectLoader;
 import blueprints.testing.TestContext;
 import jakarta.servlet.http.HttpServletRequest;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -46,8 +56,45 @@ class ProjectsController {
             if (name == null || name.isBlank()) throw new ApiException(400, "INVALID_REQUEST", "у файла нет имени");
             ups.add(new ProjectLoader.Upload(name, files.get(i).getBytes()));
         }
-        var s = store.create(ProjectLoader.load(ups));
+        LoadedProject loaded = ProjectLoader.load(ups);
+        String ruleset = pmdRuleset(ups, loaded.root());
+        if (ruleset != null) {
+            try {
+                PmdDetector.validate(ruleset);
+            } catch (PmdDetector.InvalidRulesetException e) {
+                // битый конфиг не мешает загрузке: стандартный набор + предупреждение
+                List<LoadWarning> warnings = new ArrayList<>(loaded.warnings());
+                warnings.add(new LoadWarning("IGNORED_FILE", PmdConfigController.PATH, e.getMessage() + " — используется стандартный набор"));
+                loaded = new LoadedProject(loaded.root(), loaded.files(), warnings, loaded.testFiles(), loaded.mainClasses());
+                ruleset = null;
+            }
+        }
+        var s = store.create(loaded, ruleset);
         return ResponseEntity.status(201).body(ProjectDto.of(s));
+    }
+
+    /** Текст {@code .blueprints/pmd-ruleset.xml} из загрузки (файл или запись zip под отрезанной обёрткой root) или null. */
+    static String pmdRuleset(List<ProjectLoader.Upload> ups, String root) throws IOException {
+        String want = root + PmdConfigController.PATH;
+        for (ProjectLoader.Upload u : ups) {
+            String low = u.name().toLowerCase();
+            if (!low.endsWith(".zip") && !low.endsWith(".jar")) {
+                if (clean(u.name()).equals(want)) return new String(u.data(), StandardCharsets.UTF_8);
+                continue;
+            }
+            try (ZipInputStream z = new ZipInputStream(new ByteArrayInputStream(u.data()))) {
+                for (ZipEntry e; (e = z.getNextEntry()) != null; ) {
+                    if (clean(e.getName()).equals(want)) return new String(z.readAllBytes(), StandardCharsets.UTF_8);
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Как ProjectLoader.normalize для уже принятого загрузчиком пути: «\» → «/», без пустых сегментов и «.». */
+    private static String clean(String name) {
+        return Arrays.stream(name.replace('\\', '/').split("/")).filter(x -> !x.isEmpty() && !x.equals("."))
+                .collect(Collectors.joining("/"));
     }
 
     @GetMapping("/{id}")
@@ -58,12 +105,12 @@ class ProjectsController {
     @GetMapping("/{id}/tree")
     ProjectDto.TreeDto tree(@PathVariable String id) {
         var s = store.get(id);
-        return new ProjectView(s.content()).tree(s.version());
+        return new ProjectView(s).tree(s.version());
     }
 
     @GetMapping("/{id}/methods/{methodId}/blocks")
     ProjectView.MethodView blocks(@PathVariable String id, @PathVariable String methodId) {
-        ProjectView.MethodView m = new ProjectView(store.get(id).content()).method(methodId);
+        ProjectView.MethodView m = new ProjectView(store.get(id)).method(methodId);
         if (m == null) throw new ApiException(404, "NOT_FOUND", "метод не найден: " + methodId);
         return m;
     }
@@ -81,7 +128,7 @@ class ProjectsController {
     ProjectView.AnalysisDto analysis(@PathVariable String id, @RequestParam(defaultValue = "10000") int n) {
         if (n < 1) throw new ApiException(400, "INVALID_REQUEST", "n должно быть ≥ 1: " + n);
         var s = store.get(id);
-        return new ProjectView(s.content(), n).analysis(s.version());
+        return new ProjectView(s, n).analysis(s.version());
     }
 
     @GetMapping("/{id}/export")
@@ -91,7 +138,29 @@ class ProjectsController {
         var s = store.get(id);
         if (format.equals("jar")) return file(id + ".jar", jar(s.content(), mainClass));
         if (!format.equals("zip")) throw new ApiException(400, "INVALID_REQUEST", "format: zip или jar");
-        return file(id + ".zip", ProjectExporter.zip(s.content(), includeSettings));
+        byte[] zip = ProjectExporter.zip(s.content(), includeSettings);
+        if (includeSettings && s.pmdRuleset() != null) {
+            zip = withEntry(zip, s.content().root() + PmdConfigController.PATH, s.pmdRuleset().getBytes(StandardCharsets.UTF_8));
+        }
+        return file(id + ".zip", zip);
+    }
+
+    /** Копия zip с ещё одной записью в конце. */
+    static byte[] withEntry(byte[] zip, String path, byte[] data) {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        try (ZipInputStream in = new ZipInputStream(new ByteArrayInputStream(zip)); ZipOutputStream out = new ZipOutputStream(bos)) {
+            for (ZipEntry e; (e = in.getNextEntry()) != null; ) {
+                out.putNextEntry(new ZipEntry(e.getName()));
+                in.transferTo(out);
+                out.closeEntry();
+            }
+            out.putNextEntry(new ZipEntry(path));
+            out.write(data);
+            out.closeEntry();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return bos.toByteArray();
     }
 
     /** Jar из чистого кода (§11): исходники без tests/ и .blueprints/, без seed; ошибки компиляции — 422 COMPILE_ERROR. */

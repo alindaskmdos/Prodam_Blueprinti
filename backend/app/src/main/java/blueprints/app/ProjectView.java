@@ -3,6 +3,7 @@ package blueprints.app;
 import blueprints.analysis.DetectorRegistry;
 import blueprints.analysis.Issues;
 import blueprints.analysis.MethodAnalysis;
+import blueprints.analysis.PmdDetector;
 import blueprints.analysis.ProjectAnalysis;
 import blueprints.blocks.AstToBlocks;
 import blueprints.fixes.Refactoring;
@@ -37,16 +38,27 @@ final class ProjectView {
     private final List<Issue> issues;
     private final Map<String, String> files;
 
+    /** Проект со стандартным набором PMD. */
     ProjectView(LoadedProject project) {
-        this(project, Issues.DEFAULT_N);
+        this(project, null, Issues.DEFAULT_N);
+    }
+
+    ProjectView(ProjectStore.Stored s) {
+        this(s, Issues.DEFAULT_N);
     }
 
     /** n — размер входа для ops проблем (GET analysis?n=); id проблем от n не зависят. */
-    ProjectView(LoadedProject project, long n) {
+    ProjectView(ProjectStore.Stored s, long n) {
+        this(s.content(), s.pmdRuleset(), n);
+    }
+
+    /** pmdRuleset — ruleset PMD проекта или null (стандартный набор). */
+    ProjectView(LoadedProject project, String pmdRuleset, long n) {
         this.project = project;
         this.analysis = ProjectAnalysis.of(project.files(), n);
         this.files = RunController.texts(project);
-        this.issues = DetectorRegistry.defaults().run(analysis).stream().map(this::withBlockId).toList();
+        this.issues = DetectorRegistry.defaults(pmdRuleset == null ? PmdDetector.DEFAULT_RULESET : pmdRuleset).run(analysis).stream()
+                .map(this::withBlockId).toList();
     }
 
     AnalysisDto analysis(int version) {

@@ -45,7 +45,7 @@ class FixController {
         var s = store.get(id);
         // id проблемы действителен только для своей версии; повторная сверка — в update после Quality Gate
         if (s.version() != req.version()) throw ProjectStore.conflict(req.version(), s.version());
-        Issue issue = new ProjectView(s.content()).analysis(s.version()).issues().stream()
+        Issue issue = new ProjectView(s).analysis(s.version()).issues().stream()
                 .filter(i -> i.id().equals(issueId)).findFirst()
                 .orElseThrow(() -> new ApiException(404, "NOT_FOUND", "проблема не найдена: " + issueId));
         Refactoring fix = RefactoringRegistry.defaults().byId(req.fixId());
@@ -69,7 +69,7 @@ class FixController {
         var saved = store.update(id, req.version(), p -> withFiles(p, r.changed()));
         StringBuilder diff = new StringBuilder();
         r.changed().forEach((path, text) -> diff.append(Diff.unified(path, current.get(path), text)));
-        ProjectView view = new ProjectView(saved.content());
+        ProjectView view = new ProjectView(saved);
         String first = r.changed().keySet().iterator().next();
         var mutation = new ProjectView.Mutation(saved.version(), r.changed().get(first), null, view.tree(saved.version()),
                 view.analysis(saved.version()));

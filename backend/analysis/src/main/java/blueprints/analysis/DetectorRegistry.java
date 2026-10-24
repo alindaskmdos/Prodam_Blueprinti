@@ -12,9 +12,24 @@ public final class DetectorRegistry {
         this.detectors = List.copyOf(detectors);
     }
 
+    /** Встроенные детекторы (без PMD — его ruleset задаёт проект, см. {@link #defaults(String)}). */
     public static DetectorRegistry defaults() {
-        return new DetectorRegistry(List.of(new NestedLoopSameCollection(), new LinearSearchInLoop(), new ExpensiveCallInLoop(),
-                new StringConcatInLoop(), new LongMethod(), new DeepNesting(), new DeadCode(), new CyclicDependency()));
+        return new DetectorRegistry(builtIn());
+    }
+
+    /**
+     * Встроенные детекторы + {@link PmdDetector} с ruleset проекта ({@code .blueprints/pmd-ruleset.xml}, прошедший
+     * {@link PmdDetector#validate}) или {@link PmdDetector#DEFAULT_RULESET}.
+     */
+    public static DetectorRegistry defaults(String pmdRuleset) {
+        List<Detector> all = new ArrayList<>(builtIn());
+        all.add(new PmdDetector(pmdRuleset));
+        return new DetectorRegistry(all);
+    }
+
+    private static List<Detector> builtIn() {
+        return List.of(new NestedLoopSameCollection(), new LinearSearchInLoop(), new ExpensiveCallInLoop(),
+                new StringConcatInLoop(), new LongMethod(), new DeepNesting(), new DeadCode(), new CyclicDependency());
     }
 
     public List<Detector> detectors() {

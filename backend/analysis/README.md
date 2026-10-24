@@ -83,4 +83,25 @@ dependency — тип/статическое обращение в методе,
 `CyclicDependency` — Issue на каждый цикл: без methodId/blockId, classIds, span — объявление первого класса, confidence high,
 message с маршрутом `A → B → A`, без фиксов.
 
+PMD (§14а.2): `PmdDetector` (уровень проекта, PMD 7 из `libs.versions.toml`) — прогон PMD по `ProjectAnalysis.files()` с ruleset
+проекта; регистрируется только в `DetectorRegistry.defaults(String pmdRuleset)` (app), `defaults()` — встроенные детекторы без PMD
+(CLI и тесты детекторов). `PmdDetector.DEFAULT_RULESET` — ресурс `blueprints/analysis/pmd-ruleset.xml`, текст равен
+`contract/fixtures/pmd-config.default.json` (выключены правила, дублирующие наши детекторы). Находка: source=PMD, rule — имя правила PMD,
+severity по приоритету (1–2 high, 3 medium, 4–5 low), confidence high, без fixes; id `PMD:<правило>:<methodId|FQN класса>:строка:колонка`
+(дубль — `#n`). Привязка по строке начала: самый вложенный метод файла → methodId (blockId подставляет app), иначе самый вложенный
+класс → classIds (вне классов, напр. import, — первый класс файла; файл без классов — находка отбрасывается), span — строки нарушения. Порядок — файлы проекта, затем позиция. Кэш LRU на 32 снимка по SHA-256 ruleset+исходников
+(прогон ~1 с). Таймаут (защита от ReDoS в regex-свойствах и include/exclude-pattern): прогон PMD целиком и загрузка ruleset в `validate`
+идут в демон-потоках, не больше 2 одновременно на всё приложение (семафор `PERMITS`, без очереди), с ограничением `PmdDetector.DEFAULT_TIMEOUT` (15 с; первый прогон
+в JVM ~6 с). По таймауту анализ без находок PMD (предупреждение — в лог, места в контракте нет), результат не кэшируется, а ruleset
+(SHA-256 текста, LRU на 32) попадает в список неудач: больше не запускается, `validate` его отклоняет; стандартный набор туда не
+попадает (его таймаут — от размера проекта). java.util.regex не реагирует на interrupt: зависший поток дорабатывает сам и держит разрешение. Любое исключение или Error из прогона PMD — тоже анализ без находок PMD + лог, не 500 (не попадает в список неудач). Пока оба
+потока заняты (чужие прогоны или зависшие regex), снимок любого проекта сразу (без ожидания) идёт без находок PMD — остальные
+пользователи видят анализ без PMD, остальные детекторы работают; `validate` отвечает «анализатор PMD сейчас занят — повторите позже».
+Если оба потока повисли навсегда — PMD молчит до рестарта (надёжнее — отдельный процесс). `load` повторяет `checkXml` перед
+загрузкой (ref, подменённый файлом после validate). `PmdDetector.validate(xml)` → `InvalidRulesetException` (message, line или null): битый XML/DOCTYPE, корень не `<ruleset>`,
+`ref` не из classpath PMD (`category/…/*.xml[/Rule]`, `rulesets/…`), свои правила (`class`, в т.ч. XPathRule) и любое свойство с `xpath` в имени без учёта регистра — атрибут `name` или вложенный `<name>` (`xpath`, `violationSuppressXPath`:
+XPath на Saxon читает файлы/URL — doc, unparsed-text…), любой атрибут с `xpath` в имени, пролог с encoding не UTF-8 (checkXml разбирает те же
+UTF-8 байты, что PMD), `ref`, совпадающий с файлом относительно рабочей папки (PMD ищет ссылку сначала в файлах, потом в classpath), неизвестное правило
+(загрузка самим PMD). Без сети: ruleset и правила только из jar PMD.
+
 Зависит от: model, source. Тесты: `./gradlew :analysis:test` (в т.ч. прогон по `samples/demo` и `samples/roundtrip`).

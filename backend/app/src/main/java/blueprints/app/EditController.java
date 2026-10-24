@@ -71,7 +71,7 @@ class EditController {
             }
             throw new ApiException(404, "NOT_FOUND", "метод не найден: " + methodId);
         });
-        ProjectView view = new ProjectView(s.content());
+        ProjectView view = new ProjectView(s);
         ProjectView.MethodView method = view.method(methodId);
         // сигнатура переименовала метод: под старым id теперь другой метод (или никакого) — вида метода нет
         if (method != null && method.root().span().startLine() != line[0]) method = null;
@@ -93,7 +93,7 @@ class EditController {
             }
             return replace(p, f, req.text());
         });
-        ProjectView view = new ProjectView(s.content());
+        ProjectView view = new ProjectView(s);
         return new ProjectView.Mutation(s.version(), req.text(), null, view.tree(s.version()), view.analysis(s.version()));
     }
 

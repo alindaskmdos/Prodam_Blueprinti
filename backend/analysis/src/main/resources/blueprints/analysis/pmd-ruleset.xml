@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ruleset name="Java Blueprints default"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+    <description>Стандартный набор Java Blueprints. Выключены правила, дублирующие встроенные детекторы.</description>
+
+    <rule ref="category/java/bestpractices.xml">
+        <exclude name="UnusedPrivateField"/>
+        <exclude name="UnusedPrivateMethod"/>
+        <exclude name="UnusedLocalVariable"/>
+        <exclude name="UnusedFormalParameter"/>
+        <exclude name="UnusedAssignment"/>
+        <exclude name="SystemPrintln"/>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml">
+        <exclude name="EmptyCatchBlock"/>
+        <exclude name="AvoidLiteralsInIfCondition"/>
+    </rule>
+
+    <rule ref="category/java/performance.xml">
+        <exclude name="UseStringBufferForStringAppends"/>
+        <exclude name="AvoidInstantiatingObjectsInLoops"/>
+    </rule>
+
+    <rule ref="category/java/multithreading.xml"/>
+</ruleset>

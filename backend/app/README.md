@@ -8,6 +8,12 @@ Spring Boot: REST по `contract/openapi.yaml`, хранение проекто�
 `GET /projects/{id}/methods/{methodId}/blocks` -> MethodView, `GET /projects/{id}/files?path=` -> FileText, `GET /projects/{id}/analysis` -> Analysis,
 `GET /projects/{id}/uml` -> UmlDiagram (`DiagramController`, `ProjectAnalysis.uml()` по текущей версии),
 `GET /projects/{id}/dependencies` -> DependencyGraph (kind узлов всегда; cycles[].issueId = Issue CyclicDependency в analysis).
+`GET/PUT/DELETE /projects/{id}/pmd-config` (`PmdConfigController`, §14а.2): GET -> PmdConfig (`isDefault` — нет своего конфига, отдан
+`PmdDetector.DEFAULT_RULESET`); PUT `{version, xml}` -> PmdConfigMutationResult (version+1, analysis с новым конфигом), невалидный ruleset
+(`PmdDetector.validate`) -> 422 INVALID_RULESET с line, конфиг и версия прежние; DELETE `?version=` — сброс к стандартному. Старая версия -> 409.
+Конфиг хранится в `ProjectStore.Stored.pmdRuleset` (null — стандартный), все `ProjectView` строятся из `Stored` с ним. Экспорт zip с
+includeSettings дописывает `<root>.blueprints/pmd-ruleset.xml`; при загрузке тот же файл (отдельно или в zip) становится конфигом,
+невалидный — предупреждение IGNORED_FILE и стандартный набор.
 Находки уровня проекта (methodId null) в ProjectView идут без blockId и фиксов и не входят в issueCount методов.
 
 - GET blocks / analysis — те же представления `ProjectView`, что в MutationResult (снимок строится на каждый запрос, без кэша);
@@ -18,7 +24,8 @@ Spring Boot: REST по `contract/openapi.yaml`, хранение проекто�
   неверная нода -> 422 PARSE_ERROR с blockId, версия не растёт; PUT files — разбор JavaParser, ошибка -> 422 PARSE_ERROR с line.
   Новое состояние — повторная загрузка `ProjectLoader` (PUT blocks и files): пакет, предупреждения, mainClasses; дубликат FQN -> 422 DUPLICATE_FQN с `files`, лимит 20 МБ / 2000 файлов -> 422 LIMIT_EXCEEDED (413 — только у загрузки); версия не растёт. Файл, загруженный как UNPARSED_FILE, через PUT files не правится (422).
   `method` в ответе нет, если сигнатура переименовала метод (под старым id другой метод).
-- `ProjectView` — снимок для ответов: Analysis (`ProjectAnalysis` + `DetectorRegistry.defaults()`, `new ProjectView(project[, n])`, n по умолчанию 10 000, в MutationResult — всегда оно; blockId проблемы —
+- `ProjectView` — снимок для ответов: Analysis (`ProjectAnalysis` + `DetectorRegistry.defaults(pmdRuleset)` — встроенные детекторы и PMD с конфигом проекта или
+  стандартным набором; `new ProjectView(stored[, n])` берёт контент и `Stored.pmdRuleset`, `new ProjectView(loadedProject)` — стандартный набор PMD; n по умолчанию 10 000, в MutationResult — всегда оно; blockId проблемы —
   самый глубокий блок метода, чей span содержит span проблемы; metrics complexity/lines/maxNesting), ProjectTree с complexity и issueCount, MethodView с id проблем в блоках. Экспорт zip возвращает исходную структуру вместе с отрезанной обёрткой (`LoadedProject.root`).
 
 - `TestsController` — `GET /projects/{id}/tests`, `GET/PUT/DELETE /tests/{name}`: источник правды — файлы `tests/` проекта

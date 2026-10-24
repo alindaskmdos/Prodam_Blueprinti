@@ -28,6 +28,11 @@ public class ApiException extends RuntimeException {
         return new ApiException(422, "PARSE_ERROR", message, null, blockId, line);
     }
 
+    /** 422 INVALID_RULESET (PUT pmd-config): line — строка XML с 1 или null. */
+    public static ApiException invalidRuleset(String message, Integer line) {
+        return new ApiException(422, "INVALID_RULESET", message, null, null, line);
+    }
+
     public ApiException(int status, String code, String message) {
         this(status, code, message, null);
     }
