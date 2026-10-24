@@ -73,7 +73,17 @@ class RunController {
     VerifyDto verify(@PathVariable String id) {
         var s = store.get(id);
         TestContext ctx = new TestContext(texts(s.original()), texts(s.content()), null);
-        // до запуска: Runner на этих данных бросил бы IllegalArgumentException (500)
+        checkMains(ctx);
+        VerifyResult v = sandbox(() -> verifier.verify(ctx));
+        return dto(v);
+    }
+
+    static VerifyDto dto(VerifyResult v) {
+        return new VerifyDto(v.status().wire(), v.results().stream().map(RunController::dto).toList(), v.warnings());
+    }
+
+    /** До запуска verify: Runner на этих данных бросил бы IllegalArgumentException (500). Ошибка — ApiException 422. */
+    static void checkMains(TestContext ctx) {
         boolean io = !IoTestFiles.load(ctx.currentFiles()).tests().isEmpty();
         for (var version : List.of(Map.entry("текущей версии", ctx.currentFiles()), Map.entry("оригинале", ctx.originalFiles()))) {
             List<String> mains = Runner.findMainClasses(TestContext.javaSources(version.getValue()));
@@ -82,8 +92,6 @@ class RunController {
                 throw new ApiException(422, "INVALID_REQUEST", "IO-тестам нужен метод main, а в " + version.getKey() + " его нет");
             }
         }
-        VerifyResult v = sandbox(() -> verifier.verify(ctx));
-        return new VerifyDto(v.status().wire(), v.results().stream().map(RunController::dto).toList(), v.warnings());
     }
 
     /** Адаптер testing.TestResult → TestResult контракта (временный тип testing, см. его README). */
@@ -103,7 +111,7 @@ class RunController {
      * Сбой запуска вне кода пользователя → 503 INTERNAL с сообщением Runner: IllegalStateException (контейнер не стартовал,
      * прерван, нет JDK) или UncheckedIOException (нет docker, ошибка временной папки). Остальное — общий обработчик (500).
      */
-    private static <T> T sandbox(Supplier<T> call) {
+    static <T> T sandbox(Supplier<T> call) {
         try {
             return call.get();
         } catch (IllegalStateException | UncheckedIOException e) {

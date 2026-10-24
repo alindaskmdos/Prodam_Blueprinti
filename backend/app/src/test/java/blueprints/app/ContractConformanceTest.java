@@ -1,7 +1,9 @@
 package blueprints.app;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import blueprints.app.ProjectDto.FileDto;
 import blueprints.app.ProjectDto.TestCaseDto;
@@ -10,7 +12,9 @@ import blueprints.source.ProjectLoader;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -185,5 +189,113 @@ class ContractConformanceTest {
         Contract.validate("TestCase", tcJson);
         Contract.validate("TestMutationResult", mapper.valueToTree(new TestsController.TestMutation(3, tc)));
         assertEquals(junit.get("source"), tcJson.get("source"));
+    }
+
+    static final String JOIN = "com.demo.util.Texts.join~0";
+    static final String REPORT = "com.demo.service.ReportService.fullReport~0";
+
+    String uploadDemo(Map<String, byte[]> files) throws IOException {
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        files.forEach((path, data) -> {
+            body.add("files", ProjectsApiTest.part(path.replaceAll(".*/", ""), data));
+            body.add("paths", path);
+        });
+        HttpHeaders h = new HttpHeaders();
+        h.setContentType(MediaType.MULTIPART_FORM_DATA);
+        var created = rest.postForEntity("/api/projects", new HttpEntity<>(body, h), String.class);
+        assertEquals(HttpStatus.CREATED, created.getStatusCode(), created.getBody());
+        return Contract.JSON.readTree(created.getBody()).get("id").asText();
+    }
+
+    /** id проблемы StringConcatInLoop в методе. */
+    JsonNode concatIssue(String id, String methodId) throws IOException {
+        for (JsonNode i : ok(rest.getForEntity("/api/projects/" + id + "/analysis", String.class)).get("issues")) {
+            if (i.get("rule").asText().equals("StringConcatInLoop") && i.get("methodId").asText().equals(methodId)) return i;
+        }
+        throw new AssertionError("нет StringConcatInLoop в " + methodId);
+    }
+
+    ResponseEntity<String> fix(String id, String issueId, int version, String fixId) {
+        HttpHeaders h = new HttpHeaders();
+        h.setContentType(MediaType.APPLICATION_JSON);
+        String body = Contract.JSON.createObjectNode().put("version", version).put("fixId", fixId).toString();
+        return rest.exchange(java.net.URI.create(rest.getRootUri() + "/api/projects/" + id + "/issues/"
+                + java.net.URLEncoder.encode(issueId, java.nio.charset.StandardCharsets.UTF_8).replace("+", "%20") + "/fix"),
+                org.springframework.http.HttpMethod.POST, new HttpEntity<>(body, h), String.class);
+    }
+
+    @Test
+    void fixFixturesAndDtoMatchFixResult() throws IOException {
+        Contract.validate("FixResult", Contract.fixture("fix.applied.json"));
+        Contract.validate("FixResult", Contract.fixture("fix.rejected.json"));
+        var mapper = Contract.JSON.copy().setSerializationInclusion(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL);
+        JsonNode fx = Contract.fixture("fix.rejected.json");
+        var verify = Contract.JSON.treeToValue(fx.get("verify"), RunController.VerifyDto.class);
+        var dto = new FixController.FixDto(false, fx.get("reason").asText(), 3, null, null, verify);
+        assertEquals(fx, mapper.valueToTree(dto));
+        Contract.validate("FixResult", mapper.valueToTree(new FixController.FixDto(false, "исправление не подтверждено: x", 1,
+                null, null, null)));
+    }
+
+    @Test
+    void unifiedDiff() {
+        String a = "a\nb\nc\nd\ne\nf\ng\nh\ni\nj\nk\n";
+        String b = "a\nB\nc\nd\ne\nf\ng\nh\ni\nj\nk\nl\n";
+        assertEquals("--- a/x.java\n+++ b/x.java\n@@ -1,5 +1,5 @@\n a\n-b\n+B\n c\n d\n e\n"
+                + "@@ -9,3 +9,4 @@\n i\n j\n k\n+l\n", Diff.unified("x.java", a, b));
+        assertEquals("", Diff.unified("x.java", a, a));
+    }
+
+    /** Issue.fixes на демо; 409 при чужой версии, 404 на неизвестную проблему / фикс — без Docker. */
+    @Test
+    void fixesInAnalysisAndFixErrors() throws IOException {
+        String id = uploadDemo(ProjectsApiTest.demoFiles());
+        JsonNode analysis = ok(rest.getForEntity("/api/projects/" + id + "/analysis", String.class));
+        Contract.validate("Analysis", analysis);
+        for (JsonNode i : analysis.get("issues")) {
+            if (i.get("confidence").asText().equals("low")) assertEquals(0, i.get("fixes").size(), i.toString());
+        }
+        JsonNode join = concatIssue(id, JOIN);
+        assertEquals("[\"string-builder\"]", join.get("fixes").toString());
+        String issueId = join.get("id").asText();
+
+        var conflict = fix(id, issueId, 7, "string-builder");
+        assertEquals(HttpStatus.CONFLICT, conflict.getStatusCode(), conflict.getBody());
+        Contract.validate("Error", Contract.JSON.readTree(conflict.getBody()));
+        notFound(fix(id, "StringConcatInLoop:nope:1:1", 1, "string-builder"));
+        notFound(fix(id, issueId, 1, "nope"));
+        notFound(fix("p-none", issueId, 1, "string-builder"));
+    }
+
+    /** Quality Gate в Docker: string-builder на Texts.join — applied; с неверным tests/basic.out — rejected. */
+    @Test
+    void fixAppliedAndRejectedInDocker() throws IOException {
+        assumeTrue(TestsApiTest.dockerUp(), "docker недоступен");
+        String id = uploadDemo(ProjectsApiTest.demoFiles());
+        JsonNode applied = ok(fix(id, concatIssue(id, JOIN).get("id").asText(), 1, "string-builder"));
+        Contract.validate("FixResult", applied);
+        assertTrue(applied.get("applied").asBoolean(), applied.toString());
+        assertEquals(2, applied.get("version").asInt());
+        assertEquals("green", applied.get("verify").get("status").asText(), applied.toString());
+        String diff = applied.get("diff").asText();
+        assertTrue(diff.startsWith("--- a/src/com/demo/util/Texts.java\n+++ b/src/com/demo/util/Texts.java\n@@ "), diff);
+        assertTrue(diff.contains("\n+        StringBuilder "), diff);
+        JsonNode file = ok(rest.getForEntity("/api/projects/" + id + "/files?path={p}", String.class, "src/com/demo/util/Texts.java"));
+        assertEquals(2, file.get("version").asInt());
+        assertTrue(file.get("text").asText().contains("StringBuilder outSb"), file.get("text").asText());
+        assertEquals(file.get("text"), applied.get("mutation").get("fileText"));
+        for (JsonNode i : ok(rest.getForEntity("/api/projects/" + id + "/analysis", String.class)).get("issues")) {
+            assertFalse(i.get("rule").asText().equals("StringConcatInLoop") && i.get("methodId").asText().equals(JOIN), i.toString());
+        }
+
+        Map<String, byte[]> broken = new LinkedHashMap<>(ProjectsApiTest.demoFiles());
+        broken.put("demo/tests/basic.out", "not the output\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String bad = uploadDemo(broken);
+        JsonNode rejected = ok(fix(bad, concatIssue(bad, REPORT).get("id").asText(), 1, "string-builder"));
+        Contract.validate("FixResult", rejected);
+        assertFalse(rejected.get("applied").asBoolean(), rejected.toString());
+        assertEquals(1, rejected.get("version").asInt());
+        assertTrue(rejected.get("reason").asText().startsWith("исправление не подтверждено: "), rejected.toString());
+        assertEquals(1, ok(rest.getForEntity("/api/projects/" + bad + "/analysis", String.class)).get("version").asInt());
     }
 }

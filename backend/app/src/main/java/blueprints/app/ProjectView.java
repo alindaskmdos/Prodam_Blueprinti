@@ -5,6 +5,8 @@ import blueprints.analysis.Issues;
 import blueprints.analysis.MethodAnalysis;
 import blueprints.analysis.ProjectAnalysis;
 import blueprints.blocks.AstToBlocks;
+import blueprints.fixes.Refactoring;
+import blueprints.fixes.RefactoringRegistry;
 import blueprints.model.Block;
 import blueprints.model.Issue;
 import blueprints.model.Span;
@@ -33,10 +35,12 @@ final class ProjectView {
     private final ProjectAnalysis analysis;
     private final Map<String, Block> trees = new LinkedHashMap<>();
     private final List<Issue> issues;
+    private final Map<String, String> files;
 
     ProjectView(LoadedProject project) {
         this.project = project;
         this.analysis = ProjectAnalysis.of(project.files());
+        this.files = RunController.texts(project);
         this.issues = DetectorRegistry.defaults().run(analysis).stream().map(this::withBlockId).toList();
     }
 
@@ -85,7 +89,25 @@ final class ProjectView {
         Block root = tree(i.methodId());
         String blockId = root == null || i.span() == null ? i.methodId() : innermost(root, i.span()).id();
         return new Issue(i.id(), i.rule(), i.severity(), i.confidence(), i.source(), i.span(), i.methodId(), blockId,
-                i.message(), i.recommendation(), i.complexity(), i.fixes());
+                i.message(), i.recommendation(), i.complexity(), fixes(i));
+    }
+
+    /**
+     * id фиксов реестра, применимых к проблеме (canApply); при confidence=low — пусто (контракт).
+     * ponytail: canApply на каждый снимок, без кэша — кэшировать по версии, если анализ станет медленным.
+     */
+    private List<String> fixes(Issue i) {
+        if (!"high".equals(i.confidence())) return List.of();
+        return RefactoringRegistry.defaults().refactorings().stream()
+                .filter(r -> canApply(r, i.id())).map(Refactoring::id).toList();
+    }
+
+    private boolean canApply(Refactoring r, String target) {
+        try {
+            return r.canApply(files, target);
+        } catch (RuntimeException e) {
+            return false; // сломанный фикс не должен ронять анализ
+        }
     }
 
     /** Спуск в первого ребёнка, чей span содержит s. ponytail: два оператора на одной строке — берётся первый. */

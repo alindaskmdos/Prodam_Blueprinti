@@ -35,12 +35,15 @@ public class ProjectStore {
     public Stored update(String id, int clientVersion, UnaryOperator<LoadedProject> change) {
         return projects.compute(id, (k, cur) -> {
             if (cur == null) throw new ApiException(404, "NOT_FOUND", "проект не найден: " + id);
-            if (cur.version() != clientVersion) {
-                throw new ApiException(409, "VERSION_CONFLICT",
-                        "Версия проекта устарела: клиент " + clientVersion + ", сервер " + cur.version(),
-                        Map.of("clientVersion", clientVersion, "serverVersion", cur.version()));
-            }
+            if (cur.version() != clientVersion) throw conflict(clientVersion, cur.version());
             return new Stored(id, cur.version() + 1, change.apply(cur.content()), cur.original());
         });
+    }
+
+    /** 409 VERSION_CONFLICT с details clientVersion/serverVersion. */
+    public static ApiException conflict(int clientVersion, int serverVersion) {
+        return new ApiException(409, "VERSION_CONFLICT",
+                "Версия проекта устарела: клиент " + clientVersion + ", сервер " + serverVersion,
+                Map.of("clientVersion", clientVersion, "serverVersion", serverVersion));
     }
 }

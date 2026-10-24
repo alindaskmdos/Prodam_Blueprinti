@@ -28,6 +28,12 @@ Spring Boot: REST по `contract/openapi.yaml`, хранение проекто�
   (`BehaviorVerifier` на `ProjectStore.Stored.original` — проект как загружен — и текущей версии; адаптер `testing.TestResult` -> DTO).
   У verify до запуска, только если есть IO-тесты (mainClass нужен лишь им): несколько main в текущей версии или оригинале -> 422 AMBIGUOUS_MAIN, main нет -> 422 INVALID_REQUEST. Сбой запуска вне кода пользователя (IllegalStateException/UncheckedIOException Runner'а: нет Docker, JDK, ошибка временной папки) -> 503 INTERNAL с сообщением Runner (responses/SandboxUnavailable; UI отключает кнопки по /health). Без тестов verify
   контейнер не запускает.
+- `FixController` — `POST /projects/{id}/issues/{issueId}/fix` (`{version, fixId}`) -> FixResult: версия не та -> 409 (id проблемы — только для своей версии),
+  нет проблемы / фикс не из `Issue.fixes` -> 404; `QualityGate` (оригинал — `Stored.original`, mainClass null, проверки main — `RunController.checkMains`).
+  applied -> изменённые файлы (исходники и `tests/`) в проект, version+1, `diff` — unified diff (`Diff`, 3 строки контекста) по `changed`,
+  `mutation` (fileText — первый изменённый файл); rejected -> версия та же, `reason`. В контракте у fix нет 422/503: несколько main,
+  нет main для IO-тестов и недоступная песочница -> 200 `applied=false`, reason «исправление не подтверждено: <сообщение>».
+- `Issue.fixes` (в `ProjectView`, т.е. во всех Analysis/MutationResult) — id фиксов `RefactoringRegistry.defaults()` с `canApply(файлы, issue.id)`; при confidence=low пусто.
 - `format=jar` пока заглушка: 501 INTERNAL, реализуется в BE-36.
 
 - `ProjectStore` — `ConcurrentHashMap`; любая мутация через `update(id, clientVersion, fn)`: старая версия -> `ApiException` 409 `VERSION_CONFLICT` (details clientVersion/serverVersion), иначе version+1. Использовать в BE-07 и далее.
