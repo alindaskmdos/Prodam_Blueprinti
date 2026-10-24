@@ -41,6 +41,8 @@ public final class ProjectAnalysis {
     private final Map<TypeDeclaration<?>, TypeInfo> typeOf = new java.util.IdentityHashMap<>();
     private final Map<String, List<MethodAnalysis>> methodsByType = new LinkedHashMap<>();
     private final List<String> warnings = new ArrayList<>();
+    private final List<CompilationUnit> units = new ArrayList<>();
+    private Set<String> stringLiterals;
     private final CallGraph callGraph;
     private final long n;
 
@@ -53,6 +55,7 @@ public final class ProjectAnalysis {
                 warnings.add(f.path() + ": файл не разобран, сложность его методов неизвестна");
                 continue;
             }
+            units.add(r.getResult().get());
             for (TypeDeclaration<?> t : r.getResult().get().getTypes()) index(t, f);
         }
         Map<String, Set<String>> edges = new LinkedHashMap<>();
@@ -142,6 +145,16 @@ public final class ProjectAnalysis {
             return t.decl().getFieldByName(field).map(f -> !f.isStatic()).orElse(false);
         }
         return false;
+    }
+
+    /** Значения строковых литералов проекта (рефлексия: {@code getDeclaredMethod("m")}). */
+    Set<String> stringLiterals() {
+        if (stringLiterals == null) {
+            Set<String> s = new java.util.LinkedHashSet<>();
+            for (CompilationUnit cu : units) cu.findAll(StringLiteralExpr.class).forEach(l -> s.add(l.getValue()));
+            stringLiterals = s;
+        }
+        return stringLiterals;
     }
 
     boolean isProjectType(String simple) {

@@ -59,5 +59,12 @@ after O(L), severity medium. Неизвестный тип хоть одной �
 span — объявление метода. `DeepNesting` — `maxNesting() > DeepNesting.MAX_NESTING` (4: тело + цикл/цикл/условие ещё читаются);
 одна находка на метод, span — `deepestConstruct()`. Оба: severity low, confidence high, без complexity и fixes, рекомендация «Выделить метод».
 На demo: LongMethod — `ReportService.fullReport` (56 строк), DeepNesting — `ReportService.hotProducts` (7 уровней); `OrderService.merge` — 19 строк, 4 уровня.
+`DeadCode` (§14а.3) — только уверенные находки: приватный метод без вызова/ссылки `::` по имени в своём top-level классе
+(самовызов не в счёт; low/high; имя есть в строковом литерале проекта — возможно, рефлексия — confidence low), локальная
+переменная-оператор без единого `NameExpr` с её именем и без ссылки на метод `имя::m` (low/high), оператор после return/throw/break/continue/yield в том же
+блоке/case (medium/high). Не сообщаются: неприватные методы (их могут звать tests/*.java, внешний код, рефлексия), main,
+toString/equals/hashCode/compareTo, приватные методы сериализации (writeObject/readObject/readObjectNoData/readResolve/writeReplace), методы с аннотациями (кроме Deprecated/SuppressWarnings/SafeVarargs), конструкторы,
+переменные for/for-each/try/catch. Перегрузки и лямбды — по имени. Поля и классы не проверяются (у Issue без метода нет blockId).
+На demo находок нет. `ProjectAnalysis.stringLiterals()` — значения строковых литералов проекта.
 
 Зависит от: model, source. Тесты: `./gradlew :analysis:test` (в т.ч. прогон по `samples/demo` и `samples/roundtrip`).
