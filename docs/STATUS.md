@@ -43,8 +43,7 @@
 - fixes/StringBuilderFix: `s += foo()` с foo(): char[] молча меняет вывод (только тест вывода поймает); комментарий внутри `s += /*c*/ x` теряется при замене.
 - app/verify: если все tests/*.json битые, проверка main пропускается (io=false).
 - fixes/LinkedHashSetFix: только своя локальная из `new ArrayList/LinkedList` или без сторонних вызовов в цикле; элемент String/обёртка; неявный код в цикле (toString, iterator() пользовательского Iterable) не учитывается; тип аргумента по имени в методе.
-- app/fix: без Docker / несколько main / нет main → 200 applied=false с reason (у fix в контракте нет 422/503); фикс, создающий новый файл, → 500; applied с пустым changed → 500; canApply считается на каждый снимок без кэша; Diff не видит разницу только в финальном 
-.
+- app/fix: без Docker / несколько main / нет main → 200 applied=false с reason (у fix в контракте нет 422/503); фикс, создающий новый файл, → 500; applied с пустым changed → 500; canApply считается на каждый снимок без кэша; Diff не видит разницу только в финальном \n.
 - app/export: имя файла `<id>.zip|.jar`, а контракт описывает `<проект>`; без JDK → 500 (503 у export в контракте нет). ProjectsApiTest.javaJar не ждёт/не убивает процесс java.
 - fixes/LinkedHashSetFix: List/ArrayList/LinkedList распознаются по простому имени — свой класс проекта с таким именем примется за JDK (в IndexByIdFix уже отклоняется).
 - fixes/IndexByIdFix: при null-элементе/статусе, /0, IndexOutOfBounds в теле исключение сохраняется, но набор выполненных тел до него может отличаться; List считается JDK-реализацией; одноимённый T в tests/ → ложный отказ.
