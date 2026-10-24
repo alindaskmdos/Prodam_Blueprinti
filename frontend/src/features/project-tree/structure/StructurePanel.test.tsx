@@ -96,6 +96,18 @@ describe('формы структуры (FE-10)', () => {
     expect(text.replace('merge(int limit) throws IllegalStateException', 'merge()')).toBe(file.text);
   });
 
+  it('тип результата и параметра — datalist: void только у «Возвращает», классы проекта в подсказках', async () => {
+    await setup();
+    fireEvent.click(screen.getByRole('button', { name: /merge/ }));
+    const form = await screen.findByRole('form', { name: 'Свойства метода merge' });
+    const options = (label: string) =>
+      Array.from((within(form).getByLabelText(label) as HTMLInputElement).list?.options ?? []).map((o) => o.value);
+    expect(options('Возвращает')).toEqual(expect.arrayContaining(['void', 'int', 'String', 'OrderService']));
+    fireEvent.click(within(form).getByRole('button', { name: '+ параметр' }));
+    expect(options('Тип параметра 1')).toContain('OrderService');
+    expect(options('Тип параметра 1')).not.toContain('void');
+  });
+
   it('422 PARSE_ERROR — ошибка со строкой в форме, версия не меняется', async () => {
     capturePut(() =>
       HttpResponse.json<Schemas['Error']>({ code: 'PARSE_ERROR', message: 'ожидался идентификатор', line: 37 }, { status: 422 }),

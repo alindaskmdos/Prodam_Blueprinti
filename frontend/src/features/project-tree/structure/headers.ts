@@ -160,13 +160,46 @@ export interface ClassHeaderEdit {
   typeParams: string;
   extends: string;
   implements: string[];
+  /** Компоненты record: неизменённые сохраняются текстом как в коде; не задано — компоненты как были. */
+  components?: ParamEdit[];
+}
+
+/**
+ * Компоненты record из `(…)` заголовка. Тип — всё до последнего идентификатора (с аннотациями и `...`),
+ * имя — последний идентификатор; не разобралось — null (форма только для чтения).
+ */
+export function parseComponents(components: string): ParamText[] | null {
+  const out: ParamText[] = [];
+  for (const text of splitTopLevel(components.trim().slice(1, -1))) {
+    const m = /^([\s\S]*\S)\s+([\p{L}_$][\p{L}\p{N}_$]*)$/u.exec(text);
+    if (!m?.[1] || !m[2]) return null;
+    out.push({ text, type: m[1], name: m[2] });
+  }
+  return out;
+}
+
+/** Параметры формы → текст: пара (тип, имя), совпавшая с исходной, остаётся текстом как в коде (`final`, аннотации). */
+function renderParams(old: readonly ParamText[], edit: readonly ParamEdit[]): string[] {
+  const unused = [...old];
+  return edit.map((p) => {
+    const type = p.type.trim();
+    const name = p.name.trim();
+    const idx = unused.findIndex((o) => o.name === name && normalizeType(o.type) === normalizeType(type));
+    if (idx === -1) return `${type} ${name}`;
+    const [original] = unused.splice(idx, 1);
+    return original?.text ?? `${type} ${name}`;
+  });
 }
 
 /** Собрать заголовок класса: части формы + перенесённые аннотации, компоненты record и permits. */
 export function buildClassHeader(old: ClassHeader, edit: ClassHeaderEdit): string {
   const typeParams = edit.typeParams.trim();
   let text = joinLead(old, edit.modifiers, [edit.keyword, edit.name.trim() + typeParams]);
-  if (edit.keyword === 'record') text += old.components || '()';
+  if (edit.keyword === 'record') {
+    text += edit.components
+      ? `(${renderParams(parseComponents(old.components) ?? [], edit.components).join(', ')})`
+      : old.components || '()';
+  }
   if (edit.extends.trim()) text += ` extends ${edit.extends.trim()}`;
   const impl = edit.implements.map((t) => t.trim()).filter(Boolean);
   if (impl.length > 0) text += ` implements ${impl.join(', ')}`;
@@ -273,15 +306,7 @@ export interface MethodHeaderEdit {
 
 /** Собрать заголовок метода: параметры с неизменёнными типом и именем — текстом как в коде (`final`, аннотации). */
 export function buildMethodHeader(old: MethodHeader, edit: MethodHeaderEdit): string {
-  const unused = [...old.params];
-  const params = edit.params.map((p) => {
-    const type = p.type.trim();
-    const name = p.name.trim();
-    const idx = unused.findIndex((o) => o.name === name && normalizeType(o.type) === normalizeType(type));
-    if (idx === -1) return `${type} ${name}`;
-    const [original] = unused.splice(idx, 1);
-    return original?.text ?? `${type} ${name}`;
-  });
+  const params = renderParams(old.params, edit.params);
   const isConstructor = old.returnType === '';
   const rest = [edit.typeParams.trim(), isConstructor ? '' : edit.returnType.trim()];
   const head = joinLead(old, edit.modifiers, [...rest, edit.name.trim()]);

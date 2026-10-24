@@ -19,7 +19,7 @@ import {
   type EditResult,
   type FieldNode,
 } from './edits';
-import { parseClassHeader, parseMethodHeader, type ClassHeaderEdit, type MethodHeaderEdit } from './headers';
+import { parseClassHeader, parseComponents, parseMethodHeader, type ClassHeaderEdit, type MethodHeaderEdit } from './headers';
 import type { TextPos } from './javaText';
 
 type ClassNode = Schemas['ClassNode'];
@@ -212,6 +212,28 @@ describe('заголовок класса', () => {
     expect(h).toMatchObject({ keyword: 'record', typeParams: '<T>', components: '(int x, @Ann T y)', implements: ['Shape'] });
     const out = ok(editClassHeader(text, c, classEdit({ keyword: 'record', name: 'Point', typeParams: '<T>', modifiers: [] })));
     expect(out).toBe('@Deprecated\nrecord Point<T>(int x, @Ann T y) {}\n');
+  });
+
+  it('record: компоненты из формы — неизменённые байт в байт, аннотации и varargs не теряются', () => {
+    const text = 'record P(int x,   @Ann List<String> t, String... r) {}\n';
+    const c = cls(text, 'P', 'record', { kind: 'record' });
+    const edit = classEdit({
+      keyword: 'record',
+      name: 'P',
+      modifiers: [],
+      components: [
+        { type: 'String...', name: 'r' },
+        { type: '@Ann List<String>', name: 't' },
+        { type: 'long', name: 'x' },
+        { type: 'int', name: 'n' },
+      ],
+    });
+    expect(ok(editClassHeader(text, c, edit))).toBe('record P(String... r, @Ann List<String> t, long x, int n) {}\n');
+    expect(parseComponents('(int x, byte[] b)')?.map((p) => [p.type, p.name])).toEqual([
+      ['int', 'x'],
+      ['byte[]', 'b'],
+    ]);
+    expect(parseComponents('(int)')).toBeNull();
   });
 
   it('enum, sealed/permits и non-sealed', () => {

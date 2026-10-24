@@ -125,6 +125,13 @@
   align-items: center;
 }
 
+.paramHi {
+  border-radius: 7px;
+  outline: 1px solid var(--jb-accent);
+  outline-offset: 3px;
+  background: var(--jb-selected);
+}
+
 .btnRow {
   display: flex;
   flex-wrap: wrap;

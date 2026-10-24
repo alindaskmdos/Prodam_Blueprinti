@@ -6,6 +6,7 @@ import { isJavaIdentifier } from './javaText';
 import { createClass, createMember, deleteDeclaration } from './ops';
 import { findClass, findMethod, firstFileOf } from './resolve';
 import { closeStructureDialog, useStructureStore, type DeleteTarget, type StructureDialog as Dialog } from './structureStore';
+import { TypeInput } from './TypeInput';
 import styles from './Structure.module.css';
 
 /** Диалоги «Новый класс / поле / конструктор / метод» и подтверждение удаления; открыт, пока `dialog` не null. */
@@ -77,7 +78,7 @@ function DialogBody({ dialog }: { dialog: Dialog }) {
         <>
           <label className={styles.fld}>
             {member === 'field' ? 'Тип' : 'Возвращает'}
-            <input className={styles.inp} value={type} spellCheck={false} onChange={(e) => setType(e.target.value)} />
+            <TypeInput value={type} onChange={setType} withVoid={member !== 'field'} />
           </label>
           <label className={styles.fld}>
             Имя
