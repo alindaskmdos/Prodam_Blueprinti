@@ -1,8 +1,8 @@
-import { useCallback, useEffect, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { api, type ApiClient, type Schemas } from '../features/api';
 import { FixConflictToast, isFixRunning, QualityGateDialog, useFixStore } from '../features/fix';
 import { CommandPalette } from '../features/command-palette';
-import { CanvasSlot, EditorHeader, EditorLayout, PanelTabs } from '../features/layout';
+import { CANVAS_METHOD_TAB, CanvasSlot, EditorHeader, EditorLayout, PanelTabs } from '../features/layout';
 import { ProjectTree } from '../features/project-tree';
 import { RunDialog, SandboxNotice, sandboxDisabledReason, useSandbox, useSandboxStore } from '../features/sandbox';
 import { ExportDialog, UploadScreen, useUploadUi, type SaveFile } from '../features/upload';
@@ -67,6 +67,15 @@ function EditorScreen({ client, projectId, canvas, panels, saveFile }: EditorScr
   const closeExport = useUploadUi((s) => s.closeExport);
   const showPanel = useAppStore((s) => s.showPanel);
   const bottomTab = useAppStore((s) => s.activePanels.bottom);
+  const canvasTab = useAppStore((s) => s.activePanels.canvas);
+  // Выбор метода (дерево, метрики, UML) открывает его схему, даже если в центре была диаграмма.
+  const methodSelectSeq = useAppStore((s) => s.methodSelectSeq);
+  const seenSelectSeq = useRef(methodSelectSeq);
+  useEffect(() => {
+    if (methodSelectSeq === seenSelectSeq.current) return;
+    seenSelectSeq.current = methodSelectSeq;
+    showPanel('canvas', CANVAS_METHOD_TAB);
+  }, [methodSelectSeq, showPanel]);
   useSandbox(client, projectId);
   const entryPoint = useSandboxStore((s) => entryPointLabel(s.mainClasses));
   const sandboxBusy = useSandboxStore((s) => s.busy);
@@ -91,7 +100,11 @@ function EditorScreen({ client, projectId, canvas, panels, saveFile }: EditorScr
           />
         }
         left={<ProjectTree client={client} projectId={projectId} />}
-        canvas={<CanvasSlot>{canvas ?? (methodId ? <SelectedMethodCanvas client={client} /> : undefined)}</CanvasSlot>}
+        canvas={
+          <CanvasSlot views={panelsIn('canvas', panels)} activeId={canvasTab} onActiveChange={(id) => showPanel('canvas', id)}>
+            {canvas ?? (methodId ? <SelectedMethodCanvas client={client} /> : undefined)}
+          </CanvasSlot>
+        }
         right={<PanelTabs title="Анализ" tabs={panelsIn('right', panels)} />}
         bottom={
           <PanelTabs

@@ -55,6 +55,7 @@ export const handlers = [
   http.get(`${API}/projects/:projectId/methods/:methodId/blocks`, () =>
     HttpResponse.json(fixtures.methodViewMerge),
   ),
+  http.get(`${API}/projects/:projectId/uml`, () => HttpResponse.json(fixtures.umlDemo)),
   // Фикстура одна (n = 10000): параметр n принимается, но числа ops в моке не пересчитываются.
   http.get(`${API}/projects/:projectId/analysis`, () => HttpResponse.json(fixtures.analysisMerge)),
   // fix.applied.json + mutation из фикстур (как у PUT blocks): версия = присланная + 1.

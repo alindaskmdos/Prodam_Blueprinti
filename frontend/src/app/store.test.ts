@@ -62,3 +62,34 @@ describe('revealFor', () => {
     expect(revealFor(null, FILE, span(1, 1))).toBeNull();
   });
 });
+
+describe('store.selectClass — выбор класса из диаграмм (FE-16)', () => {
+  beforeEach(() => {
+    resetAppState();
+    useAppStore.getState().openProject('p-1', 1);
+  });
+
+  it('класс сбрасывает метод/проблему/подсветку; метод и проблема сбрасывают класс; seq растёт', () => {
+    const s = useAppStore.getState();
+    s.selectMethod('a.A.m~0');
+    s.setHighlight({ source: 'code', span: span(1, 1) });
+    s.selectClass({ id: 'a.A', path: FILE, span: span(2, 9) });
+    let st = useAppStore.getState();
+    expect(st.selectedClass?.id).toBe('a.A');
+    expect(st.selectedMethodId).toBeNull();
+    expect(st.highlight).toBeNull();
+    s.selectClass({ id: 'a.A', path: FILE, span: span(2, 9) });
+    expect(useAppStore.getState().classSelectSeq).toBe(2);
+
+    s.selectMethod('a.A.m~0');
+    expect(useAppStore.getState().selectedClass).toBeNull();
+    s.selectClass({ id: 'a.A', path: FILE, span: null });
+    s.selectIssue({ issueId: 'ISSUE-7' });
+    st = useAppStore.getState();
+    expect(st.selectedClass).toBeNull();
+    expect(st.selectedIssueId).toBe('ISSUE-7');
+    s.selectClass({ id: 'a.A', path: FILE, span: null });
+    s.openProject('p-2');
+    expect(useAppStore.getState().selectedClass).toBeNull();
+  });
+});

@@ -32,6 +32,16 @@ export interface Highlight {
   seq: number;
 }
 
+/** Выбранный класс (UML / граф зависимостей → редактор, FE-16): FQN, файл и span объявления для прокрутки кода. */
+export interface ClassSelection {
+  /** FQN через точки (= UmlClass.id = ClassNode.fqn). */
+  id: string;
+  /** Файл класса (ProjectFile.path). */
+  path: string;
+  /** Span объявления класса; нет — файл открывается без прокрутки. */
+  span: LineSpan | null;
+}
+
 /** Общее состояние приложения: открытый проект, его версия, выбранный метод и проблема. */
 export interface AppState {
   projectId: string | null;
@@ -41,6 +51,10 @@ export interface AppState {
   selectedMethodId: string | null;
   /** Растёт на каждый вызов selectMethod, в т.ч. по уже выбранному методу: повторный клик снова прокручивает код (FE-35). */
   methodSelectSeq: number;
+  /** Выбранный класс (FE-16); выбор метода или проблемы его сбрасывает. */
+  selectedClass: ClassSelection | null;
+  /** Растёт на каждый selectClass: повторный клик по тому же классу снова прокручивает код. */
+  classSelectSeq: number;
   /** Issue.id выбранной в панели анализа проблемы. */
   selectedIssueId: string | null;
   /** Issue.blockId выбранной проблемы — нода, которую холст должен показать (FE-05). */
@@ -56,6 +70,8 @@ export interface AppState {
   setVersion: (version: number) => void;
   /** Выбрать метод (дерево проекта): выбранная проблема сбрасывается. */
   selectMethod: (methodId: string | null) => void;
+  /** Выбрать класс (UML, граф зависимостей): выбранный метод и проблема сбрасываются; `null` — снять. */
+  selectClass: (selection: ClassSelection | null) => void;
   /** Выбрать проблему (панель анализа): метод проблемы + issueId/blockId; `null` — снять выбор проблемы. */
   selectIssue: (selection: IssueSelection | null) => void;
   /** Подсветка от холста (`canvas`) или редактора кода (`code`); null — снять. */
@@ -67,6 +83,8 @@ const initial = {
   version: null,
   selectedMethodId: null,
   methodSelectSeq: 0,
+  selectedClass: null as ClassSelection | null,
+  classSelectSeq: 0,
   selectedIssueId: null,
   selectedBlockId: null,
   highlight: null,
@@ -87,17 +105,31 @@ export const useAppStore = create<AppState>()((set, get) => ({
       if (version !== null) set({ version });
       return;
     }
-    set({ projectId, version, selectedMethodId: null, selectedIssueId: null, selectedBlockId: null, highlight: null });
+    set({ projectId, version, selectedMethodId: null, selectedClass: null, selectedIssueId: null, selectedBlockId: null, highlight: null });
   },
   setVersion: (version) => set({ version }),
   selectMethod: (selectedMethodId) =>
     set((s) => ({
       selectedMethodId,
       methodSelectSeq: s.methodSelectSeq + 1,
+      selectedClass: null,
       selectedIssueId: null,
       selectedBlockId: null,
       highlight: null,
     })),
+  selectClass: (selectedClass) =>
+    set((s) =>
+      selectedClass
+        ? {
+            selectedClass,
+            classSelectSeq: s.classSelectSeq + 1,
+            selectedMethodId: null,
+            selectedIssueId: null,
+            selectedBlockId: null,
+            highlight: null,
+          }
+        : { selectedClass: null },
+    ),
   showPanel: (area, panelId) => set((s) => ({ activePanels: { ...s.activePanels, [area]: panelId } })),
   selectIssue: (selection) => {
     if (!selection) {
@@ -111,12 +143,13 @@ export const useAppStore = create<AppState>()((set, get) => ({
     set(
       methodId
         ? {
+            selectedClass: null,
             selectedIssueId: issueId,
             selectedBlockId: blockId,
             selectedMethodId: methodId,
             highlight: { source: 'issue', blockId, span: null, seq: nextSeq() },
           }
-        : { selectedIssueId: issueId, selectedBlockId: null, highlight: { source: 'issue', blockId: null, span: null, seq: nextSeq() } },
+        : { selectedClass: null, selectedIssueId: issueId, selectedBlockId: null, highlight: { source: 'issue', blockId: null, span: null, seq: nextSeq() } },
     );
   },
   setHighlight: (h) =>

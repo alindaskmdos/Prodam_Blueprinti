@@ -66,6 +66,13 @@ export const commands: readonly CommandDef[] = [
     run: () => useSandboxStore.getState().verify(),
   },
   {
+    id: 'view.uml',
+    title: 'Открыть UML-диаграмму',
+    group: 'Вид',
+    isEnabled: () => useAppStore.getState().projectId !== null,
+    run: () => useAppStore.getState().showPanel('canvas', 'canvas.uml'),
+  },
+  {
     // Кнопка «Применить» в карточке проблемы: args = { issueId, fixId } (fixId — из Issue.fixes).
     id: 'fix.apply',
     title: 'Применить фикс (Quality Gate)',

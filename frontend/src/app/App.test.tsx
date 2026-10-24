@@ -81,7 +81,10 @@ describe('App — каркас редактора на MSW', () => {
     expect(await screen.findByText('Main.main')).toBeInTheDocument();
     expect(screen.getByText('Выберите метод в дереве проекта')).toBeInTheDocument();
 
-    expect(screen.getAllByRole('tablist')).toHaveLength(2);
+    // Вкладки: холст (схема метода + диаграммы), анализ, низ.
+    expect(screen.getAllByRole('tablist')).toHaveLength(3);
+    const canvasTabs = screen.getByRole('tablist', { name: 'Холст' });
+    expect(within(canvasTabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['Метод не выбран', 'UML']);
     const right = screen.getByRole('tablist', { name: 'Анализ' });
     const bottom = screen.getByRole('tablist', { name: 'Код, консоль, тесты' });
     expect(within(right).getAllByRole('tab').map((t) => t.textContent)).toEqual([
@@ -136,6 +139,38 @@ describe('App — каркас редактора на MSW', () => {
     expect(area).toHaveValue(fileJson.text);
     expect((area as HTMLTextAreaElement).value).toContain('public class OrderService');
     expect(screen.getByRole('region', { name: `Код ${fileJson.path}` })).toBeInTheDocument();
+  });
+
+  it('вкладка UML (ленивый чанк): клик по методу в карточке → схема метода на холсте (FE-16)', async () => {
+    render(<App client={client} projectId="p-1" />);
+    fireEvent.click(screen.getByRole('tab', { name: 'UML' }));
+    const cards = await screen.findAllByTestId('uml-class', {}, { timeout: 10_000 });
+    expect(cards.length).toBeGreaterThan(0);
+    const member = document.querySelector('[data-member-id="com.demo.service.OrderService.merge~0"]');
+    if (!member) throw new Error('нет метода merge в UML');
+    fireEvent.click(member);
+    await waitFor(() => expect(useAppStore.getState().selectedMethodId).toBe('com.demo.service.OrderService.merge~0'), {
+      timeout: 3000,
+    });
+    await waitFor(() => expect(screen.getByTestId('canvas-method')).toHaveAttribute('aria-selected', 'true'));
+    expect(screen.queryAllByTestId('uml-class')).toHaveLength(0);
+  }, 20_000);
+
+  it('выбор класса (UML → редактор, FE-16): файл класса, прокрутка к span, класс выделен в дереве', async () => {
+    render(<App client={client} projectId="p-1" />);
+    await screen.findByText('OrderService');
+    act(() =>
+      useAppStore.getState().selectClass({
+        id: 'com.demo.service.OrderService',
+        path: fileJson.path,
+        span: { file: fileJson.path, startLine: 11, endLine: 139 },
+      }),
+    );
+    const area = await screen.findByLabelText('код');
+    expect(area).toHaveValue(fileJson.text);
+    await waitFor(() => expect(area).toHaveAttribute('data-reveal', '11-139'));
+    const row = document.querySelector('[data-class-id="com.demo.service.OrderService"]');
+    expect(row?.className).toMatch(/selected/);
   });
 
   it('выбор метода → код прокручивается к span метода; правка не прокручивает заново (FE-35)', async () => {

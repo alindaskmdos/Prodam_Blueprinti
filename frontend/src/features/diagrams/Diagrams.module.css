@@ -1,0 +1,497 @@
+/* Диаграммы (UML, граф зависимостей) — Graphite. Размеры карточки = CARD в umlGraph.ts. */
+
+.canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  background-color: var(--jb-bg);
+  --jb-dg-wire: #6b7685;
+}
+
+.markers {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--jb-text-secondary);
+  font-size: 13px;
+}
+
+.error {
+  composes: status;
+  color: var(--jb-severity-high);
+}
+
+.handle {
+  opacity: 0;
+  pointer-events: none;
+  width: 1px !important;
+  height: 1px !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  border: 0 !important;
+}
+
+/* ---------- Карточка класса ---------- */
+
+.card {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #141a22;
+  border: 1px solid var(--jb-border-strong);
+  border-top: 3px solid var(--kind);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  color: var(--jb-text);
+  transition: opacity 180ms var(--jb-ease-out), box-shadow var(--jb-dur-hover), border-color var(--jb-dur-hover), transform 180ms var(--jb-ease-out);
+  animation: jb-rise var(--jb-dur-rise) var(--jb-ease-out) both;
+}
+
+.card:hover {
+  border-color: #4a5568;
+  border-top-color: var(--kind);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
+}
+
+.cardDim {
+  opacity: 0.25;
+}
+
+.cardActive {
+  border-color: var(--jb-accent);
+  border-top-color: var(--kind);
+  box-shadow: 0 0 0 1px var(--jb-accent), 0 14px 34px rgba(91, 155, 255, 0.22);
+}
+
+.cardMatch {
+  border-color: var(--jb-accent);
+  border-top-color: var(--kind);
+  box-shadow: 0 0 0 2px rgba(91, 155, 255, 0.45);
+}
+
+.cardSelected {
+  border-color: var(--jb-accent);
+  border-top-color: var(--kind);
+  background: #17202c;
+}
+
+.cardFlying {
+  border-color: var(--jb-accent);
+  border-top-color: var(--kind);
+  animation: jb-dg-fly 520ms var(--jb-ease-out) both;
+}
+
+@keyframes jb-dg-fly {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(91, 155, 255, 0.7); }
+  45% { transform: scale(1.045); box-shadow: 0 0 0 10px rgba(91, 155, 255, 0.25), 0 20px 50px rgba(91, 155, 255, 0.35); }
+  100% { transform: scale(1); box-shadow: 0 0 0 2px var(--jb-accent), 0 14px 34px rgba(91, 155, 255, 0.3); }
+}
+
+/* 54 px */
+.cardHeader {
+  flex: 0 0 51px; /* 54 − 3 px верхней полосы kind */
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--jb-border);
+  cursor: pointer;
+  outline: none;
+  transition: background var(--jb-dur-hover);
+}
+
+.cardHeader:hover,
+.cardHeader:focus-visible {
+  background: var(--jb-raised);
+}
+
+.cardHeader:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--jb-accent);
+}
+
+.kindIcon {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--kind);
+  color: var(--jb-bg);
+  font: 700 11px var(--jb-font-code);
+}
+
+.headText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.stereotype {
+  font: 500 10.5px/14px var(--jb-font-code);
+  color: var(--jb-text-secondary);
+}
+
+.className {
+  font: 700 14px/18px var(--jb-font-ui);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.typeParams {
+  font: 500 12px var(--jb-font-code);
+  color: var(--jb-text-secondary);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 22 px */
+.sectionTitle {
+  height: 22px;
+  display: flex;
+  align-items: flex-end;
+  padding: 0 12px 3px;
+  font: 600 10px var(--jb-font-ui);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8b95a4;
+}
+
+/* 20 px */
+.row {
+  height: 20px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  font: 12px var(--jb-font-code);
+  color: #d4dae3;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.rowText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.isStatic .rowText {
+  text-decoration: underline;
+  text-decoration-color: rgba(212, 218, 227, 0.45);
+  text-underline-offset: 2px;
+}
+
+.isAbstract .rowText {
+  font-style: italic;
+}
+
+.memberButton {
+  width: 100%;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--jb-dur-hover), padding-left var(--jb-dur-hover), color var(--jb-dur-hover);
+}
+
+.memberButton:hover,
+.memberButton:focus-visible {
+  background: var(--jb-raised);
+  color: #fff;
+  padding-left: 16px;
+  outline: none;
+}
+
+.vis {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font: 700 11px/1 var(--jb-font-code);
+}
+
+.visPublic { color: var(--jb-success); background: rgba(74, 222, 128, 0.14); }
+.visPrivate { color: var(--jb-severity-high); background: rgba(248, 113, 113, 0.14); }
+.visProtected { color: var(--jb-severity-medium); background: rgba(251, 191, 36, 0.14); }
+.visPackage { color: var(--jb-text-secondary); background: rgba(154, 164, 178, 0.14); }
+
+/* ---------- Рёбра ---------- */
+
+.edgePath {
+  fill: none;
+  stroke: var(--jb-dg-wire, #6b7685) !important;
+  stroke-width: 1.4 !important;
+  transition: stroke var(--jb-dur-hover), opacity 180ms, stroke-width var(--jb-dur-hover);
+}
+
+.dashed {
+  stroke-dasharray: 6 4;
+}
+
+.edgeActive {
+  stroke: var(--jb-accent) !important;
+  stroke-width: 2 !important;
+}
+
+.edgeActive.dashed {
+  animation: jb-dg-dash 900ms linear infinite;
+}
+
+@keyframes jb-dg-dash {
+  to { stroke-dashoffset: -20; }
+}
+
+.edgeDim {
+  opacity: 0.12;
+}
+
+.edgeCycle {
+  stroke: var(--jb-severity-high) !important;
+  stroke-width: 2 !important;
+}
+
+.edgeLabel {
+  position: absolute;
+  pointer-events: none;
+  font: 600 11px var(--jb-font-code);
+  color: #c9d2de;
+  background: var(--jb-bg);
+  padding: 0 4px;
+  border-radius: 4px;
+  transition: opacity 180ms;
+}
+
+.labelDim {
+  opacity: 0.15;
+}
+
+.badgeLabel {
+  font: italic 500 9.5px var(--jb-font-ui);
+  color: var(--jb-severity-maybe);
+  border: 1px dashed rgba(169, 198, 255, 0.45);
+  padding: 0 5px;
+}
+
+/* ---------- Панели ---------- */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 9px;
+  background: rgba(17, 21, 27, 0.92);
+  border: 1px solid var(--jb-border);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.search {
+  width: 200px;
+  height: 30px;
+  border-radius: 7px;
+  border: 1px solid var(--jb-border-strong);
+  background: var(--jb-header);
+  color: var(--jb-text);
+  padding: 0 10px;
+  font: 13px var(--jb-font-ui);
+  transition: border-color var(--jb-dur-hover), box-shadow var(--jb-dur-hover);
+}
+
+.search:focus {
+  outline: none;
+  border-color: var(--jb-accent);
+  box-shadow: 0 0 0 3px rgba(91, 155, 255, 0.2);
+}
+
+.found {
+  font: 500 12px var(--jb-font-ui);
+  color: var(--jb-text-secondary);
+  white-space: nowrap;
+}
+
+.notFound {
+  color: var(--jb-severity-high);
+}
+
+.toolButton {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 7px;
+  border: 1px solid var(--jb-border-strong);
+  background: var(--jb-raised);
+  color: #d7dee8;
+  font: 500 12.5px var(--jb-font-ui);
+  cursor: pointer;
+  transition: background var(--jb-dur-hover), border-color var(--jb-dur-hover);
+}
+
+.toolButton:hover {
+  background: #1d2430;
+  border-color: #3a4556;
+  color: #fff;
+}
+
+.stale {
+  font: 500 11px var(--jb-font-ui);
+  color: var(--jb-severity-medium);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  padding: 6px 10px;
+  border-radius: 9px;
+  background: rgba(17, 21, 27, 0.92);
+  border: 1px solid var(--jb-border);
+  font: 500 11px var(--jb-font-ui);
+  color: var(--jb-text-secondary);
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legendItem svg {
+  overflow: visible;
+}
+
+.legendBadge {
+  position: static;
+}
+
+.minimap {
+  background: var(--jb-panel) !important;
+  border: 1px solid var(--jb-border);
+  border-radius: 8px;
+}
+
+/* ---------- Граф зависимостей ---------- */
+
+.depNode {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: #141a22;
+  border: 1px solid var(--jb-border-strong);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  color: var(--jb-text);
+  transition: opacity 180ms, box-shadow var(--jb-dur-hover), border-color var(--jb-dur-hover);
+  animation: jb-rise var(--jb-dur-rise) var(--jb-ease-out) both;
+}
+
+.depNode:hover {
+  border-color: #4a5568;
+}
+
+.depCycle {
+  border-color: var(--jb-severity-high);
+  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.6), 0 8px 24px rgba(248, 113, 113, 0.18);
+}
+
+.depText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.depName {
+  font: 600 13px/17px var(--jb-font-ui);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.depPkg {
+  font: 11px/14px var(--jb-font-code);
+  color: var(--jb-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cycles {
+  width: 260px;
+  max-height: 46vh;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 9px;
+  background: rgba(17, 21, 27, 0.94);
+  border: 1px solid var(--jb-border);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.cyclesTitle {
+  font: 600 11px var(--jb-font-ui);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #a3aebd;
+  padding: 2px 4px;
+}
+
+.cycleItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 7px 9px;
+  border-radius: 7px;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  background: rgba(58, 30, 34, 0.55);
+  color: var(--jb-text);
+  font: 12px var(--jb-font-code);
+  cursor: pointer;
+  transition: background var(--jb-dur-hover), border-color var(--jb-dur-hover);
+}
+
+.cycleItem:hover,
+.cycleItem:focus-visible {
+  background: rgba(58, 30, 34, 0.9);
+  border-color: var(--jb-severity-high);
+  outline: none;
+}
+
+.cycleSeverity {
+  align-self: flex-start;
+  font: 600 10.5px var(--jb-font-code);
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #3a1e22;
+  color: #ffb4ac;
+}
+
+.noCycles {
+  font: 12px var(--jb-font-ui);
+  color: var(--jb-success);
+  padding: 2px 4px;
+}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ApiClient, Schemas } from '../api';
 import { useAppStore } from '../../app/store';
 import { useProjectTree } from './useProjectTree';
@@ -84,9 +84,23 @@ export function ProjectTree({ client, projectId }: ProjectTreeProps) {
 }
 
 function ClassItem({ cls, open, onToggle }: { cls: ClassNode; open: boolean; onToggle: () => void }) {
+  // Класс, выбранный в UML / графе зависимостей (store.selectedClass, FE-16): подсвечен и прокручен в видимую область.
+  const selected = useAppStore((s) => !!cls.fqn && s.selectedClass?.id === cls.fqn);
+  const selectSeq = useAppStore((s) => s.classSelectSeq);
+  const rowRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (selected) rowRef.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [selected, selectSeq]);
   return (
     <li>
-      <button type="button" className={`${styles.row} ${styles.depth1}`} aria-expanded={open} onClick={onToggle}>
+      <button
+        ref={rowRef}
+        type="button"
+        className={`${styles.row} ${styles.depth1} ${selected ? styles.selected : ''}`}
+        aria-expanded={open}
+        data-class-id={cls.fqn}
+        onClick={onToggle}
+      >
         <span className={styles.caret}>{open ? '▾' : '▸'}</span>
         <span>{cls.name}</span>
         {cls.kind !== 'class' && <span className={styles.kind}>{cls.kind}</span>}

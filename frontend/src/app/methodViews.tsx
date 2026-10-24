@@ -7,6 +7,7 @@ import { PanelStub } from '../features/layout';
 import { findMethodFile, reloadProjectTree, useTreeStore } from '../features/project-tree';
 import { useAppStore, type LineSpan } from './store';
 import { useMethodSpan } from './useMethodSpan';
+import { codeTarget } from './codeTarget';
 
 /** Счётчик событий прокрутки к методу (FE-35): новый выбор — новый seq. */
 let methodRevealSeq = 0;
@@ -51,7 +52,9 @@ export function SelectedMethodCode({ client = api }: Props) {
   const methodId = useAppStore((s) => s.selectedMethodId);
   const version = useAppStore((s) => s.version);
   const tree = useTreeStore((s) => (s.projectId === projectId ? s.state : null));
-  const path = tree?.kind === 'ok' && methodId ? findMethodFile(tree.tree, methodId) : null;
+  const methodPath = tree?.kind === 'ok' && methodId ? findMethodFile(tree.tree, methodId) : null;
+  const selectedClass = useAppStore((s) => s.selectedClass);
+  const classSelectSeq = useAppStore((s) => s.classSelectSeq);
 
   const onVersion = useCallback((next: number) => {
     const { version: prev, setVersion } = useAppStore.getState();
@@ -62,7 +65,17 @@ export function SelectedMethodCode({ client = api }: Props) {
 
   const highlight = useAppStore((s) => s.highlight);
   const issueId = useAppStore((s) => s.selectedIssueId);
-  const issueSpan = useAnalysisStore((s) => (issueId ? s.analysis?.issues.find((i) => i.id === issueId)?.span : null) ?? null);
+  const issue = useAnalysisStore((s) => (issueId ? s.analysis?.issues.find((i) => i.id === issueId) : null) ?? null);
+  const issueSpan = issue?.span ?? null;
+  // Проблема без метода (CyclicDependency и др. уровня класса) → файл её span; иначе метод; иначе класс (FE-16).
+  const target = codeTarget({ methodPath, selectedMethodId: methodId, selectedClass, issue });
+  const path = target.kind === 'none' ? null : target.path;
+  // Выбор класса (UML / граф зависимостей) — прокрутка к span класса, один раз на выбор.
+  const [classReveal, setClassReveal] = useState<{ span: LineSpan | null; seq: number } | null>(null);
+  useEffect(() => {
+    const current = useAppStore.getState().selectedClass;
+    setClassReveal(current ? { span: current.span, seq: ++methodRevealSeq } : null);
+  }, [classSelectSeq]);
   // FE-35: выбор метода прокручивает к span метода (из GET blocks). Одноразово: подсветка, выставленная после
   // выбора метода (клик по ноде, курсор, проблема), и любая правка (версия) гасят его; поздний ответ GET blocks
   // после такой подсветки не применяется. Повторный клик по методу (selectSeq) прокручивает снова.
@@ -99,7 +112,11 @@ export function SelectedMethodCode({ client = api }: Props) {
     () => (path ? revealFor(highlight, path, issueSpan) : null),
     [highlight, path, issueSpan],
   );
-  const reveal = highlight ? highlightReveal : methodRevealLines;
+  const classRevealLines = useMemo(
+    () => (path && target.kind === 'class' && classReveal ? revealForMethod(classReveal.span, path, classReveal.seq) : null),
+    [classReveal, path, target.kind],
+  );
+  const reveal = highlight ? highlightReveal : target.kind === 'class' ? classRevealLines : methodRevealLines;
   const onCursorLine = useCallback(
     (line: number) => {
       if (path) useAppStore.getState().setHighlight({ source: 'code', span: { file: path, startLine: line, endLine: line } });
@@ -108,7 +125,7 @@ export function SelectedMethodCode({ client = api }: Props) {
   );
 
   if (!projectId) return null;
-  if (!methodId) return <PanelStub text="Выберите метод в дереве проекта — здесь откроется код его файла" />;
+  if (target.kind === 'none') return <PanelStub text="Выберите метод в дереве проекта — здесь откроется код его файла" />;
   if (!path) {
     return <PanelStub text={tree?.kind === 'ok' ? 'Файл метода не найден в дереве проекта' : 'Загрузка дерева проекта…'} />;
   }

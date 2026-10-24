@@ -2,10 +2,14 @@ import type { ComponentType } from 'react';
 import { stubPanel } from '../features/layout';
 import { MetricsTab, ProblemsTab, WarningsTab } from '../features/analysis-panel';
 import { TestsPanel } from '../features/tests-panel';
+import { UmlTab } from '../features/diagrams';
 import { SelectedMethodCode } from './methodViews';
 
-/** Зона экрана, где живёт вкладка: правая панель (анализ) или нижняя (код / консоль / тесты). */
-export type PanelArea = 'right' | 'bottom';
+/**
+ * Зона экрана, где живёт вкладка: правая панель (анализ), нижняя (код / консоль / тесты) или центральная
+ * (`canvas`: вкладки после встроенной «схемы метода» — UML, граф зависимостей).
+ */
+export type PanelArea = 'right' | 'bottom' | 'canvas';
 
 export interface PanelDef {
   /** Уникальный id вкладки, напр. 'analysis.problems'. */
@@ -26,6 +30,8 @@ export const panels: readonly PanelDef[] = [
   { id: 'bottom.code', title: 'Код Java', area: 'bottom', component: SelectedMethodCode },
   { id: 'bottom.console', title: 'Консоль', area: 'bottom', component: stubPanel('Вывод запуска — появится в FE-13') },
   { id: 'bottom.tests', title: 'Результат тестов', area: 'bottom', component: TestsPanel },
+  // Диаграммы — ленивый чанк (features/diagrams/lazyTabs.tsx), основной бандл не растёт.
+  { id: 'canvas.uml', title: 'UML', area: 'canvas', component: UmlTab },
 ];
 
 export function panelsIn(area: PanelArea, list: readonly PanelDef[] = panels): PanelDef[] {
