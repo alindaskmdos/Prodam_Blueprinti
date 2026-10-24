@@ -38,7 +38,7 @@
 - app/ProjectView: Issue без methodId → blockId null (по контракту обязателен; сейчас детекторы methodId всегда ставят); DetectorRegistry.defaults() вызывается напрямую, а не бином.
 - fixes/QualityGate: Refactoring получает саму карту currentFiles (не unmodifiable); StandardJavaFileManager не закрывается; без системного компилятора (JRE) — NPE.
 - app: ProjectView строится заново на каждый запрос (без кэша); GET /tree без complexity/issueCount, параметр n у analysis игнорируется (n=10000, тест ContractConformanceTest ждёт 10000 при n=500) — BE-39.
-- fixes/StringBuilderFix: `s += foo()` с foo(): char[] молча меняет вывод (только тест вывода поймает); комментарий внутри `s += /*c*/ x` теряется при замене; правка по диапазонам текста, не LexicalPreservingPrinter (backend/CLAUDE.md) — ждёт решения. Issue.fixes пока пуст — BE-40.
+- fixes/StringBuilderFix: `s += foo()` с foo(): char[] молча меняет вывод (только тест вывода поймает); комментарий внутри `s += /*c*/ x` теряется при замене; Issue.fixes пока пуст — BE-40.
 - blocks/NodeValidator: исходный текст с \u разрешён в любом не-comment поле — можно перенести в ноду другого kind (крайний случай).
 
 ## Журнал (одна строка на закрытую задачу)
