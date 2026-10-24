@@ -6,6 +6,7 @@ import { fixtures } from './fixtures';
 const API = '*/api';
 
 type Health = paths['/health']['get']['responses']['200']['content']['application/json'];
+type PutFileBody = paths['/projects/{projectId}/files']['put']['requestBody']['content']['application/json'];
 
 /** Обработчики по умолчанию: «счастливый путь» на фикстурах contract/fixtures. */
 export const handlers = [
@@ -24,6 +25,17 @@ export const handlers = [
   http.get(`${API}/projects/:projectId/tests/:name`, () => HttpResponse.json(fixtures.testJunit)),
   http.post(`${API}/projects/:projectId/run`, () => HttpResponse.json(fixtures.runOk)),
   http.post(`${API}/projects/:projectId/verify`, () => HttpResponse.json(fixtures.verifyGreen)),
+  // Для MutationResult фикстуры нет — собираем из tree/analysis; версия +1, fileText = присланный текст.
+  // GET files по умолчанию нет: в фикстурах нет текста файлов.
+  http.put(`${API}/projects/:projectId/files`, async ({ request }) => {
+    const body = (await request.json()) as PutFileBody;
+    return HttpResponse.json<Schemas['MutationResult']>({
+      version: body.version + 1,
+      fileText: body.text,
+      tree: fixtures.tree,
+      analysis: fixtures.analysisMerge,
+    });
+  }),
 ];
 
 /** Альтернативные сценарии для тестов и ручной проверки: `server.use(scenarios.fixRejected)`. */
@@ -33,6 +45,9 @@ export const scenarios = {
   ),
   verifyRed: http.post(`${API}/projects/:projectId/verify`, () => HttpResponse.json(fixtures.verifyRed)),
   conflictOnBlocks: http.put(`${API}/projects/:projectId/methods/:methodId/blocks`, () =>
+    HttpResponse.json(fixtures.errorConflict, { status: 409 }),
+  ),
+  conflictOnFile: http.put(`${API}/projects/:projectId/files`, () =>
     HttpResponse.json(fixtures.errorConflict, { status: 409 }),
   ),
 };
