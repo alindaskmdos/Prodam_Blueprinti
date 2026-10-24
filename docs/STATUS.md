@@ -24,7 +24,7 @@
 
 ## Backend
 
-**Готово:** BE-01…BE-22, BE-24, BE-25, BE-27, BE-32, BE-23, BE-36…BE-55 (BE-50…55 2026-10-26: детекторы EmptyCatch, CatchBug, IgnoredResult, ReferenceEquality, LongLine, LongMethod порог 30 — verifier 374 теста + живой demo по схеме, reviewer зелёный; на demo +3 находки: CatchBug Main.handle, LongMethod Main.dispatch, LongLine fullReport:80), CT-02 — весь обязательный путь бэкенда (загрузка/экспорт zip и jar, ноды ↔ код, валидация, анализ + 6 детекторов, 3 фикса + Quality Gate, тесты IO/JUnit, run/verify, все эндпоинты контракта); CT-01 (+ правки BE-38 по решению человека).
+**Готово:** BE-01…BE-22, BE-24, BE-25, BE-27, BE-32, BE-23, BE-36…BE-56 (BE-56: примеры samples/detectors (Main + правила) и samples/spaghetti (пример человека, байт в байт) — оба verify green, DetectorsSampleTest; BE-50…55 2026-10-26: детекторы EmptyCatch, CatchBug, IgnoredResult, ReferenceEquality, LongLine, LongMethod порог 30 — verifier 374 теста + живой demo по схеме, reviewer зелёный; на demo +3 находки: CatchBug Main.handle, LongMethod Main.dispatch, LongLine fullReport:80), CT-02 — весь обязательный путь бэкенда (загрузка/экспорт zip и jar, ноды ↔ код, валидация, анализ + 6 детекторов, 3 фикса + Quality Gate, тесты IO/JUnit, run/verify, все эндпоинты контракта); CT-01 (+ правки BE-38 по решению человека).
 **В работе:** —. BE-47 готов (мелочи с ревью: базовые образы закреплены не до патча — `eclipse-temurin:21-jdk`, `docker:27-cli`; фоновый pull без init → `init: true` в compose).
 **Висящие ветки/worktree:** —. Папки старых worktree в .claude/worktrees не удаляются из-за длинных путей Windows, стирать вручную. На origin устаревшая ветка be-5 — `git push origin --delete be-5`.
 **Заблокировано:** —
@@ -58,9 +58,11 @@
 
 ## Известные проблемы
 
+- analysis/LinearSearchInLoop: ложное срабатывание (low) на `String.contains` в цепочке строковых вызовов внутри цикла — samples/spaghetti SpaghettiCodeExample:49.
+
 - analysis/PmdDetector (BE-23): при импорте zip, если оба потока PMD заняты, корректный ruleset заменяется стандартным + IGNORED_FILE (решение человека: не чинить). Зависшие навсегда прогоны держат оба потока — PMD молчит до рестарта, остальные детекторы работают. Первый PUT ruleset с ReDoS сохраняется (version+1), повторный — 422. Свои XPath-правила запрещены. Стандартный набор шумит на demo (8 из 15 — AvoidFieldNameMatchingMethodName; решение человека: оставить).
 - app: GET /methods/{id}/blocks на demo 2.2–3.8 с — ProjectView строится на каждый запрос (нужен кэш); из-за этого «Загрузка метода…» после клика в UML.
-- Фронт: русские названия новых правил в analysis-panel/format.ts RULE_TITLES (EmptyCatch, CatchBug, IgnoredResult, LongLine, ReferenceEquality) — сейчас показываются id; LongLine кладёт многострочное «Стало:» в recommendation — фронт должен показывать переводы строк. BE-23 (PMD): исключить из набора по умолчанию EmptyCatchBlock, AvoidCatchingThrowable, AvoidCatchingNPE, UselessOperationOnImmutable, CompareObjectsWithEquals, UseEqualsToCompareStrings (дублируют наши).
+- Фронт: русские названия новых правил в analysis-panel/format.ts RULE_TITLES (EmptyCatch, CatchBug, IgnoredResult, LongLine, ReferenceEquality) — сейчас показываются id; LongLine кладёт многострочное «Стало:» в recommendation — фронт должен показывать переводы строк. PMD дублирует наши правила (решение человека 2026-10-26: оставить, не приоритет): AvoidCatchingGenericException ↔ CatchBug (Throwable/Error/NPE; настраивается свойством typesThatShouldNotBeCaught), UnusedReturnValue ↔ IgnoredResult, CompareObjectsWithEquals и UseEqualsToCompareStrings ↔ ReferenceEquality. Имена AvoidCatchingThrowable/AvoidCatchingNPE/UselessOperationOnImmutable в PMD 7.28 устарели — исключать их бесполезно. Набор по умолчанию = contract/fixtures/pmd-config.default.json (менять вместе с контрактом).
 - analysis: ограничения новых детекторов (this.x при одноимённом локале, условный throw в CatchBug, комментарии без `*` в LongLine) — в analysis/README.md.
 
 - analysis/ExpensiveCallInLoop: `for (;;)` / `while (true)` с обходом коллекции и break внутри вызываемого считаются дешёвыми (редкий N+1 пропускается).
