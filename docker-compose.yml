@@ -26,6 +26,8 @@ services:
       dockerfile: frontend/Dockerfile
     expose:
       - "80"
+    ports:
+      - "8000:80"
     depends_on:
       backend:
         condition: service_healthy
