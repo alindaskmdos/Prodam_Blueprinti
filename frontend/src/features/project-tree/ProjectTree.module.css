@@ -1,0 +1,150 @@
+/* Дерево проекта по docs/design/screens/Editor.dc.html (.tree). */
+
+.panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--jb-panel);
+  border: 1px solid var(--jb-border);
+  border-radius: 10px;
+  overflow: hidden;
+  animation: jb-rise var(--jb-dur-rise) var(--jb-ease-out) both;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--jb-border);
+  font: 600 12px var(--jb-font-ui);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #a3aebd;
+}
+
+.headerNote {
+  color: #8b95a4;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 6px;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.row {
+  width: 100%;
+  font: 400 13px var(--jb-font-ui);
+  color: #c9d2de;
+  padding: 5px 10px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s;
+  white-space: nowrap;
+}
+
+.row:hover {
+  background: #171d26;
+}
+
+.row:focus-visible {
+  outline: 1px solid var(--jb-accent);
+  outline-offset: -1px;
+}
+
+.depth1 {
+  padding-left: 24px;
+}
+
+.depth2 {
+  padding-left: 42px;
+}
+
+.field {
+  color: var(--jb-text-secondary);
+  cursor: default;
+}
+
+.field:hover {
+  background: none;
+}
+
+.selected,
+.selected:hover {
+  background: var(--jb-selected);
+  color: #fff;
+}
+
+.caret {
+  width: 10px;
+  color: var(--jb-text-secondary);
+}
+
+.pkg {
+  color: var(--jb-text-secondary);
+}
+
+.letter {
+  width: 10px;
+  font: 500 11px var(--jb-font-code);
+  color: #8b95a4;
+}
+
+.kind {
+  color: #8b95a4;
+  font-size: 11px;
+}
+
+.badge {
+  margin-left: auto;
+  font: 500 11px var(--jb-font-code);
+  color: #8b95a4;
+}
+
+.badgeHot {
+  color: #ff8a80;
+  font-weight: 600;
+}
+
+.issueDot {
+  margin-left: auto;
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--jb-severity-medium);
+}
+
+.note {
+  margin: 8px;
+  font-size: 13px;
+  color: #8b95a4;
+}
+
+.error {
+  margin: 8px;
+  font-size: 13px;
+  color: var(--jb-severity-high);
+}

@@ -1,71 +1,63 @@
-import { useEffect, useState } from 'react';
-import { api, type ApiClient, type Schemas } from '../features/api';
-import styles from './App.module.css';
+import { useEffect, useState, type ReactNode } from 'react';
+import { api, type ApiClient } from '../features/api';
+import { CanvasSlot, EditorHeader, EditorLayout, PanelTabs } from '../features/layout';
+import { ProjectTree } from '../features/project-tree';
+import { panels as defaultPanels, panelsIn, type PanelDef } from './panels';
+import { useAppStore } from './store';
 
-/** Проект по умолчанию для заглушки (id из contract/fixtures/project.json). */
+/** Проект по умолчанию до экрана загрузки (id из contract/fixtures/project.json). */
 const DEMO_PROJECT_ID = 'p-1';
-
-type State =
-  | { kind: 'loading' }
-  | { kind: 'error'; message: string }
-  | { kind: 'ok'; tree: Schemas['ProjectTree'] };
 
 interface AppProps {
   client?: ApiClient;
   projectId?: string;
+  /** Холст схемы метода (FE-03); без него — заглушка. */
+  canvas?: ReactNode;
+  /** Реестр вкладок (по умолчанию `panels.ts`). */
+  panels?: readonly PanelDef[];
 }
 
-/** Заглушка FE-01: проверяет связку клиент → (MSW | бэкенд). Экраны — FE-02/FE-15. */
-export function App({ client = api, projectId = DEMO_PROJECT_ID }: AppProps) {
-  const [state, setState] = useState<State>({ kind: 'loading' });
+/** Экран редактора: шапка, дерево проекта, холст, панель анализа, нижняя панель. */
+export function App({ client = api, projectId = DEMO_PROJECT_ID, canvas, panels = defaultPanels }: AppProps) {
+  const openProject = useAppStore((s) => s.openProject);
+  const version = useAppStore((s) => s.version);
+  const entryPoint = useEntryPoint(client, projectId);
+
+  useEffect(() => {
+    openProject(projectId);
+  }, [openProject, projectId]);
+
+  return (
+    <EditorLayout
+      header={<EditorHeader projectName={projectId} version={version} entryPoint={entryPoint} />}
+      left={<ProjectTree client={client} projectId={projectId} />}
+      canvas={<CanvasSlot>{canvas}</CanvasSlot>}
+      right={<PanelTabs title="Анализ" tabs={panelsIn('right', panels)} />}
+      bottom={<PanelTabs aria-label="Код, консоль, тесты" tabs={panelsIn('bottom', panels)} />}
+    />
+  );
+}
+
+/** Точка входа для шапки: первый класс с main из GET /projects/{id} → «Main.main». */
+function useEntryPoint(client: ApiClient, projectId: string): string | null {
+  const [entry, setEntry] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    setEntry(null);
     client
-      .GET('/projects/{projectId}/tree', { params: { path: { projectId } } })
-      .then(({ data, error, response }) => {
-        if (cancelled) return;
-        if (data) setState({ kind: 'ok', tree: data });
-        else setState({ kind: 'error', message: error?.message ?? `HTTP ${response.status}` });
+      .GET('/projects/{projectId}', { params: { path: { projectId } } })
+      .then(({ data }) => {
+        const main = data?.mainClasses?.[0];
+        if (!cancelled && main) setEntry(`${main.split('.').pop() ?? main}.main`);
       })
-      .catch((e: unknown) => {
-        if (!cancelled) setState({ kind: 'error', message: e instanceof Error ? e.message : String(e) });
+      .catch(() => {
+        // Шапка без точки входа — не ошибка экрана.
       });
     return () => {
       cancelled = true;
     };
   }, [client, projectId]);
 
-  const mode = import.meta.env.VITE_USE_MOCKS === 'true' ? 'моки (contract/fixtures)' : 'бэкенд';
-
-  return (
-    <main className={styles.root}>
-      <header className={styles.header}>
-        <span className={styles.logo}>Java Blueprints</span>
-        <span className={styles.mode}>режим: {mode}</span>
-      </header>
-      <section className={`${styles.card} jb-rise`}>
-        <h1 className={styles.title}>Проект {projectId}</h1>
-        {state.kind === 'loading' && <p className={styles.muted}>Загрузка дерева…</p>}
-        {state.kind === 'error' && (
-          <p role="alert" className={styles.error}>
-            Ошибка: {state.message}
-          </p>
-        )}
-        {state.kind === 'ok' && (
-          <>
-            <p className={styles.muted}>версия {state.tree.version}</p>
-            <ul className={styles.list} data-testid="packages">
-              {state.tree.packages.map((pkg) => (
-                <li key={pkg.name}>
-                  <code>{pkg.name}</code>
-                  <span className={styles.muted}> · файлов: {pkg.files.length}</span>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </section>
-    </main>
-  );
+  return entry;
 }

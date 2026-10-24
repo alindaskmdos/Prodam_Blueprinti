@@ -1,0 +1,269 @@
+/* Каркас редактора по docs/design/screens/Editor.dc.html (Graphite). */
+
+.root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--jb-bg);
+  color: var(--jb-text);
+  font-family: var(--jb-font-ui);
+}
+
+/* Шапка */
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #1a2029;
+  background: var(--jb-header);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-right: 12px;
+}
+
+.logo {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--jb-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.brandText {
+  display: flex;
+  flex-direction: column;
+}
+
+.brandName {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.spacer {
+  flex: 1 1 20px;
+}
+
+.muted {
+  font-size: 12px;
+  color: var(--jb-text-secondary);
+}
+
+.mono {
+  font-family: var(--jb-font-code);
+  color: #d7dee8;
+}
+
+.btn {
+  font: 500 13px var(--jb-font-ui);
+  color: #d7dee8;
+  background: var(--jb-raised);
+  border: 1px solid var(--jb-border-strong);
+  border-radius: 8px;
+  padding: 0 14px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: background var(--jb-dur-hover), border-color var(--jb-dur-hover), filter var(--jb-dur-hover);
+}
+
+.btn:hover:not(:disabled) {
+  background: #1d2430;
+  border-color: #3a4556;
+  color: #fff;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btnOk {
+  border-color: #2f6b45;
+  color: #7ee2a0;
+}
+
+.btnPrimary {
+  background: var(--jb-accent);
+  border-color: var(--jb-accent);
+  color: var(--jb-bg);
+  font-weight: 600;
+}
+
+.btnPrimary:hover:not(:disabled) {
+  background: var(--jb-accent);
+  border-color: var(--jb-accent);
+  color: var(--jb-bg);
+  filter: brightness(1.12);
+}
+
+/* Колонки и разделители */
+.columns {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 10px;
+}
+
+.rows {
+  height: 100%;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.handleV,
+.handleH {
+  position: relative;
+  flex: 0 0 auto;
+  outline: none;
+}
+
+.handleV {
+  width: 10px;
+}
+
+.handleH {
+  height: 10px;
+}
+
+.handleV::after,
+.handleH::after {
+  content: '';
+  position: absolute;
+  border-radius: 2px;
+  background: transparent;
+  transition: background var(--jb-dur-hover);
+}
+
+.handleV::after {
+  top: 0;
+  bottom: 0;
+  left: 4px;
+  width: 2px;
+}
+
+.handleH::after {
+  left: 0;
+  right: 0;
+  top: 4px;
+  height: 2px;
+}
+
+.handleV[data-resize-handle-state='hover']::after,
+.handleV[data-resize-handle-state='drag']::after,
+.handleH[data-resize-handle-state='hover']::after,
+.handleH[data-resize-handle-state='drag']::after,
+.handleV:focus-visible::after,
+.handleH:focus-visible::after {
+  background: var(--jb-accent);
+}
+
+/* Панель */
+.panel {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--jb-panel);
+  border: 1px solid var(--jb-border);
+  border-radius: 10px;
+  overflow: hidden;
+  animation: jb-rise var(--jb-dur-rise) var(--jb-ease-out) both;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--jb-border);
+  font: 600 12px var(--jb-font-ui);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #a3aebd;
+}
+
+.panelBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.tabBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--jb-border);
+  min-height: 43px;
+}
+
+.tabList {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  flex: 1 1 auto;
+}
+
+.tabExtra {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tab {
+  font: 500 13px var(--jb-font-ui);
+  color: #a3aebd;
+  padding: 7px 12px;
+  border-radius: 7px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  transition: background var(--jb-dur-hover), color var(--jb-dur-hover);
+}
+
+.tab:hover {
+  color: #fff;
+  background: var(--jb-raised);
+}
+
+.tabOn,
+.tabOn:hover {
+  background: var(--jb-selected);
+  color: #fff;
+}
+
+/* Холст */
+.canvas {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+  overflow: auto;
+  background-color: #0d1117;
+  background-image: radial-gradient(#252d39 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.stub {
+  padding: 24px 16px;
+  font-size: 13px;
+  color: #8b95a4;
+  text-align: center;
+}
