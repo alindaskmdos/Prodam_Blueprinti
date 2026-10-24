@@ -46,3 +46,15 @@ Spring Boot: REST по `contract/openapi.yaml`, хранение проекто�
 - В BE-09/BE-11 разбор тестов переедет из `TestImporter` в `TestSource` модуля `testing`.
 
 Запуск: `./gradlew :app:bootRun`. Тесты (RANDOM_PORT): `./gradlew :app:test`; `ContractConformanceTest` (в т.ч. GET blocks/files/analysis, run/verify/tests), `ProjectsApiTest`, `EditApiTest` и `TestsApiTest` (Docker-часть пропускается без `docker info`) валидируют ответы JSON Schema из `contract/openapi.yaml`.
+
+## Docker-образ (`backend/Dockerfile`, деплой Coolify)
+
+Контекст сборки — `backend/` (`samples/` и `contract/` нужны только тестам, в образ не идут): `docker build -t blueprints-backend backend`.
+Стадия Gradle (`:app:bootJar`, без тестов) → рантайм `eclipse-temurin:21-jdk` (JDK, не JRE: компиляция в процессе через `javax.tools`; тот же образ, что песочница, — слои общие) + docker CLI (`docker:27-cli`) + curl.
+Env по умолчанию: `BLUEPRINTS_RUN_DIR=/var/lib/blueprints-run`, `BLUEPRINTS_RUN_IMAGE=eclipse-temurin:21-jdk`, `JAVA_OPTS=-XX:MaxRAMPercentage=75` (переопределяется целиком). `LLM_API_KEY` не задан.
+При старте: создаётся `$BLUEPRINTS_RUN_DIR`; если образа песочницы нет у демона — `docker pull` в фоне, ошибка только в лог. Порт 8080, HEALTHCHECK — `curl /api/health`. Процесс под root (доступ к docker.sock).
+
+    docker run -d -p 8080:8080 -v /var/run/docker.sock:/var/run/docker.sock \
+      -v /var/lib/blueprints-run:/var/lib/blueprints-run blueprints-backend
+
+Папка запуска монтируется по **одному и тому же пути** (Runner передаёт демону свои пути). На Docker Desktop (Windows) так же: `/var/lib/blueprints-run` — путь внутри VM демона, из Git Bash запускать с `MSYS_NO_PATHCONV=1`.
