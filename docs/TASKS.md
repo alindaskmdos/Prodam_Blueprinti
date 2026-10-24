@@ -85,7 +85,7 @@
 - [ ] CT-04 Контракт для пп.10, 12–14: capabilities, ИИ, символы, трасса, отчёт | contract | — | §14а
 - [ ] BE-31 Модуль `ai`: LlmFixProvider, «объясни метод», правка ноды текстом (дифф до применения); лимиты запросов; `/capabilities` | ai, app | BE-18, CT-04 | §14а.10
 - [ ] FE-24 Кнопки ИИ по `/capabilities` | analysis-panel, editor-nodes | FE-13, CT-04 | §14а.10
-- [ ] BE-32 Модуль `cli` (picocli): analyze, verify, `--fail-on`, json/text | cli | BE-12, BE-10 | §14а.11
+- [x] BE-32 Модуль `cli` (picocli): analyze, verify, `--fail-on`, json/text | cli | BE-12, BE-10 | §14а.11
 - [ ] BE-33 Таблица символов для метода целиком с областями видимости по нодам | analysis, app | BE-12, CT-04 | §14а.12
 - [ ] FE-25 Автодополнение в Monaco и полях нод (локальная фильтрация) | editor-code, editor-nodes | FE-07, CT-04 | §14а.12
 - [ ] BE-34 Запись значений `Trace.value` на одном тесте: 10 000 шагов, без `toString()` у объектов | runner, app | BE-27, CT-04 | §14а.13
