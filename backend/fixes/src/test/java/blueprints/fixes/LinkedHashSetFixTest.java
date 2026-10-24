@@ -196,14 +196,62 @@ class LinkedHashSetFixTest {
         return files;
     }
 
+    private static final String PRODUCTS_OUTSIDE = "com.demo.service.ReportService.productsOutside~0";
+
     @Test
-    void demoFindingsAreUnsafe() throws IOException {
+    void demoOnlyProductsOutsideIsSafe() throws IOException {
         Map<String, String> files = demo();
         List<String> ids = issues(files);
-        assertEquals(3, ids.size(), ids.toString());
+        assertEquals(4, ids.size(), ids.toString());
         // watched — параметр и сторонние вызовы в цикле (catalog.products(), p.getId(), result.add); distinctIds — indexOf;
-        // checkLines — seen.add в том же цикле
-        for (String id : ids) assertFalse(fix.canApply(files, id), id);
+        // checkLines — seen.add в том же цикле; productsOutside — своя локальная из new ArrayList, в цикле только contains
+        for (String id : ids) assertEquals(id.contains(":" + PRODUCTS_OUTSIDE + ":"), fix.canApply(files, id), id);
+    }
+
+    /** Issue.fixes, как его собирает app: только high и canApply по реестру — у productsOutside есть linked-hash-set. */
+    @Test
+    void demoProductsOutsideOffersFix() throws IOException {
+        Map<String, String> files = demo();
+        ProjectAnalysis p = ProjectAnalysis.of(FixText.sources(files));
+        Issue issue = new LinearSearchInLoop().detect(p.method(PRODUCTS_OUTSIDE), p).get(0);
+        assertEquals("high", issue.confidence());
+        List<String> fixes = RefactoringRegistry.defaults().refactorings().stream()
+                .filter(r -> r.canApply(files, issue.id())).map(Refactoring::id).toList();
+        assertEquals(List.of("linked-hash-set"), fixes);
+    }
+
+    /** Фикс на demo через QualityGate: проверка поведения — реальный прогон tests/*.in, вывод совпадает с .out. */
+    @Test
+    void demoProductsOutsideFixKeepsIoTestsGreen(@TempDir Path tmp) throws Exception {
+        Map<String, String> original = demo();
+        String id = issues(original).stream().filter(i -> i.contains(":" + PRODUCTS_OUTSIDE + ":")).findFirst().orElseThrow();
+        int[] runs = {0};
+        QualityGate.Result r = new QualityGate(ctx -> {
+            try {
+                Path dir = tmp.resolve("run" + runs[0]++);
+                Path classes = compile(dir, ctx.currentFiles());
+                List<Path> ins;
+                try (Stream<Path> s = Files.list(DEMO.resolve("tests"))) {
+                    ins = s.filter(x -> x.toString().endsWith(".in")).sorted().toList();
+                }
+                assertFalse(ins.isEmpty());
+                for (Path in : ins) {
+                    Path out = in.resolveSibling(in.getFileName().toString().replace(".in", ".out"));
+                    String actual = exec(classes, "com.demo.Main", in);
+                    if (!actual.equals(Files.readString(out))) {
+                        return new VerifyResult(VerifyResult.Status.RED, List.of(), List.of(in.getFileName().toString()));
+                    }
+                }
+                return new VerifyResult(VerifyResult.Status.GREEN, List.of(), List.of());
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }).apply(original, original, "com.demo.Main", fix, id);
+        assertTrue(r.applied(), r.reason());
+        assertEquals(VerifyResult.Status.GREEN, r.verify().status());
+        String patched = r.changed().get("src/com/demo/service/ReportService.java");
+        assertTrue(patched.contains("knownSet.contains(id)"), patched);
+        assertEquals(java.util.Set.of("src/com/demo/service/ReportService.java"), r.changed().keySet());
     }
 
     @Test
@@ -264,8 +312,12 @@ class LinkedHashSetFixTest {
     }
 
     private static String run(Path dir, Map<String, String> files) throws Exception {
+        return exec(compile(dir, files), "p.Main", null);
+    }
+
+    private static Path compile(Path dir, Map<String, String> files) throws IOException {
         Path classes = dir.resolve("classes");
-        List<String> args = new ArrayList<>(List.of("-d", classes.toString(), "-proc:none"));
+        List<String> args = new ArrayList<>(List.of("-d", classes.toString(), "-proc:none", "-encoding", "UTF-8"));
         for (var e : files.entrySet()) {
             Path f = dir.resolve("src").resolve(e.getKey());
             Files.createDirectories(f.getParent());
@@ -273,10 +325,17 @@ class LinkedHashSetFixTest {
             args.add(f.toString());
         }
         assertEquals(0, ToolProvider.getSystemJavaCompiler().run(null, null, null, args.toArray(String[]::new)));
+        return classes;
+    }
+
+    private static String exec(Path classes, String main, Path stdin) throws Exception {
         String java = ProcessHandle.current().info().command().orElse("java");
-        Process p = new ProcessBuilder(java, "-cp", classes.toString(), "p.Main").redirectErrorStream(true).start();
+        ProcessBuilder pb = new ProcessBuilder(java, "-cp", classes.toString(), main).redirectErrorStream(true);
+        if (stdin != null) pb.redirectInput(stdin.toFile());
+        Process p = pb.start();
         String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        assertEquals(0, p.waitFor(), out);
+        int code = p.waitFor();
+        if (stdin == null) assertEquals(0, code, out); // demo на errors.in законно завершается кодом 2
         return out;
     }
 }

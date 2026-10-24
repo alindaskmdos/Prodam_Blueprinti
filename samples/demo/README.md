@@ -16,6 +16,7 @@ enum с телом, record, interface, generics.
 | util/Texts.java | `join` | StringConcatInLoop: `out += ...` |
 | service/ReportService.java | `fullReport` | StringConcatInLoop (`report += ...`) и LongMethod (> 50 строк) |
 | service/ReportService.java | `hotProducts` | DeepNesting: вложенность 7 (тело метода — уровень 1) |
+| service/ReportService.java | `productsOutside` | LinearSearchInLoop: `known.contains` в цикле по каталогу; безопасен фикс `linked-hash-set` (своя локальная копия `new ArrayList<>(ids)`), вывод — в `SUMMARY` |
 
 ## Тесты
 

@@ -6,11 +6,9 @@ import blueprints.analysis.LinearSearchInLoop;
 import blueprints.analysis.MethodAnalysis;
 import blueprints.analysis.ProjectAnalysis;
 import com.github.javaparser.ast.CompilationUnit;
-import com.github.javaparser.ast.ImportDeclaration;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.Parameter;
-import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.AssignExpr;
 import com.github.javaparser.ast.expr.BooleanLiteralExpr;
@@ -136,19 +134,9 @@ public final class LinkedHashSetFix implements Refactoring {
         CompilationUnit cu = m.declaration().findCompilationUnit().orElse(null);
         if (cu == null) return null;
         String nl = newline(text);
-        List<Edit> edits = new ArrayList<>();
-        StringBuilder imports = new StringBuilder();
-        for (String name : List.of("LinkedHashSet", "Set")) {
-            Boolean has = imported(cu, name);
-            if (has == null) return null;
-            if (!has) imports.append(nl).append("import java.util.").append(name).append(';');
-        }
-        if (!imports.isEmpty()) {
-            Optional<? extends Node> anchor = cu.getImports().isNonEmpty()
-                    ? Optional.of(cu.getImports().getLast().orElseThrow()) : cu.getPackageDeclaration();
-            if (anchor.isPresent()) edits.add(new Edit(end(text, anchor.get()), end(text, anchor.get()), imports.toString()));
-            else edits.add(new Edit(0, 0, imports.substring(nl.length()) + nl));
-        }
+        List<Edit> imports = importEdits(cu, text, List.of("LinkedHashSet", "Set"));
+        if (imports == null) return null;
+        List<Edit> edits = new ArrayList<>(imports);
         edits.add(new Edit(start(text, loop), start(text, loop),
                 "Set<" + element + "> " + set + " = " + xs + " == null ? null : new LinkedHashSet<>(" + xs + ");" + nl + indent));
         for (NameExpr n : inLoop) edits.add(new Edit(start(text, n), end(text, n), set));
@@ -251,18 +239,5 @@ public final class LinkedHashSetFix implements Refactoring {
             if (!ok) return false;
         }
         return true;
-    }
-
-    /** TRUE — имя java.util уже доступно, FALSE — нужен импорт, null — имя занято другим типом. */
-    private static Boolean imported(CompilationUnit cu, String name) {
-        if (cu.findFirst(Node.class, d -> d instanceof TypeDeclaration<?> td && td.getNameAsString().equals(name)).isPresent()) return null;
-        boolean has = false;
-        for (ImportDeclaration i : cu.getImports()) {
-            if (i.isStatic()) continue;
-            String n = i.getNameAsString();
-            if (i.isAsterisk() ? n.equals("java.util") : n.equals("java.util." + name)) has = true;
-            else if (!i.isAsterisk() && n.endsWith("." + name)) return null;
-        }
-        return has;
     }
 }

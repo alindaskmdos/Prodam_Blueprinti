@@ -119,7 +119,9 @@ public class ReportService {
                 sum += pricing.total(o);
             }
         }
-        return c.label() + ": " + n + " shipped, " + Texts.money(sum);
+        List<String> missing = neverBought(customerId);
+        return c.label() + ": " + n + " shipped, " + Texts.money(sum)
+                + ", never bought: " + (missing.isEmpty() ? "none" : Texts.join(missing, " "));
     }
 
     public String stockTable() {
@@ -131,5 +133,32 @@ public class ReportService {
                     .append('\n');
         }
         return sb.toString();
+    }
+
+    /** Catalog products the customer has never received, in catalog order. */
+    public List<String> neverBought(int customerId) {
+        List<Integer> bought = new ArrayList<>();
+        for (Order o : orders.all()) {
+            if (o.getCustomerId() != customerId || o.getStatus() != OrderStatus.SHIPPED) {
+                continue;
+            }
+            for (OrderLine l : o.getLines()) {
+                bought.add(l.productId());
+            }
+        }
+        return productsOutside(bought);
+    }
+
+    /** Names of catalog products whose id is not in {@code ids}. List.contains per product: O(n*m). */
+    public List<String> productsOutside(java.util.Collection<Integer> ids) {
+        List<Integer> known = new ArrayList<>(ids);
+        List<String> names = new ArrayList<>();
+        for (Product p : catalog.products()) {
+            int id = p.getId();
+            if (!known.contains(id)) {
+                names.add(p.getName());
+            }
+        }
+        return names;
     }
 }

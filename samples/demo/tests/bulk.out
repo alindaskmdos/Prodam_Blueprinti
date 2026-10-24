@@ -7,8 +7,8 @@ reserved 2
 shipped 2
 error line 12: order 1 is final
 hot: Pen=124, Book=30
-Dmitri *gld*: 1 shipped, 156.10
-Eve [slv]: 1 shipped, 351.80
+Dmitri *gld*: 1 shipped, 156.10, never bought: none
+Eve [slv]: 1 shipped, 351.80, never bought: none
 === ORDERS REPORT ===
    1 Dmitri *gld*       156.10 SHIPPED
    2 Eve [slv]          351.80 SHIPPED

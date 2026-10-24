@@ -38,8 +38,13 @@ final class ProjectView {
     private final Map<String, String> files;
 
     ProjectView(LoadedProject project) {
+        this(project, Issues.DEFAULT_N);
+    }
+
+    /** n — размер входа для ops проблем (GET analysis?n=); id проблем от n не зависят. */
+    ProjectView(LoadedProject project, long n) {
         this.project = project;
-        this.analysis = ProjectAnalysis.of(project.files());
+        this.analysis = ProjectAnalysis.of(project.files(), n);
         this.files = RunController.texts(project);
         this.issues = DetectorRegistry.defaults().run(analysis).stream().map(this::withBlockId).toList();
     }
@@ -47,7 +52,7 @@ final class ProjectView {
     AnalysisDto analysis(int version) {
         List<Metrics> metrics = analysis.methods().stream()
                 .map(m -> new Metrics(m.id(), m.complexity().toString(), m.lines(), m.maxNesting())).toList();
-        return new AnalysisDto(version, (int) Issues.DEFAULT_N, issues, metrics);
+        return new AnalysisDto(version, (int) analysis.n(), issues, metrics);
     }
 
     ProjectDto.TreeDto tree(int version) {
