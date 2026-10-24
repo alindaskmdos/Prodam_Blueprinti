@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { ApiClient, Schemas } from '../features/api';
+import { getMethodBlocks, type ApiClient, type Schemas } from '../features/api';
+import { useAppStore } from './store';
 
 export interface LoadedMethodSpan {
   projectId: string;
@@ -24,8 +25,8 @@ export function useMethodSpan(
     setLoaded(null);
     if (!projectId || !methodId) return;
     let cancelled = false;
-    client
-      .GET('/projects/{projectId}/methods/{methodId}/blocks', { params: { path: { projectId, methodId } } })
+    // Тот же запрос, что у холста (getMethodBlocks объединяет одновременные GET blocks).
+    getMethodBlocks(client, projectId, methodId, useAppStore.getState().version)
       .then(({ data }) => {
         if (!cancelled && data) setLoaded({ projectId, methodId, span: data.root.span ?? null });
       })

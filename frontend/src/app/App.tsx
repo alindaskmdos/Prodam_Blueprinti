@@ -76,6 +76,11 @@ function EditorScreen({ client, projectId, canvas, panels, saveFile }: EditorScr
     seenSelectSeq.current = methodSelectSeq;
     showPanel('canvas', CANVAS_METHOD_TAB);
   }, [methodSelectSeq, showPanel]);
+  // Проблема с блоком (панель анализа, палитра) центрирует ноду на холсте — холст должен быть виден.
+  const issueFocusSeq = useAppStore((s) => (s.highlight?.source === 'issue' && s.highlight.blockId ? s.highlight.seq : null));
+  useEffect(() => {
+    if (issueFocusSeq !== null) showPanel('canvas', CANVAS_METHOD_TAB);
+  }, [issueFocusSeq, showPanel]);
   const rightTab = useAppStore((s) => s.activePanels.right);
   useSandbox(client, projectId);
   const entryPoint = useSandboxStore((s) => entryPointLabel(s.mainClasses));

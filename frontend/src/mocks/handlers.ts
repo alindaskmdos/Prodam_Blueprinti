@@ -186,10 +186,10 @@ export const scenarios = {
   conflictOnBlocks: http.put(`${API}/projects/:projectId/methods/:methodId/blocks`, () =>
     HttpResponse.json(fixtures.errorConflict, { status: 409 }),
   ),
-  // Для 404 фикстуры нет — ответ по схеме Error контракта.
   /** Граф зависимостей с циклом Cart ↔ Pricing (dependencies.cycle.json) и его Issue CyclicDependency (analysis.cycle.json). */
   dependenciesCycle: http.get(`${API}/projects/:projectId/dependencies`, () => HttpResponse.json(fixtures.dependenciesCycle)),
   analysisCycle: http.get(`${API}/projects/:projectId/analysis`, () => HttpResponse.json(fixtures.analysisCycle)),
+  // Для 404 фикстуры нет — ответ по схеме Error контракта.
   analysisNotFound: http.get(`${API}/projects/:projectId/analysis`, () =>
     HttpResponse.json<Schemas['Error']>({ code: 'NOT_FOUND', message: 'Проект не найден' }, { status: 404 }),
   ),

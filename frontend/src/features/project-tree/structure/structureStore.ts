@@ -47,6 +47,13 @@ useAppStore.subscribe((s, prev) => {
     const keep = s.selectedMethodId === null ? useStructureStore.getState().selection : null;
     useStructureStore.setState({ selection: keep, error: null });
   }
+  // Выбор новее выбранного класса — проблема (из панели, палитры, графа) или клик по ноде холста: код и
+  // «Свойства» переходят к нему, выбор класса снимается (приоритет — по последнему действию, FE-16).
+  const newerIssue = s.selectedIssueId !== null && s.selectedIssueId !== prev.selectedIssueId;
+  const newerCanvas = s.highlight?.source === 'canvas' && s.highlight !== prev.highlight;
+  if ((newerIssue || newerCanvas) && useStructureStore.getState().selection !== null) {
+    useStructureStore.setState({ selection: null, error: null });
+  }
   if (s.projectId !== prev.projectId) useStructureStore.setState({ ...initial });
 });
 

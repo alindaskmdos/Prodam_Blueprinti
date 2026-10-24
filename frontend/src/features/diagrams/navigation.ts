@@ -1,5 +1,5 @@
-import { useCallback } from 'react';
-import { useReactFlow } from '@xyflow/react';
+import { useCallback, useEffect, useRef } from 'react';
+import { useReactFlow, useStoreApi } from '@xyflow/react';
 import { useAppStore } from '../../app/store';
 import { CANVAS_METHOD_TAB } from '../layout';
 import { prefersReducedMotion } from '../editor-nodes';
@@ -48,38 +48,78 @@ export function goToCycleIssue(issueId: string): void {
 export const FLY_MS = 520;
 const FLY_ZOOM = 1.15;
 
+/** Сверху и снизу холста — панели (поиск; легенда, мини-карта): карточка не должна уходить под них. */
+const TOP_INSET = 64;
+const BOTTOM_INSET = 56;
+
+/**
+ * Куда навести камеру, чтобы карточка `box` при масштабе `zoom` была видна в окне `viewport`: целиком — по центру
+ * свободной полосы между панелями; не помещается — верх карточки (заголовок и первые члены) под верхней панелью.
+ */
+export function flyTarget(
+  box: { x: number; y: number; width: number; height: number },
+  zoom: number,
+  viewport: { width: number; height: number },
+): { x: number; y: number } {
+  const cx = box.x + box.width / 2;
+  const free = viewport.height - TOP_INSET - BOTTOM_INSET;
+  if (box.height * zoom <= free) {
+    // Центр свободной полосы смещён вверх на (BOTTOM_INSET − TOP_INSET) / 2 относительно центра окна.
+    return { x: cx, y: box.y + box.height / 2 + (BOTTOM_INSET - TOP_INSET) / 2 / zoom };
+  }
+  return { x: cx, y: box.y + (viewport.height / 2 - TOP_INSET) / zoom };
+}
+
 /**
  * Общий переход «диаграмма → редактор» (UML и граф зависимостей). Должен вызываться внутри ReactFlowProvider.
  * `fly(nodeId, then)`: камера плавно летит к ноде (setCenter с duration), затем `then()` — переход.
- * При prefers-reduced-motion — без анимации, переход сразу.
+ * При prefers-reduced-motion — без анимации, переход сразу. Размонтирование (смена вкладки) или смена проекта
+ * во время полёта отменяют переход: `then()` не вызывается.
  */
-export function useFlyTo(): (nodeId: string, then: () => void) => void {
+export function useFlyTo(): (nodeId: string, then: () => void, onCancel?: () => void) => void {
   const rf = useReactFlow();
+  const store = useStoreApi();
+  const pending = useRef<{ cancelled: boolean; timer: number; onCancel?: () => void } | null>(null);
+  const projectId = useAppStore((s) => s.projectId);
+  const cancel = useCallback(() => {
+    const token = pending.current;
+    if (token) {
+      token.cancelled = true;
+      window.clearTimeout(token.timer);
+      pending.current = null;
+      token.onCancel?.();
+    }
+  }, []);
+  useEffect(() => cancel, [cancel]);
+  useEffect(() => cancel, [cancel, projectId]);
   return useCallback(
-    (nodeId, then) => {
+    (nodeId, then, onCancel) => {
+      cancel();
       const node = rf.getInternalNode(nodeId);
-      const reduced = prefersReducedMotion();
-      if (!node || reduced) {
+      if (!node || prefersReducedMotion()) {
         then();
         return;
       }
       const { x, y } = node.internals.positionAbsolute;
-      const w = node.measured?.width ?? node.width ?? 0;
-      const h = node.measured?.height ?? node.height ?? 0;
-      let done = false;
+      const width = node.measured?.width ?? node.width ?? 0;
+      const height = node.measured?.height ?? node.height ?? 0;
+      const zoom = Math.max(rf.getZoom(), FLY_ZOOM);
+      const { width: vw, height: vh } = store.getState();
+      const target = flyTarget({ x, y, width, height }, zoom, { width: vw, height: vh });
+      const token: { cancelled: boolean; timer: number; onCancel?: () => void } = { cancelled: false, timer: 0, onCancel };
       const finish = () => {
-        if (done) return;
-        done = true;
+        if (token.cancelled) return;
+        token.cancelled = true;
+        window.clearTimeout(token.timer);
+        if (pending.current === token) pending.current = null;
         then();
       };
       // setCenter обещает завершение анимации; таймер — страховка (вкладка в фоне, d3 без кадров).
-      void Promise.resolve(rf.setCenter(x + w / 2, y + h / 2, { zoom: Math.max(rf.getZoom(), FLY_ZOOM), duration: FLY_MS })).then(
-        finish,
-        finish,
-      );
-      window.setTimeout(finish, FLY_MS + 120);
+      token.timer = window.setTimeout(finish, FLY_MS + 120);
+      pending.current = token;
+      void Promise.resolve(rf.setCenter(target.x, target.y, { zoom, duration: FLY_MS })).then(finish, finish);
     },
-    [rf],
+    [rf, store, cancel],
   );
 }
 

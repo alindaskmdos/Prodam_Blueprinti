@@ -205,8 +205,9 @@
 }
 
 .tabBar {
+  /* Не сжимается колонкой панели: вкладки не наезжают на содержимое. */
+  flex: 0 0 auto;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
   padding: 6px 8px;
@@ -214,12 +215,18 @@
   min-height: 43px;
 }
 
+/* Вкладки — одной строкой; не помещаются — горизонтальная прокрутка (узкая полоса). */
 .tabList {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--jb-border-strong) transparent;
 }
 
 .tabExtra {
@@ -229,9 +236,11 @@
 }
 
 .tab {
+  flex: 0 0 auto;
+  white-space: nowrap;
   font: 500 13px var(--jb-font-ui);
   color: #a3aebd;
-  padding: 7px 12px;
+  padding: 7px 10px;
   border-radius: 7px;
   background: none;
   border: 0;
