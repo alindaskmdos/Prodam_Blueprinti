@@ -3,7 +3,7 @@
 Spring Boot: REST по `contract/openapi.yaml`, хранение проектов в памяти, версия проекта (409 при старой), сборка реестров модулей в бины.
 Единственный модуль, который знает про Spring. Зависит от всех остальных модулей.
 
-Главный класс: `blueprints.app.Application`. Эндпоинты (`/api`): `GET /health`, `POST /projects` (multipart `files[]` + `paths[]`), `GET /projects/{id}`, `GET /projects/{id}/tree`, `GET /projects/{id}/export?format=zip&includeSettings=`,
+Главный класс: `blueprints.app.Application`. Эндпоинты (`/api`): `GET /health`, `POST /projects` (multipart `files[]` + `paths[]`), `GET /projects/{id}`, `GET /projects/{id}/tree`, `GET /projects/{id}/export?format=zip&includeSettings=` / `?format=jar&mainClass=`,
 `PUT /projects/{id}/methods/{methodId}/blocks` (`{version, root}`), `PUT /projects/{id}/files?path=` (`{version, text}`) -> MutationResult,
 `GET /projects/{id}/methods/{methodId}/blocks` -> MethodView, `GET /projects/{id}/files?path=` -> FileText, `GET /projects/{id}/analysis` -> Analysis.
 
@@ -34,7 +34,9 @@ Spring Boot: REST по `contract/openapi.yaml`, хранение проекто�
   `mutation` (fileText — первый изменённый файл); rejected -> версия та же, `reason`. В контракте у fix нет 422/503: несколько main,
   нет main для IO-тестов и недоступная песочница -> 200 `applied=false`, reason «исправление не подтверждено: <сообщение>».
 - `Issue.fixes` (в `ProjectView`, т.е. во всех Analysis/MutationResult) — id фиксов `RefactoringRegistry.defaults()` с `canApply(файлы, issue.id)`; при confidence=low пусто.
-- `format=jar` пока заглушка: 501 INTERNAL, реализуется в BE-36.
+- Экспорт `format=jar` — `Runner.jar` на исходниках без `tests/` и `.blueprints/`, без seed; main — `RunController.chooseMain` (как у run:
+  несколько без mainClass -> 422 AMBIGUOUS_MAIN, не найден / нет main -> 422 INVALID_REQUEST); не компилируется -> 422 COMPILE_ERROR,
+  в message — ошибки `путь:строка: текст` через перевод строки. Имя файла `<id>.jar`, как у zip.
 
 - `ProjectStore` — `ConcurrentHashMap`; любая мутация через `update(id, clientVersion, fn)`: старая версия -> `ApiException` 409 `VERSION_CONFLICT` (details clientVersion/serverVersion), иначе version+1. Использовать в BE-07 и далее.
 - `ApiException` + `ApiErrorHandler` — любая ошибка отдаётся телом `Error` контракта: `LoadException` из `source` -> 413/422/400 (DUPLICATE_FQN с `files`), `InvalidNodeException` из `blocks` -> 422 PARSE_ERROR (blockId), неверные параметры, битый JSON и битый multipart -> 400 INVALID_REQUEST, прочее -> 500 INTERNAL.

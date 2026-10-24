@@ -16,6 +16,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.jar.Attributes;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
+import java.util.jar.Manifest;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.tools.Diagnostic;
@@ -183,6 +187,10 @@ public final class Runner {
 
     /** То же с дополнительным classpath (пустой — без {@code -cp}, как {@link #compile(Path, Path)}). */
     public static List<String> compile(Path srcDir, Path outDir, List<Path> classpath) throws IOException {
+        return compile(srcDir, outDir, classpath, List.of());
+    }
+
+    private static List<String> compile(Path srcDir, Path outDir, List<Path> classpath, List<String> extra) throws IOException {
         JavaCompiler jc = ToolProvider.getSystemJavaCompiler();
         if (jc == null) throw new IllegalStateException("Нужен JDK, а не JRE");
         List<Path> files;
@@ -193,6 +201,7 @@ public final class Runner {
         DiagnosticCollector<JavaFileObject> diags = new DiagnosticCollector<>();
         try (StandardJavaFileManager fm = jc.getStandardFileManager(diags, null, StandardCharsets.UTF_8)) {
             List<String> opts = new ArrayList<>(List.of("-d", outDir.toString(), "-proc:none"));
+            opts.addAll(extra);
             if (!classpath.isEmpty()) {
                 opts.addAll(List.of("-cp", String.join(java.io.File.pathSeparator,
                         classpath.stream().map(Path::toString).toList())));
@@ -208,6 +217,44 @@ public final class Runner {
             }
             if (!ok && errors.isEmpty()) errors.add("compilation failed");
             return errors;
+        }
+    }
+
+    /** Исполняемый jar: {@code jar} — байты (null при ошибке компиляции), {@code diagnostics} — ошибки javac. */
+    public record JarResult(byte[] jar, List<String> diagnostics) {}
+
+    /**
+     * Исполняемый jar из чистого кода (§11): без переписывания, {@code --release 21}, в манифесте Main-Class,
+     * внутри только классы. Ничего не запускает, Docker не нужен.
+     *
+     * @param sources   путь → текст, только исходники (без tests/ и .blueprints/ — отбирает вызывающий)
+     * @param mainClass полное имя; null — единственный main, иначе IllegalArgumentException
+     */
+    public static JarResult jar(Map<String, String> sources, String mainClass) {
+        mainClass = resolveMain(sources, mainClass);
+        Path work = null;
+        try {
+            work = Files.createTempDirectory("bp-jar-");
+            Path src = work.resolve("src"), classes = work.resolve("classes");
+            writeSources(sources, Rewrite.NONE, src);
+            List<String> errors = compile(src, classes, List.of(), List.of("--release", "21"));
+            if (!errors.isEmpty()) return new JarResult(null, errors);
+            Manifest mf = new Manifest();
+            mf.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
+            mf.getMainAttributes().put(Attributes.Name.MAIN_CLASS, mainClass);
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            try (JarOutputStream out = new JarOutputStream(bytes, mf); var s = Files.walk(classes)) {
+                for (Path p : s.filter(Files::isRegularFile).sorted().toList()) {
+                    out.putNextEntry(new JarEntry(classes.relativize(p).toString().replace('\\', '/')));
+                    Files.copy(p, out);
+                    out.closeEntry();
+                }
+            }
+            return new JarResult(bytes.toByteArray(), List.of());
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        } finally {
+            if (work != null) deleteQuietly(work);
         }
     }
 
@@ -337,6 +384,12 @@ public final class Runner {
     /** Пишет переписанную копию исходников в src и компилирует в classes. Пустой список — успех. */
     private static List<String> prepare(Map<String, String> sources, Rewrite rewrite, List<Path> classpath,
                                         Path src, Path classes) throws IOException {
+        writeSources(sources, rewrite, src);
+        return compile(src, classes, classpath);
+    }
+
+    /** Пишет переписанную копию исходников в src (вместе с bp.rt.Seed, если он нужен). */
+    private static void writeSources(Map<String, String> sources, Rewrite rewrite, Path src) throws IOException {
         for (var e : sources.entrySet()) {
             Path p = src.resolve(e.getKey()).normalize();
             if (!p.startsWith(src)) throw new IllegalArgumentException("Путь вне проекта: " + e.getKey());
@@ -347,7 +400,6 @@ public final class Runner {
             Files.createDirectories(src.resolve("bp/rt"));
             Files.writeString(src.resolve("bp/rt/Seed.java"), SEED_SOURCE);
         }
-        return compile(src, classes, classpath);
     }
 
     /** Общие флаги изоляции контейнера (§11а), без образа и команды. mounts: папка классов → точка монтирования. */

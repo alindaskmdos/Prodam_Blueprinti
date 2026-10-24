@@ -55,18 +55,25 @@ class RunController {
         String main = req == null ? null : req.mainClass();
         String stdin = req == null || req.stdin() == null ? "" : req.stdin();
         Map<String, String> sources = TestContext.javaSources(texts(store.get(id).content()));
+        String mainClass = chooseMain(sources, main);
+        Runner.RunResult r = sandbox(() -> runner.run(sources, mainClass, stdin, Runner.Rewrite.RUN));
+        List<CompileError> errors = r.diagnostics().stream().map(d -> compileError(d, sources)).toList();
+        return new RunDto(r.stdout(), r.stderr(), r.exitCode(), r.timedOut(), (int) r.millis(), errors);
+    }
+
+    /** Точка входа для run и экспорта jar: mainClass или единственный main, иначе 422 (AMBIGUOUS_MAIN / INVALID_REQUEST). */
+    static String chooseMain(Map<String, String> sources, String main) {
         List<String> mains = Runner.findMainClasses(sources);
         if (main == null) {
             ambiguous(mains);
             if (mains.isEmpty()) throw new ApiException(422, "INVALID_REQUEST", "в проекте нет метода main");
-        } else if (!mains.contains(main)) {
+            return mains.get(0);
+        }
+        if (!mains.contains(main)) {
             throw new ApiException(422, "INVALID_REQUEST", "main-класс не найден: " + main + ", есть: " + mains,
                     Map.of("mainClasses", mains));
         }
-        String mainClass = main;
-        Runner.RunResult r = sandbox(() -> runner.run(sources, mainClass, stdin, Runner.Rewrite.RUN));
-        List<CompileError> errors = r.diagnostics().stream().map(d -> compileError(d, sources)).toList();
-        return new RunDto(r.stdout(), r.stderr(), r.exitCode(), r.timedOut(), (int) r.millis(), errors);
+        return main;
     }
 
     @PostMapping("/verify")

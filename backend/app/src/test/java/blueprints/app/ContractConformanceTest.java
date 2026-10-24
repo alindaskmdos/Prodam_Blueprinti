@@ -191,6 +191,22 @@ class ContractConformanceTest {
         assertEquals(junit.get("source"), tcJson.get("source"));
     }
 
+    /** GET export?format=jar: 200 application/octet-stream + Content-Disposition attachment *.jar; 422 — тело Error. */
+    @Test
+    void jarExportMatchesContract() throws IOException {
+        String id = uploadDemo(ProjectsApiTest.demoFiles());
+        ResponseEntity<byte[]> r = rest.getForEntity("/api/projects/" + id + "/export?format=jar&mainClass=com.demo.Main", byte[].class);
+        assertEquals(HttpStatus.OK, r.getStatusCode());
+        assertEquals(MediaType.APPLICATION_OCTET_STREAM, r.getHeaders().getContentType());
+        assertTrue(r.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION).matches("attachment; filename=\".+\\.jar\""));
+        var err = rest.getForEntity("/api/projects/" + id + "/export?format=jar&mainClass=com.demo.Nope", String.class);
+        assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, err.getStatusCode());
+        Contract.validate("Error", Contract.JSON.readTree(err.getBody()));
+        var mapper = Contract.JSON.copy().setSerializationInclusion(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL);
+        Contract.validate("Error", mapper.valueToTree(new ApiErrorHandler().api(
+                new ApiException(422, "COMPILE_ERROR", "проект не компилируется: src/A.java:1: cannot find symbol")).getBody()));
+    }
+
     static final String JOIN = "com.demo.util.Texts.join~0";
     static final String REPORT = "com.demo.service.ReportService.fullReport~0";
 

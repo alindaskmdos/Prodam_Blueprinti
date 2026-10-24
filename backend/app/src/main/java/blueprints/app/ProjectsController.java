@@ -1,12 +1,17 @@
 package blueprints.app;
 
+import blueprints.runner.Runner;
+import blueprints.source.LoadedProject;
 import blueprints.source.ProjectExporter;
 import blueprints.source.ProjectLoader;
 import blueprints.source.TreeBuilder;
+import blueprints.testing.TestContext;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -81,13 +86,31 @@ class ProjectsController {
 
     @GetMapping("/{id}/export")
     ResponseEntity<byte[]> export(@PathVariable String id, @RequestParam String format,
-                                  @RequestParam(defaultValue = "true") boolean includeSettings) {
+                                  @RequestParam(defaultValue = "true") boolean includeSettings,
+                                  @RequestParam(required = false) String mainClass) {
         var s = store.get(id);
-        if (format.equals("jar")) throw new ApiException(501, "INTERNAL", "экспорт .jar пока не реализован");
+        if (format.equals("jar")) return file(id + ".jar", jar(s.content(), mainClass));
         if (!format.equals("zip")) throw new ApiException(400, "INVALID_REQUEST", "format: zip или jar");
+        return file(id + ".zip", ProjectExporter.zip(s.content(), includeSettings));
+    }
+
+    /** Jar из чистого кода (§11): исходники без tests/ и .blueprints/, без seed; ошибки компиляции — 422 COMPILE_ERROR. */
+    static byte[] jar(LoadedProject p, String mainClass) {
+        Map<String, String> sources = TestContext.javaSources(RunController.texts(p));
+        sources.keySet().removeIf(k -> k.startsWith(".blueprints/"));
+        Runner.JarResult r = Runner.jar(sources, RunController.chooseMain(sources, mainClass));
+        if (r.jar() == null) {
+            String why = r.diagnostics().stream().map(d -> RunController.compileError(d, sources))
+                    .map(e -> e.file() + ":" + e.line() + ": " + e.message()).collect(Collectors.joining("\n"));
+            throw new ApiException(422, "COMPILE_ERROR", "проект не компилируется: " + why);
+        }
+        return r.jar();
+    }
+
+    private static ResponseEntity<byte[]> file(String name, byte[] body) {
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + id + ".zip\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + name + "\"")
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                .body(ProjectExporter.zip(s.content(), includeSettings));
+                .body(body);
     }
 }

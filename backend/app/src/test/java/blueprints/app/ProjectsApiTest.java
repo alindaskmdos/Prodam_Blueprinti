@@ -117,7 +117,62 @@ class ProjectsApiTest {
         });
         ResponseEntity<byte[]> noSettings = rest.getForEntity("/api/projects/" + id + "/export?format=zip&includeSettings=false", byte[].class);
         assertTrue(noSettings.getBody().length < ex.getBody().length);
-        assertEquals(HttpStatus.NOT_IMPLEMENTED, rest.getForEntity("/api/projects/" + id + "/export?format=jar", String.class).getStatusCode());
+
+        // §11: jar демо через java -jar на IO-тестах даёт то же, что .out (локальная java, без Docker)
+        ResponseEntity<byte[]> jar = rest.getForEntity("/api/projects/" + id + "/export?format=jar", byte[].class);
+        assertEquals(HttpStatus.OK, jar.getStatusCode());
+        assertEquals("attachment; filename=\"" + id + ".jar\"", jar.getHeaders().getFirst("Content-Disposition"));
+        Path jarFile = Files.createTempFile("demo", ".jar");
+        try {
+            Files.write(jarFile, jar.getBody());
+            int checked = 0;
+            for (var e : demo.entrySet()) {
+                if (!e.getKey().matches("demo/tests/.*\\.in")) continue;
+                byte[] expected = demo.get(e.getKey().replaceAll("\\.in$", ".out"));
+                assertEquals(text(expected), javaJar(jarFile, e.getValue()), e.getKey());
+                checked++;
+            }
+            assertEquals(6, checked);
+        } finally {
+            Files.deleteIfExists(jarFile);
+        }
+    }
+
+    /** stdout {@code java -jar}; CRLF -> LF: на Windows println пишет \r\n, а .out сняты в Linux. */
+    static String javaJar(Path jar, byte[] stdin) throws IOException {
+        Process p = new ProcessBuilder(Path.of(System.getProperty("java.home"), "bin", "java").toString(),
+                "-Dstdout.encoding=UTF-8", "-jar", jar.toString()).redirectError(ProcessBuilder.Redirect.DISCARD).start();
+        try (var in = p.getOutputStream()) {
+            in.write(stdin);
+        }
+        return text(p.getInputStream().readAllBytes());
+    }
+
+    static String text(byte[] b) {
+        return new String(b, StandardCharsets.UTF_8).replace("\r\n", "\n");
+    }
+
+    @Test
+    void jarExportErrorsAre422() throws IOException {
+        String main = "public static void main(String[] a) {}";
+        String broken = json(upload(Map.of("A.java", ("class A { " + main + " void f() { nope(); } }").getBytes(StandardCharsets.UTF_8)), false)
+                .getBody()).get("id").asText();
+        var r = rest.getForEntity("/api/projects/" + broken + "/export?format=jar", String.class);
+        assertError(r, HttpStatus.UNPROCESSABLE_ENTITY, "COMPILE_ERROR");
+        assertTrue(json(r.getBody()).get("message").asText().contains("A.java:1: "), r.getBody());
+
+        String two = json(upload(Map.of("A.java", ("class A { " + main + " }").getBytes(StandardCharsets.UTF_8),
+                "B.java", ("class B { " + main + " }").getBytes(StandardCharsets.UTF_8)), false).getBody()).get("id").asText();
+        assertError(rest.getForEntity("/api/projects/" + two + "/export?format=jar", String.class),
+                HttpStatus.UNPROCESSABLE_ENTITY, "AMBIGUOUS_MAIN");
+        assertError(rest.getForEntity("/api/projects/" + two + "/export?format=jar&mainClass=C", String.class),
+                HttpStatus.UNPROCESSABLE_ENTITY, "INVALID_REQUEST");
+        assertEquals(HttpStatus.OK, rest.getForEntity("/api/projects/" + two + "/export?format=jar&mainClass=B", byte[].class).getStatusCode());
+
+        String none = json(upload(Map.of("A.java", "class A {}".getBytes(StandardCharsets.UTF_8)), false).getBody()).get("id").asText();
+        assertError(rest.getForEntity("/api/projects/" + none + "/export?format=jar", String.class),
+                HttpStatus.UNPROCESSABLE_ENTITY, "INVALID_REQUEST");
+        assertEquals(HttpStatus.NOT_FOUND, rest.getForEntity("/api/projects/p-none/export?format=jar", String.class).getStatusCode());
     }
 
     @Test

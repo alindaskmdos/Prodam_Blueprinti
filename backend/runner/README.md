@@ -21,6 +21,9 @@
   argv `command` (классы — в `programDir(i)` = `/app/p<i>`, свой таймаут `Config.commandTimeout()` = 30 с — у java-запусков
   остаётся `timeout()` = 10 с, общий таймаут контейнера — сумма по запускам; `JDK_JAVA_OPTIONS=-Xmx...`), main у программы
   только с command-запусками не ищется; `Program(sources, main, rewrite, classpath)` — свой rewrite и classpath компиляции.
+- `Runner.jar(sources, mainClass)` (static, без Docker) — исполняемый jar из чистого кода (§11): без переписывания, `--release 21`,
+  манифест `Main-Class`, внутри только классы. `JarResult(jar, diagnostics)`: ошибка компиляции — `jar == null`, ошибки как у `compile`.
+  Какие исходники брать (без `tests/`, `.blueprints/`), решает вызывающий.
 - `mainClass == null`: берётся единственный `main`, при нескольких — `IllegalArgumentException` со списком (`findMainClasses`).
 - `Rewrite.RUN`: `new Random()` → `new Random(42)`, `Math.random()` → `bp.rt.Seed.random()` (класс добавляется в копию);
   `Rewrite.JUNIT` = seed + `packagePrivate` (убирает `private`, для JUnit). Исходники не меняются. Замена регулярками, не AST.
