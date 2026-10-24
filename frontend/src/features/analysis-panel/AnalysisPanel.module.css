@@ -1,0 +1,285 @@
+/* Панель анализа по docs/design/screens/Editor.dc.html (правая колонка) и Kit.dc.html (бейджи). */
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+}
+
+.state {
+  padding: 16px 14px;
+  font-size: 13px;
+  color: var(--jb-text-secondary);
+}
+
+.stateError {
+  color: var(--jb-severity-high);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Карточка проблемы */
+.issue {
+  padding: 12px 14px;
+  border: 0;
+  border-bottom: 1px solid var(--jb-border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  cursor: pointer;
+  transition: background var(--jb-dur-hover);
+  text-align: left;
+  background: none;
+  color: inherit;
+  font: inherit;
+  width: 100%;
+  animation: jb-rise var(--jb-dur-rise) var(--jb-ease-out) both;
+}
+
+.issue:hover {
+  background: #151a21;
+}
+
+.issue:focus-visible {
+  outline: 2px solid var(--jb-accent);
+  outline-offset: -2px;
+}
+
+.issueOn,
+.issueOn:hover {
+  background: #1a1418;
+}
+
+.issueHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.rule {
+  font-weight: 600;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.where {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--jb-text-secondary);
+  white-space: nowrap;
+}
+
+.message {
+  font-size: 13px;
+  color: #c9d2de;
+  line-height: 1.45;
+}
+
+.note {
+  font-size: 12px;
+  color: #8b95a4;
+}
+
+.bigO {
+  font: 500 12px var(--jb-font-code);
+  color: #ff8a80;
+}
+
+.arrow {
+  color: #6b7686;
+}
+
+.after {
+  color: #7ee2a0;
+}
+
+/* Бейджи */
+.badge {
+  font: 600 11px var(--jb-font-code);
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  color: var(--jb-bg);
+}
+
+.badgeHigh {
+  background: var(--jb-severity-high);
+}
+
+.badgeMedium {
+  background: var(--jb-severity-medium);
+}
+
+.badgeLow {
+  background: var(--jb-text-secondary);
+}
+
+.badgeMaybe {
+  background: var(--jb-selected);
+  color: var(--jb-severity-maybe);
+}
+
+.fixes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #8b95a4;
+}
+
+.fix {
+  font: 500 11.5px var(--jb-font-code);
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--jb-border-strong);
+  color: #d7dee8;
+}
+
+.source {
+  font: 600 10.5px var(--jb-font-ui);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8b95a4;
+}
+
+/* Карточка оценки «≈ операций» */
+.estimate {
+  margin: 12px;
+  padding: 14px;
+  border-radius: 10px;
+  background: var(--jb-header);
+  border: 1px solid var(--jb-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.estimateTitle {
+  font: 600 12px var(--jb-font-ui);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #a3aebd;
+}
+
+.ops {
+  font: 600 18px var(--jb-font-code);
+}
+
+.opsBefore {
+  color: #ff8a80;
+}
+
+.opsUnit {
+  font-size: 13px;
+  color: var(--jb-text-secondary);
+}
+
+.nForm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--jb-text-secondary);
+}
+
+.nInput {
+  width: 90px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--jb-border-strong);
+  background: var(--jb-panel);
+  color: var(--jb-text);
+  padding: 0 8px;
+  font: 12.5px var(--jb-font-code);
+}
+
+.nInput:focus-visible {
+  outline: 2px solid var(--jb-accent);
+  outline-offset: 0;
+}
+
+.nInput[aria-invalid='true'] {
+  border-color: var(--jb-severity-high);
+}
+
+/* Метрики */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 12px;
+}
+
+.tile {
+  background: var(--jb-header);
+  border: 1px solid var(--jb-border);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+.tileValue {
+  font: 700 20px var(--jb-font-code);
+}
+
+.tileLabel {
+  font-size: 12px;
+  color: var(--jb-text-secondary);
+}
+
+.mrow {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) 50px 60px minmax(0, 1fr);
+  gap: 8px;
+  padding: 8px 14px;
+  font: 400 12.5px var(--jb-font-ui);
+  color: #c9d2de;
+  border: 0;
+  border-bottom: 1px solid #1a2029;
+  align-items: center;
+  background: none;
+  text-align: left;
+  width: 100%;
+}
+
+button.mrow {
+  cursor: pointer;
+  transition: background var(--jb-dur-hover);
+}
+
+button.mrow:hover {
+  background: #151a21;
+}
+
+.mrowOn,
+button.mrowOn:hover {
+  background: var(--jb-selected);
+}
+
+.mrowHead {
+  color: var(--jb-text-secondary);
+  font-size: 11.5px;
+}
+
+.cellName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mono {
+  font-family: var(--jb-font-code);
+}
+
+.warn {
+  color: var(--jb-severity-medium);
+}

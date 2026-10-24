@@ -35,6 +35,6 @@ Production-сборка моки не включает (переменная н�
 ## Структура
 
 - `src/features/*` — фичи (см. `frontend/CLAUDE.md`), `src/features/api` — клиент контракта.
-- `src/app` — `App` (экран редактора: каркас `features/layout` + `features/project-tree`), реестры `panels.ts` (вкладки панелей: `{id, title, area: 'right' | 'bottom', component}`, порядок списка = порядок вкладок) и `commands.ts` (действия / командная палитра), `store.ts` — общее состояние на zustand (`projectId`, `version`, `selectedMethodId`; `useAppStore`, вне React — `useAppStore.getState()`).
+- `src/app` — `App` (экран редактора: каркас `features/layout` + `features/project-tree`), реестры `panels.ts` (вкладки панелей: `{id, title, area: 'right' | 'bottom', component}`, порядок списка = порядок вкладок) и `commands.ts` (действия / командная палитра), `store.ts` — общее состояние на zustand (`projectId`, `version`, `selectedMethodId`, `selectedIssueId`/`selectedBlockId` через `selectIssue`; `useAppStore`, вне React — `useAppStore.getState()`).
 - `src/mocks` — MSW: `handlers.ts` (по умолчанию + `scenarios` для 409, red verify, отклонённого фикса), `browser.ts`, `server.ts`.
 - `src/styles/tokens.css` — токены дизайна Graphite (`docs/design/README.md`), анимации `jb-*`, `prefers-reduced-motion`.

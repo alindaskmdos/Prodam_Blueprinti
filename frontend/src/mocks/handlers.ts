@@ -19,6 +19,7 @@ export const handlers = [
   http.get(`${API}/projects/:projectId/methods/:methodId/blocks`, () =>
     HttpResponse.json(fixtures.methodViewMerge),
   ),
+  // Фикстура одна (n = 10000): параметр n принимается, но числа ops в моке не пересчитываются.
   http.get(`${API}/projects/:projectId/analysis`, () => HttpResponse.json(fixtures.analysisMerge)),
   http.post(`${API}/projects/:projectId/issues/:issueId/fix`, () => HttpResponse.json(fixtures.fixApplied)),
   http.get(`${API}/projects/:projectId/tests`, () => HttpResponse.json<Schemas['TestCase'][]>([fixtures.testJunit])),
@@ -46,6 +47,10 @@ export const scenarios = {
   verifyRed: http.post(`${API}/projects/:projectId/verify`, () => HttpResponse.json(fixtures.verifyRed)),
   conflictOnBlocks: http.put(`${API}/projects/:projectId/methods/:methodId/blocks`, () =>
     HttpResponse.json(fixtures.errorConflict, { status: 409 }),
+  ),
+  // Для 404 фикстуры нет — ответ по схеме Error контракта.
+  analysisNotFound: http.get(`${API}/projects/:projectId/analysis`, () =>
+    HttpResponse.json<Schemas['Error']>({ code: 'NOT_FOUND', message: 'Проект не найден' }, { status: 404 }),
   ),
   conflictOnFile: http.put(`${API}/projects/:projectId/files`, () =>
     HttpResponse.json(fixtures.errorConflict, { status: 409 }),
