@@ -1,0 +1,204 @@
+/* Схема метода — Graphite (docs/design/screens/Kit.dc.html, Editor.dc.html). */
+
+.canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  background-color: var(--jb-bg);
+  /* Провода и пины — вторичный цвет текста из tokens.css. */
+  --wire: var(--jb-text-secondary);
+}
+
+.status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--jb-text-secondary);
+  font-size: 13px;
+}
+
+.error {
+  composes: status;
+  color: var(--jb-severity-high);
+}
+
+/* Пины exec-проводов: видны как маленькие треугольники, не интерактивны. */
+.pin {
+  width: 8px !important;
+  height: 8px !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: var(--wire) !important;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  pointer-events: none;
+}
+
+.node {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  background: #141a22;
+  border: 1px solid var(--jb-border-strong);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  transition: box-shadow var(--jb-dur-hover), border-color var(--jb-dur-hover);
+  animation: jb-rise var(--jb-dur-rise) var(--jb-ease-out) both;
+}
+
+.node:hover {
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
+  border-color: #4a5568;
+}
+
+.hasIssue {
+  border-color: var(--jb-severity-high);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 9px 9px 0 0;
+  background: var(--kind);
+  color: var(--jb-bg);
+  font: 600 12px var(--jb-font-ui);
+  white-space: nowrap;
+}
+
+.headerLight {
+  color: #ffffff;
+}
+
+.badge {
+  margin-left: auto;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+  font: 600 11px var(--jb-font-code);
+}
+
+.issueBadge {
+  margin-left: auto;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--jb-severity-high);
+  color: var(--jb-bg);
+  font: 600 11px var(--jb-font-code);
+}
+
+.badge + .issueBadge {
+  margin-left: 0;
+}
+
+.body {
+  margin: 0;
+  padding: 8px 12px 10px;
+  font: 500 12.5px/18px var(--jb-font-code);
+  color: var(--jb-text);
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tok_keyword {
+  color: #c792ea;
+}
+
+.tok_string {
+  color: #a5e075;
+}
+
+.tok_number {
+  color: #f9a76c;
+}
+
+.tok_comment {
+  color: #7f8a99;
+  font-style: italic;
+}
+
+.raw {
+  border-style: dashed;
+  border-color: var(--jb-node-raw);
+  background: #10141a;
+}
+
+.rawHeader {
+  background: var(--jb-border-strong);
+  color: var(--jb-text);
+}
+
+.rawBody {
+  color: var(--jb-text-secondary);
+}
+
+.comment {
+  width: 100%;
+  height: 100%;
+  background: var(--jb-node-comment);
+  color: #3b2f07;
+  border-radius: 6px;
+  padding: 10px 14px;
+  transform: rotate(-1deg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  animation: jb-rise var(--jb-dur-rise) var(--jb-ease-out) both;
+}
+
+.commentText {
+  margin: 0;
+  font: 500 12.5px/18px var(--jb-font-code);
+  white-space: pre;
+  overflow: hidden;
+}
+
+.container {
+  width: 100%;
+  height: 100%;
+  border: 1.5px solid var(--kind);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--kind) 6%, transparent);
+}
+
+.containerIssue {
+  border-color: var(--jb-severity-high);
+  background: rgba(248, 113, 113, 0.07);
+}
+
+.slot {
+  width: 100%;
+  height: 100%;
+  border: 1px dashed color-mix(in srgb, var(--kind) 45%, transparent);
+  border-radius: 10px;
+}
+
+/* Подписи веток (да / нет) и провода. */
+.canvas :global(.react-flow__edge-text) {
+  fill: var(--jb-text-secondary);
+  font: 600 11px var(--jb-font-ui);
+}
+
+.canvas :global(.react-flow__edge-textbg) {
+  fill: var(--jb-bg);
+}
+
+.canvas :global(.react-flow__edge-path) {
+  stroke: var(--wire);
+  stroke-width: 2;
+}
+
+/* Наконечник стрелки: inline-стиль React Flow перебивается токеном. */
+.canvas :global(.react-flow__arrowhead polyline) {
+  stroke: var(--wire) !important;
+  fill: var(--wire) !important;
+}
+
+.canvas :global(.react-flow__node) {
+  cursor: default;
+}
