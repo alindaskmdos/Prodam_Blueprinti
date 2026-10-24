@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { revealArea } from '../features/layout/layoutStore';
 
 /** Выбор проблемы в панели анализа: id проблемы, её метод и блок (для центрирования ноды, FE-05). */
 export interface IssueSelection {
@@ -35,6 +36,8 @@ export interface Highlight {
 /** Общее состояние приложения: открытый проект, его версия, выбранный метод и проблема. */
 export interface AppState {
   projectId: string | null;
+  /** Имя проекта для шапки: папка/архив с экрана загрузки; нет — показывается id. */
+  projectName: string | null;
   /** Версия проекта из последнего ответа бэка (§12: уходит с правками, на 409 — перезагрузка). */
   version: number | null;
   /** id метода/конструктора из дерева (MethodNode.id), тело которого открыто на холсте. */
@@ -49,10 +52,10 @@ export interface AppState {
   highlight: Highlight | null;
   /** Активная вкладка панели по зоне ('right' | 'bottom' → id из panels.ts); нет ключа — первая вкладка. */
   activePanels: Record<string, string>;
-  /** Открыть вкладку панели (напр. результаты запуска → showPanel('bottom', 'bottom.tests')). */
+  /** Открыть вкладку панели (напр. результаты запуска → showPanel('bottom', 'bottom.tests')); свёрнутая панель разворачивается. */
   showPanel: (area: string, panelId: string) => void;
   /** Открыть проект: сбрасывает выбранный метод и проблему. */
-  openProject: (projectId: string, version?: number | null) => void;
+  openProject: (projectId: string, version?: number | null, name?: string | null) => void;
   setVersion: (version: number) => void;
   /** Выбрать метод (дерево проекта): выбранная проблема сбрасывается. */
   selectMethod: (methodId: string | null) => void;
@@ -64,6 +67,7 @@ export interface AppState {
 
 const initial = {
   projectId: null,
+  projectName: null,
   version: null,
   selectedMethodId: null,
   methodSelectSeq: 0,
@@ -82,12 +86,13 @@ const nextSeq = () => ++highlightSeq;
  */
 export const useAppStore = create<AppState>()((set, get) => ({
   ...initial,
-  openProject: (projectId, version = null) => {
+  openProject: (projectId, version = null, name = null) => {
     if (get().projectId === projectId) {
       if (version !== null) set({ version });
+      if (name) set({ projectName: name });
       return;
     }
-    set({ projectId, version, selectedMethodId: null, selectedIssueId: null, selectedBlockId: null, highlight: null });
+    set({ projectId, projectName: name, version, selectedMethodId: null, selectedIssueId: null, selectedBlockId: null, highlight: null });
   },
   setVersion: (version) => set({ version }),
   selectMethod: (selectedMethodId) =>
@@ -98,7 +103,10 @@ export const useAppStore = create<AppState>()((set, get) => ({
       selectedBlockId: null,
       highlight: null,
     })),
-  showPanel: (area, panelId) => set((s) => ({ activePanels: { ...s.activePanels, [area]: panelId } })),
+  showPanel: (area, panelId) => {
+    revealArea(area);
+    set((s) => ({ activePanels: { ...s.activePanels, [area]: panelId } }));
+  },
   selectIssue: (selection) => {
     if (!selection) {
       const h = get().highlight;

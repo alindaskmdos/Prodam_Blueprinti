@@ -1,8 +1,8 @@
 import type { ComponentType } from 'react';
-import { stubPanel } from '../features/layout';
 import { MetricsTab, ProblemsTab, WarningsTab } from '../features/analysis-panel';
 import { TestsPanel } from '../features/tests-panel';
 import { STRUCTURE_PANEL_ID, StructurePanel } from '../features/project-tree';
+import { ConsolePanel } from './ConsolePanel';
 import { SelectedMethodCode } from './methodViews';
 
 /** Зона экрана, где живёт вкладка: правая панель (анализ) или нижняя (код / консоль / тесты). */
@@ -27,7 +27,7 @@ export const panels: readonly PanelDef[] = [
   // FE-10: формы класса/поля/метода; выбор класса или поля в дереве открывает эту вкладку.
   { id: STRUCTURE_PANEL_ID, title: 'Свойства', area: 'right', component: StructurePanel },
   { id: 'bottom.code', title: 'Код Java', area: 'bottom', component: SelectedMethodCode },
-  { id: 'bottom.console', title: 'Консоль', area: 'bottom', component: stubPanel('Вывод запуска — появится в FE-13') },
+  { id: 'bottom.console', title: 'Консоль', area: 'bottom', component: ConsolePanel },
   { id: 'bottom.tests', title: 'Результат тестов', area: 'bottom', component: TestsPanel },
 ];
 

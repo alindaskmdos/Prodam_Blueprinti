@@ -1,4 +1,6 @@
 import { useId, useState, type ComponentType, type ReactNode } from 'react';
+import { CollapseButton } from './CollapseButton';
+import type { LayoutArea } from './layoutStore';
 import styles from './layout.module.css';
 
 export interface TabDef {
@@ -18,10 +20,12 @@ interface PanelTabsProps {
   /** Управляемый режим: активная вкладка задаётся снаружи (напр. store), клик сообщает `onActiveChange`. */
   activeId?: string;
   onActiveChange?: (id: string) => void;
+  /** Зона каркаса: в шапке панели (без `title` — справа от вкладок) появляется кнопка «Свернуть». */
+  collapseArea?: LayoutArea;
   'aria-label'?: string;
 }
 
-/** Панель с вкладками: отрисовывает кнопки по списку и содержимое активной вкладки. */
+/** Панель с вкладками (длинные названия при нехватке места сжимаются с многоточием — остальные не трогаем): отрисовывает кнопки по списку и содержимое активной вкладки. */
 export function PanelTabs({
   tabs,
   title,
@@ -29,6 +33,7 @@ export function PanelTabs({
   initialTabId,
   activeId: controlledId,
   onActiveChange,
+  collapseArea,
   'aria-label': ariaLabel,
 }: PanelTabsProps) {
   const [localId, setLocalId] = useState<string | undefined>(initialTabId);
@@ -39,7 +44,12 @@ export function PanelTabs({
 
   return (
     <section className={styles.panel} aria-label={ariaLabel ?? title}>
-      {title && <div className={styles.panelHeader}>{title}</div>}
+      {title && (
+        <div className={styles.panelHeader}>
+          {title}
+          {collapseArea && <CollapseButton area={collapseArea} />}
+        </div>
+      )}
       <div className={styles.tabBar}>
         <div role="tablist" aria-label={ariaLabel ?? title} className={styles.tabList}>
           {tabs.map((t) => {
@@ -52,7 +62,8 @@ export function PanelTabs({
                 id={`${baseId}-${t.id}`}
                 aria-selected={selected}
                 aria-controls={`${baseId}-panel`}
-                className={selected ? `${styles.tab} ${styles.tabOn}` : styles.tab}
+                className={[styles.tab, selected && styles.tabOn, t.title.length > 10 && styles.tabLong].filter(Boolean).join(' ')}
+                title={t.title}
                 onClick={() => {
                   setLocalId(t.id);
                   onActiveChange?.(t.id);
@@ -63,7 +74,12 @@ export function PanelTabs({
             );
           })}
         </div>
-        {extra && <div className={styles.tabExtra}>{extra}</div>}
+        {(extra || (collapseArea && !title)) && (
+          <div className={styles.tabExtra}>
+            {extra}
+            {collapseArea && !title && <CollapseButton area={collapseArea} />}
+          </div>
+        )}
       </div>
       <div
         role="tabpanel"

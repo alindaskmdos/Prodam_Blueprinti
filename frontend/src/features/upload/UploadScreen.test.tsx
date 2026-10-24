@@ -154,7 +154,15 @@ describe('UploadScreen', () => {
     render(<UploadScreen client={client} onOpen={onOpen} />);
     const file = javaFile('Main.java');
     fireEvent.drop(screen.getByTestId('drop-zone'), { dataTransfer: { files: [file], items: [] } });
-    await waitFor(() => expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: projectJson.id })));
+    await waitFor(() => expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: projectJson.id }), 'Main.java'));
+  });
+
+  it('имя проекта: общая папка важнее одиночного файла в ней', async () => {
+    server.use(scenarios.uploadClean);
+    const onOpen = vi.fn();
+    render(<UploadScreen client={client} onOpen={onOpen} />);
+    pick(screen.getByLabelText('Выбрать папку'), [javaFile('Main.java', 'demo/Main.java')]);
+    await waitFor(() => expect(onOpen).toHaveBeenCalledWith(expect.anything(), 'demo'));
   });
 
   it('команда project.upload из редактора открывает экран загрузки, «← К проекту» возвращает', async () => {

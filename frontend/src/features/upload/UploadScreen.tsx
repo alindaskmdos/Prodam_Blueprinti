@@ -8,7 +8,8 @@ import styles from './Upload.module.css';
 interface UploadScreenProps {
   client: ApiClient;
   /** Проект загружен: открыть его в редакторе. */
-  onOpen: (project: Schemas['Project']) => void;
+  /** `name` — имя загруженной папки/архива/файла (контракт имени проекта не содержит); нет — набор файлов без общей папки. */
+  onOpen: (project: Schemas['Project'], name?: string) => void;
   /** Вернуться к уже открытому проекту (кнопка видна, только если передан). */
   onCancel?: () => void;
 }
@@ -16,7 +17,7 @@ interface UploadScreenProps {
 type Phase =
   | { kind: 'idle' }
   | { kind: 'uploading' }
-  | { kind: 'done'; project: Schemas['Project'] }
+  | { kind: 'done'; project: Schemas['Project']; name?: string }
   | { kind: 'failed'; failure: UploadFailure };
 
 interface Selection {
@@ -49,8 +50,9 @@ export function UploadScreen({ client, onOpen, onCancel }: UploadScreenProps) {
       setPhase({ kind: 'failed', failure: describeUploadError(result.status, result.error) });
       return;
     }
-    if (result.project.warnings.length === 0) onOpen(result.project);
-    else setPhase({ kind: 'done', project: result.project });
+    const name = projectName(items);
+    if (result.project.warnings.length === 0) onOpen(result.project, name);
+    else setPhase({ kind: 'done', project: result.project, name });
   }
 
   function onDrop(e: DragEvent) {
@@ -200,7 +202,7 @@ function ProgressPanel({
 }: {
   phase: Phase;
   selection: Selection | null;
-  onOpen: (project: Schemas['Project']) => void;
+  onOpen: (project: Schemas['Project'], name?: string) => void;
 }) {
   if (phase.kind === 'idle' || !selection) {
     return (
@@ -241,7 +243,7 @@ function ProgressPanel({
             <button
               type="button"
               className={`${styles.btn} ${styles.btnPrimary} ${styles.btnWide}`}
-              onClick={() => onOpen(phase.project)}
+              onClick={() => onOpen(phase.project, phase.name)}
             >
               Открыть проект →
             </button>
@@ -337,6 +339,15 @@ function describeSelection(items: UploadItem[]): Selection {
     if (tops.size === 1 && top) label = `${top}/`;
   }
   return { label, count: items.length, size };
+}
+
+/** Имя проекта для шапки: одиночный файл/архив — его имя, папка — её имя; набор разрозненных файлов — без имени. */
+function projectName(items: UploadItem[]): string | undefined {
+  const tops = new Set(items.map((i) => (i.path.includes('/') ? i.path.split('/')[0] : '')));
+  const [top] = tops;
+  if (tops.size === 1 && top) return top; // общая папка — раньше одиночного файла: dir/Main.java → «dir»
+  const first = items[0];
+  return items.length === 1 && first ? first.path : undefined;
 }
 
 function plural(n: number, one: string, few: string, many: string): string {

@@ -7,6 +7,7 @@ import { ProjectTree } from '../features/project-tree';
 import { RunDialog, SandboxNotice, sandboxDisabledReason, useSandbox, useSandboxStore } from '../features/sandbox';
 import { ExportDialog, UploadScreen, useUploadUi, type SaveFile } from '../features/upload';
 import { commands, runCommand } from './commands';
+import { useLayoutShortcuts } from './layoutShortcuts';
 import { SelectedMethodCanvas } from './methodViews';
 import { panels as defaultPanels, panelsIn, type PanelDef } from './panels';
 import { useAppStore } from './store';
@@ -35,8 +36,8 @@ export function App({ client = api, projectId: initialProjectId, canvas, panels 
   }, [openProject, initialProjectId]);
 
   const onLoaded = useCallback(
-    (project: Schemas['Project']) => {
-      openProject(project.id, project.version);
+    (project: Schemas['Project'], name?: string) => {
+      openProject(project.id, project.version, name);
       closeUpload();
     },
     [openProject, closeUpload],
@@ -67,8 +68,10 @@ function EditorScreen({ client, projectId, canvas, panels, saveFile }: EditorScr
   const closeExport = useUploadUi((s) => s.closeExport);
   const showPanel = useAppStore((s) => s.showPanel);
   const bottomTab = useAppStore((s) => s.activePanels.bottom);
+  const projectName = useAppStore((s) => s.projectName);
   const rightTab = useAppStore((s) => s.activePanels.right);
   useSandbox(client, projectId);
+  useLayoutShortcuts();
   const entryPoint = useSandboxStore((s) => entryPointLabel(s.mainClasses));
   const sandboxBusy = useSandboxStore((s) => s.busy);
   const fixRunning = useFixStore((s) => isFixRunning(s.gate));
@@ -79,7 +82,8 @@ function EditorScreen({ client, projectId, canvas, panels, saveFile }: EditorScr
       <EditorLayout
         header={
           <EditorHeader
-            projectName={projectId}
+            projectName={projectName ?? projectId}
+            projectId={projectId}
             version={version}
             entryPoint={entryPoint}
             onUpload={() => runCommand('project.upload')}
@@ -96,6 +100,7 @@ function EditorScreen({ client, projectId, canvas, panels, saveFile }: EditorScr
         right={
           <PanelTabs
             title="Анализ"
+            collapseArea="right"
             tabs={panelsIn('right', panels)}
             activeId={rightTab}
             onActiveChange={(id) => showPanel('right', id)}
@@ -104,6 +109,7 @@ function EditorScreen({ client, projectId, canvas, panels, saveFile }: EditorScr
         bottom={
           <PanelTabs
             aria-label="Код, консоль, тесты"
+            collapseArea="bottom"
             tabs={panelsIn('bottom', panels)}
             activeId={bottomTab}
             onActiveChange={(id) => showPanel('bottom', id)}

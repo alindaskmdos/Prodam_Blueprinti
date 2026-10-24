@@ -13,6 +13,8 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     resolve: {
       alias: { '@contract': contractDir },
+      // Только в vitest: в node-условии react-resizable-panels отдаёт серверную сборку (раскладка не считается, collapse() падает).
+      ...(process.env.VITEST ? { conditions: ['browser'] } : {}),
     },
     server: {
       port: 5173,
@@ -28,6 +30,8 @@ export default defineConfig(({ mode }) => {
       globals: true,
       setupFiles: ['./src/test/setup.ts'],
       css: false,
+      // В node-условии пакет отдаёт серверную сборку (раскладка панелей не считается, collapse()/expand() падают) — берём браузерную.
+      server: { deps: { inline: ['react-resizable-panels'] } },
       // e2e/ — Playwright (npm run e2e), vitest их не запускает.
       exclude: [...configDefaults.exclude, 'e2e/**'],
     },

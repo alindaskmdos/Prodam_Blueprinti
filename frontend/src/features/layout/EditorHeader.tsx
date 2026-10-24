@@ -1,8 +1,60 @@
+import { AREA_TITLE, useLayoutStore, type LayoutArea } from './layoutStore';
 import styles from './layout.module.css';
 
+const TOGGLES: { area: LayoutArea; keys: string; fill: [number, number, number, number] }[] = [
+  { area: 'left', keys: 'Ctrl+B', fill: [3, 4, 5, 16] },
+  { area: 'bottom', keys: 'Ctrl+J', fill: [8, 14, 8, 6] },
+  { area: 'right', keys: 'Ctrl+Alt+B', fill: [16, 4, 5, 16] },
+];
+
+/** Кнопки показа/скрытия панелей в шапке (подсвечены, когда панель открыта) + «Только схема». */
+function PanelToggles() {
+  const collapsed = useLayoutStore((s) => s.collapsed);
+  const toggle = useLayoutStore((s) => s.toggle);
+  const canvasOnly = useLayoutStore((s) => s.stash !== null);
+  const toggleCanvasOnly = useLayoutStore((s) => s.toggleCanvasOnly);
+  return (
+    <div className={styles.toggles} role="group" aria-label="Панели">
+      {TOGGLES.map(({ area, keys, fill: [x, y, w, h] }) => {
+        const on = !collapsed[area];
+        return (
+          <button
+            key={area}
+            type="button"
+            className={on ? `${styles.toggle} ${styles.toggleOn}` : styles.toggle}
+            aria-pressed={on}
+            aria-label={`Панель: ${AREA_TITLE[area]}`}
+            title={`${on ? 'Свернуть' : 'Показать'}: ${AREA_TITLE[area]} (${keys})`}
+            onClick={() => toggle(area)}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <rect x={x} y={y} width={w} height={h} fill={on ? 'currentColor' : 'none'} stroke="none" />
+            </svg>
+          </button>
+        );
+      })}
+      <button
+        type="button"
+        className={canvasOnly ? `${styles.toggle} ${styles.toggleOn}` : styles.toggle}
+        aria-pressed={canvasOnly}
+        aria-label="Только схема"
+        title="Только схема: свернуть все панели / вернуть (Ctrl+\)"
+        onClick={toggleCanvasOnly}
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+          <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 interface EditorHeaderProps {
-  /** Название / id проекта. */
+  /** Название проекта (имя загруженной папки/архива) или id, если имя неизвестно. */
   projectName: string;
+  /** id проекта: показывается в подсказке, если projectName — имя. */
+  projectId?: string;
   version: number | null;
   /** Точка входа, напр. «Main.main»; null — main не найден. */
   entryPoint: string | null;
@@ -27,6 +79,7 @@ const BUSY_LABEL = { run: 'Запуск…', verify: 'Проверка…', fix:
 /** Шапка редактора: проект и версия, загрузка/экспорт, запуск и проверка поведения. */
 export function EditorHeader({
   projectName,
+  projectId,
   version,
   entryPoint,
   onUpload,
@@ -51,7 +104,7 @@ export function EditorHeader({
         </div>
         <div className={styles.brandText}>
           <span className={styles.brandName}>Java Blueprints</span>
-          <span className={styles.muted} data-testid="project-label">
+          <span className={styles.muted} data-testid="project-label" title={projectId ? `id: ${projectId}` : undefined}>
             {projectName}
             {version !== null && ` · версия ${version}`}
           </span>
@@ -64,6 +117,7 @@ export function EditorHeader({
         Экспорт ▾
       </button>
       <div className={styles.spacer} />
+      <PanelToggles />
       {entryPoint && (
         <span className={styles.muted}>
           Точка входа: <span className={styles.mono}>{entryPoint}</span>

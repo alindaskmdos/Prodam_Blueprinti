@@ -206,7 +206,6 @@
 
 .tabBar {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
   padding: 6px 8px;
@@ -216,27 +215,38 @@
 
 .tabList {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
+  gap: 0;
   flex: 1 1 auto;
+  min-width: 0;
 }
 
 .tabExtra {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 0 0 auto;
 }
 
+/* Все вкладки в одну строку: при нехватке места сжимаются с многоточием (полный текст — в title). */
 .tab {
-  font: 500 13px var(--jb-font-ui);
+  font: 500 12px var(--jb-font-ui);
   color: #a3aebd;
-  padding: 7px 12px;
+  padding: 7px 5px;
   border-radius: 7px;
   background: none;
   border: 0;
   cursor: pointer;
+  flex: 0 0 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   transition: background var(--jb-dur-hover), color var(--jb-dur-hover);
+}
+
+.tabLong {
+  flex-shrink: 1;
 }
 
 .tab:hover {
@@ -310,4 +320,111 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Сворачивание панелей */
+.slot {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.hidden {
+  display: none;
+}
+
+.rail {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  background: var(--jb-panel);
+  border: 1px solid var(--jb-border);
+  border-radius: 10px;
+  color: #a3aebd;
+  font: 600 11px var(--jb-font-ui);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  overflow: hidden;
+  transition: background var(--jb-dur-hover), color var(--jb-dur-hover);
+}
+
+.railH {
+  flex-direction: row;
+  justify-content: center;
+  padding: 0 12px;
+}
+
+.rail:hover {
+  background: var(--jb-raised);
+  color: #fff;
+}
+
+.railText {
+  writing-mode: vertical-rl;
+  white-space: nowrap;
+}
+
+.collapseBtn {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: #a3aebd;
+  font: 600 15px var(--jb-font-ui);
+  cursor: pointer;
+}
+
+.collapseBtn:hover {
+  background: var(--jb-raised);
+  color: #fff;
+}
+
+/* Дерево проекта рисует свою шапку («Проект … N файлов +»): кнопка встаёт в её свободное место */
+.leftCollapse {
+  position: absolute;
+  top: 7px;
+  left: 74px;
+}
+
+.toggles {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.toggle {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: none;
+  color: #a3aebd;
+  cursor: pointer;
+}
+
+.toggle:hover {
+  background: var(--jb-raised);
+  color: #fff;
+}
+
+.toggleOn {
+  color: var(--jb-accent);
 }

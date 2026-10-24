@@ -39,6 +39,6 @@ describe('реестр вкладок panels.ts', () => {
     render(<PanelTabs tabs={panelsIn('bottom')} aria-label="низ" />);
     expect(screen.getByTestId('panel-stub')).toHaveTextContent('Выберите метод в дереве проекта');
     fireEvent.click(screen.getByRole('tab', { name: 'Консоль' }));
-    expect(screen.getByTestId('panel-stub')).toHaveTextContent('FE-13');
+    expect(screen.getByTestId('panel-stub')).toHaveTextContent('Нажмите ▶ Запуск');
   });
 });

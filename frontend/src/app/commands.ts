@@ -3,6 +3,7 @@ import { isFixRunning, useFixStore } from '../features/fix';
 import { sandboxDisabledReason, useSandboxStore } from '../features/sandbox';
 import { useUploadUi } from '../features/upload';
 import { currentClassRef, openStructureDialog, useTreeStore } from '../features/project-tree';
+import { useLayoutStore } from '../features/layout/layoutStore';
 import { useAppStore } from './store';
 
 /** Запуск/проверка доступны: проект открыт, песочница доступна, ничего не выполняется. */
@@ -107,6 +108,35 @@ export const commands: readonly CommandDef[] = [
     group: 'Структура',
     isEnabled: () => treeReady() && currentClassRef() !== null,
     run: () => openMember('method'),
+  },
+  // Панели: сворачивание в пользу холста (горячие клавиши — layoutShortcuts.ts).
+  {
+    id: 'layout.toggleLeft',
+    title: 'Показать/скрыть дерево проекта',
+    group: 'Вид',
+    shortcut: 'Ctrl+B',
+    run: () => useLayoutStore.getState().toggle('left'),
+  },
+  {
+    id: 'layout.toggleBottom',
+    title: 'Показать/скрыть нижнюю панель (код, консоль, тесты)',
+    group: 'Вид',
+    shortcut: 'Ctrl+J',
+    run: () => useLayoutStore.getState().toggle('bottom'),
+  },
+  {
+    id: 'layout.toggleRight',
+    title: 'Показать/скрыть панель анализа',
+    group: 'Вид',
+    shortcut: 'Ctrl+Alt+B',
+    run: () => useLayoutStore.getState().toggle('right'),
+  },
+  {
+    id: 'layout.canvasOnly',
+    title: 'Только схема (свернуть все панели / вернуть)',
+    group: 'Вид',
+    shortcut: 'Ctrl+\\',
+    run: () => useLayoutStore.getState().toggleCanvasOnly(),
   },
   {
     // Кнопка «Применить» в карточке проблемы: args = { issueId, fixId } (fixId — из Issue.fixes).
