@@ -8,10 +8,10 @@
 ## Backend
 
 **Готово:** BE-01…BE-21, BE-36…BE-41 — весь обязательный путь бэкенда (загрузка/экспорт zip и jar, ноды ↔ код, валидация, анализ + 6 детекторов, 3 фикса + Quality Gate, тесты IO/JUnit, run/verify, все эндпоинты контракта); CT-01 (+ правки BE-38 по решению человека).
-**В работе:** —
+**В работе:** BE-43 (fixes, долги фиксов), BE-24 (analysis, мёртвый код) — исполнители в worktree.
 **Висящие ветки/worktree:** —. Локальный main впереди origin (BE-21, BE-39, BE-36, BE-41, BE-40, BE-20, BE-38 и др.) — нужен push. Папки старых worktree в .claude/worktrees не удаляются из-за длинных путей Windows, стирать вручную. На origin устаревшая ветка be-5 — `git push origin --delete be-5`.
 **Заблокировано:** —
-**Следующие шаги:** бэкенд обязательного пути закрыт — дальше по просьбе человека: долги из «Известных проблем» (ru_RU в demo `String.format` без Locale — актуально для демо; LinkedHashSetFix и List по простому имени) или задачи «Если успеем» (BE-24 мёртвый код — только analysis, без контракта; BE-32 CLI). В брифах исполнителям: работать от текущего main, не трогать docs/ и contract/, Docker запущен (тесты с Docker должны реально выполняться), сразу учитывать типичные дыры фиксов (алиасы, views, сторонние вызовы, null, == на обёртках, наследники/анонимные подклассы в src и tests).
+**Следующие шаги:** бэкенд обязательного пути закрыт — дальше по просьбе человека: долги из «Известных проблем» или задачи «Если успеем» (BE-24 мёртвый код — только analysis, без контракта; BE-32 CLI). В брифах исполнителям: работать от текущего main, не трогать docs/ и contract/, Docker запущен (тесты с Docker должны реально выполняться), сразу учитывать типичные дыры фиксов (алиасы, views, сторонние вызовы, null, == на обёртках, наследники/анонимные подклассы в src и tests).
 
 ## Frontend
 
@@ -25,14 +25,12 @@
 ## Известные проблемы
 
 - analysis/ExpensiveCallInLoop: `for (;;)` / `while (true)` с обходом коллекции и break внутри вызываемого считаются дешёвыми (редкий N+1 пропускается).
-- samples/demo: `ReportService.java:80` — `String.format("%.2f")` без Locale, под ru_RU 4/6 IO-тестов demo падают (под en — 6/6).
 - CLAUDE.md и .claude/ в .gitignore — правила и агенты не переносятся на другие устройства через git.
 - JavaParser (3.26.2, и 3.28.2 тоже) не разбирает локальные enum/interface: такие файлы (samples/roundtrip/NestedClasses.java) грузятся текстом без блоков с предупреждением UNPARSED_FILE; в RoundTripCorpusTest их тела не перегенерируются из блоков.
 - Windows: после пуля с .gitattributes уже склонированные копии нужно один раз перевыписать (`git ls-files -z | xargs -0 rm -f && git checkout -- .` при чистом дереве), иначе .out останутся с CRLF и IO-тесты упадут.
 - Windows: 2 теста RunnerTest (fakeDocker) пропускаются — нужен /bin/bash.
 - testing: TestResult/IoTestCase пока свои типы в `testing` — после BE-05 заменить на `model` адаптером.
 - testing/JUnit: причина compile_error («тесты» vs «программа») определяется по простому имени файла — при совпадении имён может быть неверной.
-- backend/fixes: StringBuilderFixTest.demoJoinAndFullReportCompileAndKeepOutput падает под ru_RU (на main, с BE-19) — та же причина, что ReportService.java:80 `String.format("%.2f")` без Locale. Под C/en зелёный. Нужна задача бэку.
 - Фронт: Vitest 3.2.7 — npm audit: уязвимости в dev-зависимостях (tinypool, @vitest/mocker); vitest 4 не ставится на npm 10.9.8 (edgesOut).
 - Фронт: у `passed` IO- и JUnit-теста (пропущенный @Disabled) `error` может быть непустым — это пояснение («оригинал не проходит этот тест — правка его исправила»), не ошибка.
 
@@ -83,3 +81,4 @@
 - FE-02: каркас редактора (шапка, дерево проекта из GET tree, слот холста, панели с вкладками из panels.ts {id,title,area,component}, zustand store projectId/version/selectedMethodId, react-resizable-panels).
 - FE-04: CodeEditor (Monaco локально, ленивый чанк), fileSync: debounce 500 мс, полный текст + version, 409 → тост и перезагрузка, 422 → маркер, один запрос в полёте; мок PUT files по умолчанию.
 - BE-21: IndexByIdFix `index-by-id` (вложенный for i / for j=i+1 по одному списку с поиском по ключу → LinkedHashMap + putIfAbsent за один проход; ключ — геттер final-примитива с тем же типом, без наследников/анонимных подклассов T в src и tests, белый список коммутирующих эффектов тела). Demo OrderService.merge → Map<Integer, Order> byCustomer, QualityGate GREEN, Issue.fixes = [index-by-id]. 3 круга ревью.
+- BE-42: demo — Locale.ROOT в String.format (ReportService), toLowerCase (Tier), toUpperCase (CommandLine) в той же строке, номера строк не сдвинуты; demo 6/6 под en/ru_RU/tr_TR. Полный build с JAVA_TOOL_OPTIONS красный из-за строки «Picked up JAVA_TOOL_OPTIONS» в stderr дочерних java — не локаль.

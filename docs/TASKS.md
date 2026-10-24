@@ -36,6 +36,8 @@
 - [x] BE-19 Фикс StringBuilder | fixes | BE-16, BE-18 | §9
 - [x] BE-20 Фикс contains → LinkedHashSet | fixes | BE-14, BE-18 | §9
 - [x] BE-21 Фикс «индекс по id» | fixes | BE-13, BE-18 | §9
+- [x] BE-42 samples/demo: `String.format` с `Locale.ROOT` (ReportService:80 и др.) — IO-тесты demo и StringBuilderFixTest зелёные под ru_RU | samples/demo | BE-41 | §13
+- [ ] BE-43 Долги fixes: List/ArrayList/LinkedList по простому имени в LinkedHashSetFix (как в IndexByIdFix), StringBuilderFix — отказ на `char[]` и сохранение комментария, QualityGate — закрыть StandardJavaFileManager, без системного компилятора отказ вместо NPE, Refactoring получает unmodifiable карту | fixes | BE-18…BE-21 | §9
 
 ## Frontend
 
