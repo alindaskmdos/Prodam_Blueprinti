@@ -5,6 +5,7 @@ junit = "5.11.3"
 # JUnit Platform идёт в паре с Jupiter: 5.x.y ↔ 1.x.y
 junit-platform = "1.11.3"
 jackson = "2.17.2"
+picocli = "4.7.6"
 
 [libraries]
 spring-boot-bom = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
@@ -12,6 +13,7 @@ spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-start
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
 javaparser-symbol-solver = { module = "com.github.javaparser:javaparser-symbol-solver-core", version.ref = "javaparser" }
 jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
+picocli = { module = "info.picocli:picocli", version.ref = "picocli" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 json-schema-validator = { module = "com.networknt:json-schema-validator", version = "1.4.0" }
 junit-platform-console-standalone = { module = "org.junit.platform:junit-platform-console-standalone", version.ref = "junit-platform" }
