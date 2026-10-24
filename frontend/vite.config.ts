@@ -1,6 +1,6 @@
-/// <reference types="vitest/config" />
 import { fileURLToPath } from 'node:url';
 import { defineConfig, loadEnv } from 'vite';
+import { configDefaults } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
 const contractDir = fileURLToPath(new URL('../contract', import.meta.url));
@@ -28,6 +28,8 @@ export default defineConfig(({ mode }) => {
       globals: true,
       setupFiles: ['./src/test/setup.ts'],
       css: false,
+      // e2e/ — Playwright (npm run e2e), vitest их не запускает.
+      exclude: [...configDefaults.exclude, 'e2e/**'],
     },
   };
 });
