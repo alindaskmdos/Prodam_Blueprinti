@@ -88,6 +88,7 @@ describe('App — каркас редактора на MSW', () => {
       'Проблемы',
       'Предупреждения',
       'Метрики',
+      'Свойства',
     ]);
     expect(within(bottom).getAllByRole('tab').map((t) => t.textContent)).toEqual([
       'Код Java',

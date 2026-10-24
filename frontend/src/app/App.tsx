@@ -67,6 +67,7 @@ function EditorScreen({ client, projectId, canvas, panels, saveFile }: EditorScr
   const closeExport = useUploadUi((s) => s.closeExport);
   const showPanel = useAppStore((s) => s.showPanel);
   const bottomTab = useAppStore((s) => s.activePanels.bottom);
+  const rightTab = useAppStore((s) => s.activePanels.right);
   useSandbox(client, projectId);
   const entryPoint = useSandboxStore((s) => entryPointLabel(s.mainClasses));
   const sandboxBusy = useSandboxStore((s) => s.busy);
@@ -92,7 +93,14 @@ function EditorScreen({ client, projectId, canvas, panels, saveFile }: EditorScr
         }
         left={<ProjectTree client={client} projectId={projectId} />}
         canvas={<CanvasSlot>{canvas ?? (methodId ? <SelectedMethodCanvas client={client} /> : undefined)}</CanvasSlot>}
-        right={<PanelTabs title="Анализ" tabs={panelsIn('right', panels)} />}
+        right={
+          <PanelTabs
+            title="Анализ"
+            tabs={panelsIn('right', panels)}
+            activeId={rightTab}
+            onActiveChange={(id) => showPanel('right', id)}
+          />
+        }
         bottom={
           <PanelTabs
             aria-label="Код, консоль, тесты"

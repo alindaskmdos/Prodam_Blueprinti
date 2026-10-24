@@ -84,11 +84,69 @@
 
 .field {
   color: var(--jb-text-secondary);
+}
+
+/* Строка класса: каретка сворачивает, имя выбирает класс (форма «Свойства»). */
+.split {
+  padding-top: 0;
+  padding-bottom: 0;
   cursor: default;
 }
 
-.field:hover {
+.caretBtn,
+.splitMain {
   background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 5px 0;
+}
+
+.caretBtn {
+  width: 14px;
+  color: var(--jb-text-secondary);
+  text-align: left;
+}
+
+.splitMain {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+
+.caretBtn:focus-visible,
+.splitMain:focus-visible {
+  outline: 1px solid var(--jb-accent);
+  outline-offset: -1px;
+  border-radius: 4px;
+}
+
+.headerTools {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.headerBtn {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid var(--jb-border-strong);
+  background: var(--jb-raised);
+  color: #d7dee8;
+  font: 600 14px var(--jb-font-ui);
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--jb-dur-hover);
+}
+
+.headerBtn:hover {
+  background: #1d2430;
+  color: #fff;
 }
 
 .selected,

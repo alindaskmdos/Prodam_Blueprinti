@@ -9,7 +9,7 @@ describe('реестр вкладок panels.ts', () => {
 
   it('id уникальны, в каждой зоне есть вкладки', () => {
     expect(new Set(panels.map((p) => p.id)).size).toBe(panels.length);
-    expect(panelsIn('right').map((p) => p.id)).toEqual(['analysis.problems', 'analysis.warnings', 'analysis.metrics']);
+    expect(panelsIn('right').map((p) => p.id)).toEqual(['analysis.problems', 'analysis.warnings', 'analysis.metrics', 'structure.props']);
     expect(panelsIn('bottom').map((p) => p.id)).toEqual(['bottom.code', 'bottom.console', 'bottom.tests']);
   });
 
