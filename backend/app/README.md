@@ -13,7 +13,7 @@ Spring Boot: REST по `contract/openapi.yaml`, хранение проекто�
 
 - `EditController` — правки через `ProjectStore.update`: PUT blocks = `NodeValidator` -> `BlocksToJava.replaceMethod` -> повторный разбор;
   неверная нода -> 422 PARSE_ERROR с blockId, версия не растёт; PUT files — разбор JavaParser, ошибка -> 422 PARSE_ERROR с line.
-  Пакет файла пересчитывается; предупреждения загрузки, mainClasses и дубликаты FQN — нет. Файл, загруженный как UNPARSED_FILE, через PUT files не правится (422).
+  Новое состояние — повторная загрузка `ProjectLoader` (PUT blocks и files): пакет, предупреждения, mainClasses; дубликат FQN -> 422 DUPLICATE_FQN с `files`, лимит 20 МБ / 2000 файлов -> 422 LIMIT_EXCEEDED (413 — только у загрузки); версия не растёт. Файл, загруженный как UNPARSED_FILE, через PUT files не правится (422).
   `method` в ответе нет, если сигнатура переименовала метод (под старым id другой метод).
 - `ProjectView` — снимок для ответов: Analysis (`ProjectAnalysis` + `DetectorRegistry.defaults()`, `new ProjectView(project[, n])`, n по умолчанию 10 000, в MutationResult — всегда оно; blockId проблемы —
   самый глубокий блок метода, чей span содержит span проблемы; metrics complexity/lines/maxNesting), ProjectTree с complexity и issueCount, MethodView с id проблем в блоках. Экспорт zip возвращает исходную структуру вместе с отрезанной обёрткой (`LoadedProject.root`).
@@ -26,7 +26,8 @@ Spring Boot: REST по `contract/openapi.yaml`, хранение проекто�
   `version` обязателен (в теле PUT, `?version=` у DELETE): нет — 400 INVALID_REQUEST, старый — 409, как в PUT blocks/files.
 - `RunController` — `POST /run` (`Runner.run`, `Rewrite.RUN` — тот же seed, что у verify; несколько main без mainClass ->
   422 AMBIGUOUS_MAIN с details.mainClasses, несуществующий mainClass -> 422 INVALID_REQUEST; compileErrors — путь файла из проекта по имени), `POST /verify`
-  (`BehaviorVerifier` на `ProjectStore.Stored.original` — проект как загружен — и текущей версии; адаптер `testing.TestResult` -> DTO).
+  (`BehaviorVerifier` на `ProjectStore.Stored.original` — проект как загружен — и текущей версии; адаптер `testing.TestResult` -> DTO;
+  битые `tests/*.json` (`IoTestFiles.load().errors`) -> warning «тест не прогнан: …» на каждый, green -> incomplete).
   У verify до запуска, только если есть IO-тесты (mainClass нужен лишь им): несколько main в текущей версии или оригинале -> 422 AMBIGUOUS_MAIN, main нет -> 422 INVALID_REQUEST. Сбой запуска вне кода пользователя (IllegalStateException/UncheckedIOException Runner'а: нет Docker, JDK, ошибка временной папки) -> 503 INTERNAL с сообщением Runner (responses/SandboxUnavailable; UI отключает кнопки по /health). Без тестов verify
   контейнер не запускает.
 - `FixController` — `POST /projects/{id}/issues/{issueId}/fix` (`{version, fixId}`) -> FixResult: версия не та -> 409 (id проблемы — только для своей версии),

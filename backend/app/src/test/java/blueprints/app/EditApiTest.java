@@ -205,6 +205,96 @@ class EditApiTest {
         }
     }
 
+    /** PUT files пересчитывает состояние загрузки: пакет, PACKAGE_MISMATCH, mainClasses; дубликат FQN — 422, как при загрузке. */
+    @Test
+    void putFileRecomputesLoadState() throws IOException {
+        Map<String, byte[]> files = new LinkedHashMap<>();
+        files.put("README.md", new byte[0]); // держит root "": src/ не обёртка и после правки
+        files.put("src/a/A.java", "package a; class A {}".getBytes(StandardCharsets.UTF_8));
+        files.put("src/a/B.java", "package a; class B {}".getBytes(StandardCharsets.UTF_8));
+        String id = upload(files);
+        JsonNode p = json(rest.getForObject("/api/projects/" + id, String.class));
+        assertEquals(0, p.get("mainClasses").size());
+        assertEquals(0, p.get("warnings").size());
+
+        var r = putFile(id, "src/a/A.java", 1, "package b; class A { public static void main(String[] x) {} }");
+        assertEquals(HttpStatus.OK, r.getStatusCode(), r.getBody());
+        p = json(rest.getForObject("/api/projects/" + id, String.class));
+        Contract.validate("Project", p);
+        assertEquals("[\"b.A\"]", p.get("mainClasses").toString());
+        assertEquals("PACKAGE_MISMATCH", p.get("warnings").get(0).get("code").asText());
+        assertEquals("src/a/A.java", p.get("warnings").get(0).get("file").asText());
+        assertEquals("b", p.get("files").get(0).get("package").asText());
+        assertEquals("src/a/A.java", p.get("files").get(0).get("path").asText()); // обёртка не отрезана заново
+
+        var dup = putFile(id, "src/a/B.java", 2, "package b; class A {}");
+        assertError(dup, HttpStatus.UNPROCESSABLE_ENTITY, "DUPLICATE_FQN");
+        assertEquals("[\"src/a/A.java\",\"src/a/B.java\"]", json(dup.getBody()).get("files").toString());
+        assertEquals(2, version(id));
+
+        // main убран, пакет возвращён — состояние снова как у загрузки
+        assertEquals(HttpStatus.OK, putFile(id, "src/a/A.java", 2, "package a; class A {}").getStatusCode());
+        p = json(rest.getForObject("/api/projects/" + id, String.class));
+        assertEquals(0, p.get("mainClasses").size());
+        assertEquals(0, p.get("warnings").size());
+        assertEquals("a", p.get("files").get(0).get("package").asText());
+        assertEquals(HttpStatus.OK, rest.getForEntity("/api/projects/" + id + "/files?path=src/a/B.java", String.class).getStatusCode());
+    }
+
+    /** Обёртка demo/ сохраняется при пересчёте: пути без неё, PACKAGE_MISMATCH сверяется с полным путём, экспорт с ней. */
+    @Test
+    void putFileRecomputesLoadStateUnderWrapper() throws IOException {
+        Map<String, byte[]> files = new LinkedHashMap<>();
+        files.put("demo/com/a/A.java", "package com.a; class A {}".getBytes(StandardCharsets.UTF_8));
+        files.put("demo/com/a/B.java", "package com.a; class B {}".getBytes(StandardCharsets.UTF_8));
+        String id = upload(Map.of("p.zip", ProjectsApiTest.zip(files)));
+        String text = "package demo.com.a; class A { public static void main(String[] x) {} }";
+        var r = putFile(id, "com/a/A.java", 1, text);
+        assertEquals(HttpStatus.OK, r.getStatusCode(), r.getBody());
+        JsonNode p = json(rest.getForObject("/api/projects/" + id, String.class));
+        Contract.validate("Project", p);
+        assertEquals("[\"demo.com.a.A\"]", p.get("mainClasses").toString());
+        assertEquals(0, p.get("warnings").size()); // demo/com/a — папка пакета demo.com.a
+        assertEquals("com/a/A.java", p.get("files").get(0).get("path").asText());
+
+        assertEquals(HttpStatus.OK, putFile(id, "com/a/B.java", 2, "package x; class B {}").getStatusCode());
+        p = json(rest.getForObject("/api/projects/" + id, String.class));
+        assertEquals("PACKAGE_MISMATCH", p.get("warnings").get(0).get("code").asText());
+        assertEquals("com/a/B.java", p.get("warnings").get(0).get("file").asText());
+
+        byte[] zip = rest.getForObject("/api/projects/" + id + "/export?format=zip", byte[].class);
+        try (var in = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(zip))) {
+            assertEquals("demo/com/a/A.java", in.getNextEntry().getName());
+            assertEquals(text, new String(in.readAllBytes(), StandardCharsets.UTF_8));
+        }
+    }
+
+    /** Проект ровно на лимите файлов (root "", src/ и tests/): пересчёт не добавляет лишних файлов и PUT проходит. */
+    @Test
+    void putFileAtFileLimit() throws IOException {
+        Map<String, byte[]> files = new LinkedHashMap<>();
+        for (int i = 0; i < blueprints.source.ProjectLoader.MAX_FILES - 1; i++) {
+            files.put("src/A" + i + ".java", ("class A" + i + " {}").getBytes(StandardCharsets.UTF_8));
+        }
+        files.put("tests/t.json", "{}".getBytes(StandardCharsets.UTF_8));
+        String id = upload(Map.of("p.zip", ProjectsApiTest.zip(files)));
+        var r = putFile(id, "src/A0.java", 1, "class A0 { int x; }");
+        assertEquals(HttpStatus.OK, r.getStatusCode(), r.getBody());
+    }
+
+    /** Правка, выводящая проект за 20 МБ: 422 LIMIT_EXCEEDED (не 413, как у загрузки), версия и текст прежние. */
+    @Test
+    void putFileOverSizeLimitIs422() throws IOException {
+        // одна строка JSON у Jackson до 20 млн символов — лимит набирается двумя файлами: 15 МБ в загрузке + 6 МБ правкой
+        int mb = 1024 * 1024;
+        String id = upload(Map.of("A.java", A.getBytes(StandardCharsets.UTF_8),
+                "B.java", ("class B {\n/* " + "x".repeat(15 * mb) + " */\n}\n").getBytes(StandardCharsets.UTF_8)));
+        String huge = "class A {\n    /* " + "x".repeat(6 * mb) + " */\n}\n";
+        assertError(putFile(id, "A.java", 1, huge), HttpStatus.UNPROCESSABLE_ENTITY, "LIMIT_EXCEEDED");
+        assertEquals(1, version(id));
+        assertEquals(A, json(rest.getForObject("/api/projects/" + id + "/files?path=A.java", String.class)).get("text").asText());
+    }
+
     /** На демо: проблемы анализа с blockId из дерева метода, метрики и issueCount — по контракту. */
     @Test
     void demoMutationCarriesAnalysis() throws IOException {

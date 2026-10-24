@@ -140,12 +140,24 @@ class ProjectsApiTest {
 
     /** stdout {@code java -jar}; CRLF -> LF: на Windows println пишет \r\n, а .out сняты в Linux. */
     static String javaJar(Path jar, byte[] stdin) throws IOException {
+        // stdout в файл: зависший процесс не блокирует чтение, ожидание ограничено таймаутом
+        Path out = Files.createTempFile("blueprints-jar", ".out");
         Process p = new ProcessBuilder(Path.of(System.getProperty("java.home"), "bin", "java").toString(),
-                "-Dstdout.encoding=UTF-8", "-jar", jar.toString()).redirectError(ProcessBuilder.Redirect.DISCARD).start();
-        try (var in = p.getOutputStream()) {
-            in.write(stdin);
+                "-Dstdout.encoding=UTF-8", "-jar", jar.toString()).redirectError(ProcessBuilder.Redirect.DISCARD)
+                .redirectOutput(out.toFile()).start();
+        try {
+            try (var in = p.getOutputStream()) {
+                in.write(stdin);
+            }
+            assertTrue(p.waitFor(30, java.util.concurrent.TimeUnit.SECONDS), "java -jar не завершился за 30 с");
+            return text(Files.readAllBytes(out));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException(e);
+        } finally {
+            p.destroyForcibly();
+            Files.deleteIfExists(out);
         }
-        return text(p.getInputStream().readAllBytes());
     }
 
     static String text(byte[] b) {

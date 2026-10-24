@@ -6,7 +6,9 @@ import blueprints.blocks.InvalidNodeException;
 import blueprints.blocks.MethodLocator;
 import blueprints.blocks.NodeValidator;
 import blueprints.model.Block;
+import blueprints.source.LoadException;
 import blueprints.source.LoadedProject;
+import blueprints.source.ProjectLoader;
 import blueprints.source.SourceFile;
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParseResult;
@@ -65,7 +67,7 @@ class EditController {
                 if (!parse(text).isSuccessful()) throw ApiException.parseError("сгенерированный код не разбирается", methodId, null);
                 path[0] = f.path();
                 line[0] = decl.get().getBegin().orElseThrow().line;
-                return replace(p, f, f.pkg(), text);
+                return replace(p, f, text);
             }
             throw new ApiException(404, "NOT_FOUND", "метод не найден: " + methodId);
         });
@@ -89,8 +91,7 @@ class EditController {
                         .flatMap(t -> t.getBegin().getRange()).map(x -> x.begin.line).orElse(null);
                 throw ApiException.parseError(problem == null ? "ошибка разбора" : problem.getMessage(), null, at);
             }
-            String pkg = r.getResult().get().getPackageDeclaration().map(d -> d.getNameAsString()).orElse("");
-            return replace(p, f, pkg, req.text());
+            return replace(p, f, req.text());
         });
         ProjectView view = new ProjectView(s.content());
         return new ProjectView.Mutation(s.version(), req.text(), null, view.tree(s.version()), view.analysis(s.version()));
@@ -101,14 +102,30 @@ class EditController {
     }
 
     /**
-     * Проект с новым текстом файла. Неизменённый текст — исходные байты. ponytail: предупреждения загрузки,
-     * mainClasses и дубликаты FQN не пересчитываются — пересчёт, когда понадобится, через общий код с ProjectLoader.
+     * Проект с новым текстом файла — повторной загрузкой {@link ProjectLoader} (пакет, предупреждения, mainClasses,
+     * дубликаты FQN → LoadException 422 DUPLICATE_FQN, версия не растёт). Неизменённые файлы — исходные байты.
      */
-    private static LoadedProject replace(LoadedProject p, SourceFile old, String pkg, String text) {
+    private static LoadedProject replace(LoadedProject p, SourceFile old, String text) {
         byte[] bytes = text.equals(old.text()) ? old.content() : text.getBytes(StandardCharsets.UTF_8);
-        List<SourceFile> files = new ArrayList<>(p.files());
-        files.set(files.indexOf(old), new SourceFile(old.path(), pkg, bytes));
-        return new LoadedProject(p.root(), files, p.warnings(), p.testFiles(), p.mainClasses());
+        List<ProjectLoader.Upload> ups = new ArrayList<>();
+        for (SourceFile f : p.files()) ups.add(new ProjectLoader.Upload(p.root() + f.path(), f == old ? bytes : f.content()));
+        p.testFiles().forEach((path, data) -> ups.add(new ProjectLoader.Upload(p.root() + path, data)));
+        // загрузчик заново ищет общую папку-обёртку: при root "" и общей верхней папке (её при загрузке держали
+        // проигнорированные файлы, README.md рядом с src/) файл-заглушка в корне (не .java — пропускается) не даёт её отрезать.
+        // Заглушка бывает только у проектов с проигнорированными файлами, т.е. ниже лимита MAX_FILES
+        if (p.root().isEmpty() && sharedTop(ups)) ups.add(new ProjectLoader.Upload(".blueprints-root", new byte[0]));
+        try {
+            return ProjectLoader.load(ups);
+        } catch (LoadException e) {
+            // у правок превышение лимита — 422 (413 только у загрузки, решение людей); прочее — как при загрузке
+            if (e.code().equals("LIMIT_EXCEEDED")) throw new ApiException(422, "LIMIT_EXCEEDED", e.getMessage());
+            throw e;
+        }
+    }
+
+    private static boolean sharedTop(List<ProjectLoader.Upload> ups) {
+        return ups.stream().map(u -> u.name().indexOf('/') < 0 ? "" : u.name().substring(0, u.name().indexOf('/')))
+                .distinct().count() == 1 && ups.get(0).name().contains("/");
     }
 
     private static String text(LoadedProject p, String path) {

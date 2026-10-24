@@ -10,6 +10,7 @@ import blueprints.testing.VerifyResult;
 import blueprints.testing.io.IoTestFiles;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -82,7 +83,15 @@ class RunController {
         TestContext ctx = new TestContext(texts(s.original()), texts(s.content()), null);
         checkMains(ctx);
         VerifyResult v = sandbox(() -> verifier.verify(ctx));
-        return dto(v);
+        return withBrokenTests(dto(v), IoTestFiles.load(ctx.currentFiles()).errors());
+    }
+
+    /** Битые tests/*.json не прогнаны: каждая ошибка — warning, green → incomplete (проверено не всё, что задано). */
+    static VerifyDto withBrokenTests(VerifyDto v, List<String> errors) {
+        if (errors.isEmpty()) return v;
+        List<String> warnings = new ArrayList<>(v.warnings() == null ? List.of() : v.warnings());
+        errors.forEach(e -> warnings.add("тест не прогнан: " + e));
+        return new VerifyDto(v.status().equals("green") ? "incomplete" : v.status(), v.results(), warnings);
     }
 
     static VerifyDto dto(VerifyResult v) {

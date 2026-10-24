@@ -249,6 +249,24 @@ class TestsApiTest {
         assertEquals("red", red.get("status").asText(), red.toString());
     }
 
+    /** Битые tests/*.json не превращают проверку молча в «тестов нет»: warning на каждый, green не ставится. */
+    @Test
+    void brokenJsonTestsAreReportedByVerify() throws IOException {
+        String id = upload(Map.of("A.java", "class A { public static void main(String[] a) {} }\n", "tests/bad.json", "{oops"));
+        JsonNode r = json(call(HttpMethod.POST, "/api/projects/" + id + "/verify", null).getBody());
+        Contract.validate("VerifyResult", r);
+        assertEquals("incomplete", r.get("status").asText());
+        assertTrue(r.get("warnings").toString().contains("tests/bad.json"), r.toString());
+
+        assumeTrue(dockerUp(), "docker недоступен");
+        String mixed = upload(Map.of("src/Main.java", MAIN, "tests/up.json", "{\"stdin\": \"abc\\n\"}", "tests/bad.json", "{oops"));
+        JsonNode m = json(call(HttpMethod.POST, "/api/projects/" + mixed + "/verify", null).getBody());
+        Contract.validate("VerifyResult", m);
+        assertEquals("incomplete", m.get("status").asText(), m.toString()); // up прошёл бы green
+        assertEquals("passed", m.get("results").get(0).get("status").asText(), m.toString());
+        assertTrue(m.get("warnings").toString().contains("tests/bad.json"), m.toString());
+    }
+
     @Test
     void compileErrorsWithoutDocker() throws IOException { // компиляция — в процессе сервера, до контейнера
         String id = upload(Map.of("src/Main.java", "public class Main {\n  public static void main(String[] a) { int x = \"s\"; }\n}\n",
