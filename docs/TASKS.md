@@ -38,7 +38,7 @@
 - [x] BE-21 Фикс «индекс по id» | fixes | BE-13, BE-18 | §9
 - [x] BE-42 samples/demo: `String.format` с `Locale.ROOT` (ReportService:80 и др.) — IO-тесты demo и StringBuilderFixTest зелёные под ru_RU | samples/demo | BE-41 | §13
 - [x] BE-43 Долги fixes: List/ArrayList/LinkedList по простому имени в LinkedHashSetFix (как в IndexByIdFix), StringBuilderFix — отказ на `char[]` и сохранение комментария, QualityGate — закрыть StandardJavaFileManager, без системного компилятора отказ вместо NPE, Refactoring получает unmodifiable карту | fixes | BE-18…BE-21 | §9
-- [ ] BE-44 Долги app: PUT files пересчитывает предупреждения загрузки/mainClasses/дубликаты FQN; verify не пропускает main при битых tests/*.json; ProjectsApiTest.javaJar ждёт/убивает процесс java | app | BE-07, BE-38, BE-36 | §11, §12
+- [x] BE-44 Долги app: PUT files пересчитывает предупреждения загрузки/mainClasses/дубликаты FQN; verify не пропускает main при битых tests/*.json; ProjectsApiTest.javaJar ждёт/убивает процесс java | app | BE-07, BE-38, BE-36 | §11, §12
 
 ## Frontend
 
