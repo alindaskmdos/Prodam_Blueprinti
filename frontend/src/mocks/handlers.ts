@@ -71,7 +71,20 @@ export const handlers = [
     });
   }),
   // Для MutationResult фикстуры нет — собираем из tree/analysis; версия +1, fileText = присланный текст.
-  // GET files по умолчанию нет: в фикстурах нет текста файлов.
+  // Текст есть только у OrderService.java (file.order-service.json); без ?path= — 400 INVALID_REQUEST, другой путь — 404 (схема Error).
+  http.get(`${API}/projects/:projectId/files`, ({ request }) => {
+    const path = new URL(request.url).searchParams.get('path');
+    if (!path) {
+      return HttpResponse.json<Schemas['Error']>(
+        { code: 'INVALID_REQUEST', message: 'не указан параметр path' },
+        { status: 400 },
+      );
+    }
+    if (path !== fixtures.fileOrderService.path) {
+      return HttpResponse.json<Schemas['Error']>({ code: 'NOT_FOUND', message: `файл ${path} не найден` }, { status: 404 });
+    }
+    return HttpResponse.json(fixtures.fileOrderService);
+  }),
   http.put(`${API}/projects/:projectId/files`, async ({ request }) => {
     const body = (await request.json()) as PutFileBody;
     return HttpResponse.json<Schemas['MutationResult']>({

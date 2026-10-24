@@ -4,6 +4,7 @@ import { CanvasSlot, EditorHeader, EditorLayout, PanelTabs } from '../features/l
 import { ProjectTree } from '../features/project-tree';
 import { ExportDialog, UploadScreen, useUploadUi, type SaveFile } from '../features/upload';
 import { runCommand } from './commands';
+import { SelectedMethodCanvas } from './methodViews';
 import { panels as defaultPanels, panelsIn, type PanelDef } from './panels';
 import { useAppStore } from './store';
 
@@ -11,7 +12,7 @@ interface AppProps {
   client?: ApiClient;
   /** Открыть этот проект сразу (без экрана загрузки). Иначе — экран загрузки, пока в store нет projectId. */
   projectId?: string;
-  /** Холст схемы метода (FE-03); без него — заглушка. */
+  /** Подменить холст (тесты); по умолчанию — схема выбранного метода (`SelectedMethodCanvas`). */
   canvas?: ReactNode;
   /** Реестр вкладок (по умолчанию `panels.ts`). */
   panels?: readonly PanelDef[];
@@ -58,6 +59,7 @@ interface EditorScreenProps {
 /** Экран редактора: шапка, дерево проекта, холст, панель анализа, нижняя панель; диалог экспорта поверх. */
 function EditorScreen({ client, projectId, canvas, panels, saveFile }: EditorScreenProps) {
   const version = useAppStore((s) => s.version);
+  const methodId = useAppStore((s) => s.selectedMethodId);
   const exportOpen = useUploadUi((s) => s.exportOpen);
   const closeExport = useUploadUi((s) => s.closeExport);
   const entryPoint = useEntryPoint(client, projectId);
@@ -75,7 +77,7 @@ function EditorScreen({ client, projectId, canvas, panels, saveFile }: EditorScr
           />
         }
         left={<ProjectTree client={client} projectId={projectId} />}
-        canvas={<CanvasSlot>{canvas}</CanvasSlot>}
+        canvas={<CanvasSlot>{canvas ?? (methodId ? <SelectedMethodCanvas client={client} /> : undefined)}</CanvasSlot>}
         right={<PanelTabs title="Анализ" tabs={panelsIn('right', panels)} />}
         bottom={<PanelTabs aria-label="Код, консоль, тесты" tabs={panelsIn('bottom', panels)} />}
       />

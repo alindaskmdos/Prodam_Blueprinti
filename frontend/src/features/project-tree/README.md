@@ -6,7 +6,8 @@
   с бейджем `complexity` (красный, если `issueCount > 0`). Пакеты и классы сворачиваются кликом.
 - Клик по методу/конструктору → `useAppStore().selectMethod(id)` (id = `MethodNode.id`, напр. `com.demo.service.OrderService.merge~0`);
   выбранный подсвечен, `aria-pressed=true`.
-- `useProjectTree(client, projectId)` — `GET /projects/{projectId}/tree`, состояние loading/error/ok; версия из ответа → `setVersion`.
+- `useProjectTree(client, projectId)` — `GET /projects/{projectId}/tree` в общий `useTreeStore` (zustand, состояние loading/error/ok); версия из ответа → `setVersion`, только если новее текущей.
+- `reloadProjectTree()` — перезагрузить дерево открытого проекта (старое видно до ответа); `findMethodFile(tree, methodId)` — путь файла метода/конструктора; `resetTreeState()` — тесты.
 
 Типы — `Schemas['ProjectTree'|'ClassNode'|'MethodNode']` из `features/api`.
 

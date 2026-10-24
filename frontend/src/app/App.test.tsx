@@ -1,16 +1,65 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
 import treeJson from '@contract/fixtures/tree.json';
+import fileJson from '@contract/fixtures/file.order-service.json';
 import { createApiClient } from '../features/api';
+import { resetAnalysisState, useAnalysisStore } from '../features/analysis-panel';
+import type { MonacoViewProps } from '../features/editor-code/MonacoView';
+import { resetTreeState } from '../features/project-tree';
+import { server } from '../mocks/server';
+import { fixtures } from '../mocks/fixtures';
 import { App } from './App';
 import { resetAppState, useAppStore } from './store';
+
+// Monaco в jsdom не работает — подменяем представление textarea (как в CodeEditor.test.tsx).
+vi.mock('../features/editor-code/MonacoView', async () => {
+  const { useEffect, useState } = await import('react');
+  function FakeMonaco({ text, loadSeq, onChange }: MonacoViewProps) {
+    const [value, setValue] = useState(text);
+    useEffect(() => setValue(text), [text, loadSeq]);
+    return (
+      <textarea
+        aria-label="код"
+        value={value}
+        onChange={(e) => {
+          setValue(e.target.value);
+          onChange(e.target.value);
+        }}
+      />
+    );
+  }
+  return { default: FakeMonaco };
+});
+
+// React Flow в jsdom требует ResizeObserver и DOMMatrixReadOnly.
+beforeAll(() => {
+  globalThis.ResizeObserver ??= class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+  (globalThis as { DOMMatrixReadOnly?: unknown }).DOMMatrixReadOnly ??= class {
+    m22 = 1;
+  };
+});
+
+const API = '*/api';
 
 const client = createApiClient('http://localhost/api');
 const merge = treeJson.packages[0]?.files[0]?.classes[0]?.methods[0];
 if (!merge) throw new Error('в tree.json нет метода');
 
 describe('App — каркас редактора на MSW', () => {
-  beforeEach(() => resetAppState());
+  beforeEach(() => {
+    resetAppState();
+    resetTreeState();
+    resetAnalysisState();
+  });
+  afterEach(() => {
+    server.events.removeAllListeners();
+    vi.restoreAllMocks();
+  });
 
   it('рендерит шапку, дерево из tree.json, холст и обе панели вкладок', async () => {
     render(<App client={client} projectId="p-1" />);
@@ -60,4 +109,117 @@ describe('App — каркас редактора на MSW', () => {
     expect(screen.getByText('холст FE-03')).toBeInTheDocument();
     expect(screen.queryByTestId('canvas-stub')).not.toBeInTheDocument();
   });
+
+  it('выбор метода → холст рисует ноды метода из method-view.merge.json', async () => {
+    render(<App client={client} projectId="p-1" />);
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(merge.name) }));
+
+    expect(await screen.findByTestId('node-method', {}, { timeout: 10_000 })).toHaveTextContent('public int merge()');
+    expect(screen.getAllByTestId('container-for')).toHaveLength(2);
+    expect(screen.getByTestId('node-return')).toHaveTextContent('return merged');
+    expect(screen.queryByTestId('canvas-stub')).not.toBeInTheDocument();
+  }, 15_000);
+
+  it('вкладка «Код Java»: без метода — подсказка, с методом — текст его файла (file.order-service.json)', async () => {
+    render(<App client={client} projectId="p-1" />);
+    expect(screen.getByText(/здесь откроется код его файла/)).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(merge.name) }));
+    const area = await screen.findByLabelText('код');
+    expect(area).toHaveValue(fileJson.text);
+    expect((area as HTMLTextAreaElement).value).toContain('public class OrderService');
+    expect(screen.getByRole('region', { name: `Код ${fileJson.path}` })).toBeInTheDocument();
+  });
+
+  it('правка кода → PUT files, версия растёт, дерево, холст и анализ перезагружаются', async () => {
+    const calls = { tree: 0, analysis: 0, blocks: 0 };
+    server.use(
+      http.get(`${API}/projects/:projectId/tree`, () => {
+        calls.tree++;
+        return HttpResponse.json(fixtures.tree);
+      }),
+      http.get(`${API}/projects/:projectId/analysis`, () => {
+        calls.analysis++;
+        return HttpResponse.json(fixtures.analysisMerge);
+      }),
+      http.get(`${API}/projects/:projectId/methods/:methodId/blocks`, () => {
+        calls.blocks++;
+        return HttpResponse.json(fixtures.methodViewMerge);
+      }),
+    );
+    render(<App client={client} projectId="p-1" />);
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(merge.name) }));
+    const area = await screen.findByLabelText('код');
+    await waitFor(() => expect(calls.analysis).toBeGreaterThan(0));
+    await waitFor(() => expect(calls.blocks).toBe(1));
+    expect(calls.tree).toBe(1);
+    const analysisBefore = calls.analysis;
+
+    fireEvent.change(area, { target: { value: `${fileJson.text}\n// правка` } });
+    await waitFor(() => expect(useAppStore.getState().version).toBe(treeJson.version + 1), { timeout: 3000 });
+    expect(await screen.findByText(new RegExp(`версия ${treeJson.version + 1}`))).toBeInTheDocument();
+    await waitFor(() => expect(calls.tree).toBe(2));
+    await waitFor(() => expect(calls.blocks).toBe(2));
+    await waitFor(() => expect(calls.analysis).toBeGreaterThan(analysisBefore));
+    // Ответ tree.json со старой версией не откатывает версию назад.
+    expect(useAppStore.getState().version).toBe(treeJson.version + 1);
+  });
+
+  it('409 на PUT files → дерево проекта перезагружается', async () => {
+    let treeCalls = 0;
+    server.use(
+      http.get(`${API}/projects/:projectId/tree`, () => {
+        treeCalls++;
+        return HttpResponse.json(fixtures.tree);
+      }),
+      http.put(`${API}/projects/:projectId/files`, () => HttpResponse.json(fixtures.errorConflict, { status: 409 })),
+    );
+    render(<App client={client} projectId="p-1" />);
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(merge.name) }));
+    const area = await screen.findByLabelText('код');
+    expect(treeCalls).toBe(1);
+
+    fireEvent.change(area, { target: { value: 'class X {}' } });
+    expect(await screen.findByText('Проект изменён', {}, { timeout: 3000 })).toBeInTheDocument();
+    await waitFor(() => expect(treeCalls).toBe(2));
+  });
+
+  it('своя правка ноды → PUT blocks без лишнего GET blocks; анализ из ответа, дерево перезагружается', async () => {
+    const calls = { tree: 0, blocks: 0, putBlocks: 0 };
+    server.use(
+      http.get(`${API}/projects/:projectId/tree`, () => {
+        calls.tree++;
+        return HttpResponse.json(fixtures.tree);
+      }),
+      http.get(`${API}/projects/:projectId/methods/:methodId/blocks`, () => {
+        calls.blocks++;
+        return HttpResponse.json(fixtures.methodViewMerge);
+      }),
+    );
+    server.events.on('request:start', ({ request }) => {
+      if (request.method === 'PUT' && request.url.includes('/blocks')) calls.putBlocks++;
+    });
+    const setAnalysis = vi.spyOn(useAnalysisStore.getState(), 'setAnalysis');
+    render(<App client={client} projectId="p-1" />);
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(merge.name) }));
+    await screen.findByTestId('node-method', {}, { timeout: 10_000 });
+    const node = screen.getAllByTestId('node-var').find((n) => n.textContent?.includes('a = orders.get(i)'));
+    if (!node) throw new Error('нет ноды var a');
+    expect(calls.blocks).toBe(1);
+    expect(calls.tree).toBe(1);
+
+    fireEvent.doubleClick(within(node).getByText((_, el) => el?.tagName === 'PRE'));
+    const init = within(node).getByLabelText('=');
+    fireEvent.change(init, { target: { value: 'new Order()' } });
+    fireEvent.keyDown(init, { key: 'Enter' });
+
+    await waitFor(() => expect(useAppStore.getState().version).toBe(treeJson.version + 1));
+    await waitFor(() => expect(calls.tree).toBe(2));
+    expect(setAnalysis).toHaveBeenCalledWith('p-1', fixtures.analysisMerge);
+    expect(
+      await screen.findByText((_, el) => el?.tagName === 'PRE' && el.textContent === 'Order a = new Order()'),
+    ).toBeInTheDocument();
+    expect(calls.putBlocks).toBe(1);
+    expect(calls.blocks).toBe(1);
+  }, 15_000);
 });
