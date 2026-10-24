@@ -32,6 +32,15 @@ paths:
                   docker: { type: boolean, description: "Доступен ли Docker: без него run/verify/Quality Gate недоступны, UI отключает кнопки" }
                   llm: { type: boolean, description: "Задан ли LLM_API_KEY" }
 
+  /capabilities:
+    get:
+      summary: Что доступно фронту (CT-04). Без LLM_API_KEY — llm=false, features пустой, кнопок ИИ нет
+      operationId: getCapabilities
+      responses:
+        "200":
+          description: ok
+          content: { application/json: { schema: { $ref: "#/components/schemas/Capabilities" } } }
+
   /projects:
     post:
       summary: Загрузка .java / .zip / .jar (с исходниками) или набора файлов папки
@@ -286,6 +295,90 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Conflict" }
 
+  /projects/{projectId}/methods/{methodId}/explain:
+    parameters:
+      - { $ref: "#/components/parameters/ProjectId" }
+      - { $ref: "#/components/parameters/MethodId" }
+    post:
+      summary: ИИ — «объясни метод» (CT-04). Проект не меняет
+      operationId: explainMethod
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version]
+              properties:
+                version: { type: integer }
+      responses:
+        "200":
+          description: ok
+          content: { application/json: { schema: { $ref: "#/components/schemas/AiExplanation" } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "503": { $ref: "#/components/responses/LlmUnavailable" }
+
+  /projects/{projectId}/methods/{methodId}/ai-edit:
+    parameters:
+      - { $ref: "#/components/parameters/ProjectId" }
+      - { $ref: "#/components/parameters/MethodId" }
+    post:
+      summary: ИИ — правка ноды текстом (CT-04). Только предложение, проект не меняет
+      description: |
+        Возвращает новый полный текст файла и дифф. Применяется человеком по кнопке через PUT /files?path={path}
+        с text и version из ответа (409 при устаревшей версии). Quality Gate не участвует — правка намеренно меняет поведение.
+      operationId: aiEditBlock
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version, blockId, instruction]
+              properties:
+                version: { type: integer }
+                blockId: { type: string, description: "Block.id из MethodView той же version (в теле, т.к. содержит «/»); id метода — правка всего метода" }
+                instruction: { type: string, description: "Напр. «добавь проверку на null»" }
+      responses:
+        "200":
+          description: ok
+          content: { application/json: { schema: { $ref: "#/components/schemas/AiEditProposal" } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422":
+          description: Ответ модели не разобрался как Java; code=PARSE_ERROR, message
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "503": { $ref: "#/components/responses/LlmUnavailable" }
+
+  /projects/{projectId}/issues/{issueId}/ai-fix:
+    parameters:
+      - { $ref: "#/components/parameters/ProjectId" }
+      - { name: issueId, in: path, required: true, schema: { type: string } }
+    post:
+      summary: ИИ — предложить и применить фикс (LlmFixProvider) → тот же Quality Gate, что у applyFix (CT-04)
+      description: issueId действителен только для version, с которой получен анализ; при расхождении — 409. Фикс обязан сохранять порядок перебора (LinkedHashMap/LinkedHashSet).
+      operationId: applyAiFix
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version]
+              properties:
+                version: { type: integer }
+      responses:
+        "200":
+          description: Фикс применён или отклонён Quality Gate (при отклонении версия не меняется)
+          content: { application/json: { schema: { $ref: "#/components/schemas/FixResult" } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "503": { $ref: "#/components/responses/LlmUnavailable" }
+
   /projects/{projectId}/tests:
     parameters: [ { $ref: "#/components/parameters/ProjectId" } ]
     get:
@@ -407,6 +500,12 @@ components:
     Mutation:
       description: Изменение принято, версия увеличена
       content: { application/json: { schema: { $ref: "#/components/schemas/MutationResult" } } }
+    RateLimited:
+      description: Превышен лимит ИИ (в минуту на сессию или дневной); code=RATE_LIMITED, message — понятный текст, details.retryAfterSec
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    LlmUnavailable:
+      description: ИИ недоступен (нет LLM_API_KEY, провайдер не ответил); code=LLM_UNAVAILABLE, message — причина
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
 
   schemas:
     Error:
@@ -415,7 +514,7 @@ components:
       properties:
         code:
           type: string
-          enum: [VERSION_CONFLICT, NOT_FOUND, PARSE_ERROR, DUPLICATE_FQN, ZIP_SLIP, LIMIT_EXCEEDED, NO_SOURCES, COMPILE_ERROR, AMBIGUOUS_MAIN, INVALID_REQUEST, INVALID_RULESET, INTERNAL]
+          enum: [VERSION_CONFLICT, NOT_FOUND, PARSE_ERROR, DUPLICATE_FQN, ZIP_SLIP, LIMIT_EXCEEDED, NO_SOURCES, COMPILE_ERROR, AMBIGUOUS_MAIN, INVALID_REQUEST, INVALID_RULESET, RATE_LIMITED, LLM_UNAVAILABLE, INTERNAL]
         message: { type: string }
         blockId: { type: string, description: "PARSE_ERROR при PUT blocks" }
         line: { type: integer, description: "PARSE_ERROR при PUT files, INVALID_RULESET при PUT pmd-config; с 1" }
@@ -860,3 +959,35 @@ components:
         version: { type: integer }
         isDefault: { type: boolean, description: "Как в PmdConfig после сохранения" }
         analysis: { $ref: "#/components/schemas/Analysis", description: "Анализ с новым конфигом PMD" }
+
+    Capabilities:
+      type: object
+      required: [llm, features, limits]
+      properties:
+        llm: { type: boolean, description: "Задан ли LLM_API_KEY" }
+        features:
+          type: array
+          description: "Доступные ИИ-функции; при llm=false — пустой"
+          items: { type: string, enum: [explain, fix, edit-node] }
+        limits:
+          type: object
+          required: [perMinute, perDay]
+          properties:
+            perMinute: { type: integer, description: "Запросов ИИ в минуту на сессию" }
+            perDay: { type: integer, description: "Общий дневной лимит запросов ИИ" }
+
+    AiExplanation:
+      type: object
+      required: [version, text]
+      properties:
+        version: { type: integer, description: "Версия, для которой дано объяснение" }
+        text: { type: string, description: "Markdown" }
+
+    AiEditProposal:
+      type: object
+      required: [version, path, text, diff]
+      properties:
+        version: { type: integer, description: "Версия, от которой сделано предложение; её же передать в PUT /files" }
+        path: { type: string, description: "Файл, который меняется" }
+        text: { type: string, description: "Новый полный текст файла" }
+        diff: { type: string, description: "Unified diff" }

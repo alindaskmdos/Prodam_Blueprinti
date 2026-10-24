@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "path": "src/com/demo/service/OrderService.java",
+  "text": "package com.demo.service;\n\n// … полный новый текст файла …\n",
+  "diff": "--- a/src/com/demo/service/OrderService.java\n+++ b/src/com/demo/service/OrderService.java\n@@ -37,3 +37,6 @@\n     public int merge() {\n+        if (orders == null) {\n+            return 0;\n+        }\n         int merged = 0;\n"
+}

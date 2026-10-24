@@ -1,0 +1,12 @@
+{
+  "llm": true,
+  "features": [
+    "explain",
+    "fix",
+    "edit-node"
+  ],
+  "limits": {
+    "perMinute": 5,
+    "perDay": 200
+  }
+}

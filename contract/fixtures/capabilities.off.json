@@ -1,0 +1,8 @@
+{
+  "llm": false,
+  "features": [],
+  "limits": {
+    "perMinute": 5,
+    "perDay": 200
+  }
+}
