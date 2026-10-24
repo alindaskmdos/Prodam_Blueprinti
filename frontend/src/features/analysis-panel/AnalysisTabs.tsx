@@ -6,7 +6,7 @@ import { sandboxDisabledReason, useSandboxStore } from '../sandbox';
 import { runCommand } from '../../app/commands';
 import { useAppStore } from '../../app/store';
 import { useAnalysis } from './analysisStore';
-import { issuesSummary, splitIssues } from './format';
+import { groupByScope, issuesSummary, splitIssues, type ScopeGroup } from './format';
 import { IssueCard } from './IssueCard';
 import { OpsEstimate } from './OpsEstimate';
 import styles from './AnalysisPanel.module.css';
@@ -59,31 +59,44 @@ function useFixDisabledReason(): string | null {
 
 function IssueList({
   analysis,
-  issues,
+  groups,
   empty,
 }: {
   analysis: Analysis;
-  issues: Issue[];
+  groups: ScopeGroup<Issue>[];
   empty: string;
 }) {
   const selectedIssueId = useAppStore((s) => s.selectedIssueId);
   const selectIssue = useAppStore((s) => s.selectIssue);
   const fixDisabledReason = useFixDisabledReason();
-  if (issues.length === 0) return <div className={styles.state}>{empty}</div>;
+  if (groups.length === 0) return <div className={styles.state}>{empty}</div>;
   return (
     <div className={styles.list} role="list">
-      {issues.map((issue) => (
-        <div role="listitem" key={issue.id}>
-          <IssueCard
-            issue={issue}
-            selected={issue.id === selectedIssueId}
-            analysisN={analysis.n}
-            onSelect={(i) => selectIssue({ issueId: i.id, methodId: i.methodId, blockId: i.blockId })}
-            fixDisabledReason={fixDisabledReason}
-            onApplyFix={(i, fixId) => runCommand('fix.apply', { issueId: i.id, fixId })}
-          />
-        </div>
-      ))}
+      {/* Плоский список с ключами по id: карточка не перемонтируется, когда выбор переносит её в другую группу. */}
+      {groups.flatMap((g) => [
+        groups.length > 1 && <ScopeHeading key={`h-${g.key}`} label={g.label} />,
+        ...g.items.map((issue) => (
+          <div role="listitem" key={issue.id}>
+            <IssueCard
+              issue={issue}
+              selected={issue.id === selectedIssueId}
+              analysisN={analysis.n}
+              onSelect={(i) => selectIssue({ issueId: i.id, methodId: i.methodId, blockId: i.blockId })}
+              fixDisabledReason={fixDisabledReason}
+              onApplyFix={(i, fixId) => runCommand('fix.apply', { issueId: i.id, fixId })}
+            />
+          </div>
+        )),
+      ])}
+    </div>
+  );
+}
+
+/** Подзаголовок группы; показывается, только если групп больше одной. */
+function ScopeHeading({ label }: { label: string }) {
+  return (
+    <div role="presentation" className={styles.scope} data-testid="scope-heading">
+      {label}
     </div>
   );
 }
@@ -117,13 +130,18 @@ function IssuesContent({
   empty: string;
   selectedIssueId: string | null;
 }) {
-  const issues = useMemo(() => splitIssues(analysis.issues)[pick], [analysis.issues, pick]);
+  const currentMethodId = useAppStore((s) => s.selectedMethodId);
+  const groups = useMemo(
+    () => groupByScope(splitIssues(analysis.issues)[pick], (i) => i.methodId, currentMethodId),
+    [analysis.issues, pick, currentMethodId],
+  );
+  const issues = useMemo(() => groups.flatMap((g) => g.items), [groups]);
   return (
     <>
       <div className={styles.summary} data-testid="issues-summary">
         {issuesSummary(pick, issues)}
       </div>
-      <IssueList analysis={analysis} issues={issues} empty={empty} />
+      <IssueList analysis={analysis} groups={groups} empty={empty} />
       <OpsEstimate issue={estimateIssue(issues, selectedIssueId)} analysisN={analysis.n} />
     </>
   );
@@ -151,6 +169,7 @@ function MetricsContent({ analysis }: { analysis: Analysis }) {
   const selectedMethodId = useAppStore((s) => s.selectedMethodId);
   const selectMethod = useAppStore((s) => s.selectMethod);
   const { metrics } = analysis;
+  const groups = useMemo(() => groupByScope(metrics, (m) => m.methodId, selectedMethodId), [metrics, selectedMethodId]);
   const totalLines = metrics.reduce((sum, m) => sum + m.lines, 0);
   const maxNesting = metrics.reduce((max, m) => Math.max(max, m.maxNesting), 0);
 
@@ -171,32 +190,35 @@ function MetricsContent({ analysis }: { analysis: Analysis }) {
             <span role="columnheader">Влож.</span>
             <span role="columnheader">Время</span>
           </div>
-          {metrics.map((m) => {
-            const on = m.methodId === selectedMethodId;
-            const deep = m.maxNesting > DEEP_NESTING ? styles.warn : '';
-            return (
-              <button
-                key={m.methodId}
-                type="button"
-                role="row"
-                aria-selected={on}
-                className={on ? `${styles.mrow} ${styles.mrowOn}` : styles.mrow}
-                onClick={() => selectMethod(m.methodId)}
-                title={m.methodId}
-              >
-                <span role="cell" className={styles.cellName}>
-                  {shortMethodName(m.methodId)}
-                </span>
-                <span role="cell">{m.lines}</span>
-                <span role="cell" className={deep}>
-                  {m.maxNesting}
-                </span>
-                <span role="cell" className={styles.mono} title={m.complexity}>
-                  {m.complexity}
-                </span>
-              </button>
-            );
-          })}
+          {groups.flatMap((g) => [
+            groups.length > 1 && <ScopeHeading key={`h-${g.key}`} label={g.label} />,
+            ...g.items.map((m) => {
+              const on = m.methodId === selectedMethodId;
+              const deep = m.maxNesting > DEEP_NESTING ? styles.warn : '';
+              return (
+                <button
+                  key={m.methodId}
+                  type="button"
+                  role="row"
+                  aria-selected={on}
+                  className={on ? `${styles.mrow} ${styles.mrowOn}` : styles.mrow}
+                  onClick={() => selectMethod(m.methodId)}
+                  title={m.methodId}
+                >
+                  <span role="cell" className={styles.cellName}>
+                    {shortMethodName(m.methodId)}
+                  </span>
+                  <span role="cell">{m.lines}</span>
+                  <span role="cell" className={deep}>
+                    {m.maxNesting}
+                  </span>
+                  <span role="cell" className={styles.mono} title={m.complexity}>
+                    {m.complexity}
+                  </span>
+                </button>
+              );
+            }),
+          ])}
         </div>
       )}
     </>

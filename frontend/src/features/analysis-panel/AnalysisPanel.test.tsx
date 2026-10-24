@@ -10,8 +10,8 @@ import { scenarios } from '../../mocks/handlers';
 import { panelsIn } from '../../app/panels';
 import { resetAppState, useAppStore } from '../../app/store';
 import { resetAnalysisState, useAnalysisStore } from './analysisStore';
-import { ProblemsTab } from './AnalysisTabs';
-import { formatOps, issuesSummary, parseN, ruleTitle, sortBySeverity, splitIssues } from './format';
+import { MetricsTab, ProblemsTab } from './AnalysisTabs';
+import { formatOps, groupByScope, issuesSummary, parseN, ruleTitle, sortBySeverity, splitIssues } from './format';
 
 const client = createApiClient('http://localhost/api');
 const [high, low] = analysisJson.issues;
@@ -91,6 +91,54 @@ describe('панель анализа', () => {
 
     await screen.findAllByTestId('issue');
     expect(issueIds()).toEqual(['H', 'M', 'L']);
+  });
+
+  const A = 'com.demo.A.run~0';
+  const mid = (id: string, methodId: string) => issue({ id, methodId, severity: 'high', message: id });
+
+  it('порядок: текущий метод, затем методы его класса, затем остальное; внутри групп порядок прежний', async () => {
+    const analysis: Schemas['Analysis'] = {
+      ...fixtures.analysisMerge,
+      issues: [
+        mid('other1', 'com.demo.B.go~0'),
+        mid('cls1', 'com.demo.A.stop~0'),
+        mid('cur1', A),
+        mid('other2', 'com.demo.C.go~0'),
+        mid('cls2', 'com.demo.A.walk~0'),
+        mid('cur2', A),
+      ],
+    };
+    server.use(http.get('*/api/projects/:projectId/analysis', () => HttpResponse.json(analysis)));
+    // Без открытого метода — прежний порядок, подзаголовков нет.
+    const { unmount } = render(<ProblemsTab client={client} />);
+    await screen.findAllByTestId('issue');
+    expect(issueIds()).toEqual(['other1', 'cls1', 'cur1', 'other2', 'cls2', 'cur2']);
+    expect(screen.queryByTestId('scope-heading')).not.toBeInTheDocument();
+    unmount();
+
+    act(() => useAppStore.getState().selectMethod(A));
+    render(<ProblemsTab client={client} />);
+    await screen.findAllByTestId('issue');
+    expect(issueIds()).toEqual(['cur1', 'cur2', 'cls1', 'cls2', 'other1', 'other2']);
+    expect(screen.getAllByTestId('scope-heading').map((e) => e.textContent)).toEqual([
+      'Этот метод',
+      'Этот класс',
+      'Остальное',
+    ]);
+  });
+
+  it('метрики: текущий метод, его класс, остальное', async () => {
+    const m = (methodId: string) => ({ methodId, complexity: 'O(n)', lines: 5, maxNesting: 1 });
+    const analysis: Schemas['Analysis'] = {
+      ...fixtures.analysisMerge,
+      metrics: [m('com.demo.B.go~0'), m('com.demo.A.stop~0'), m(A)],
+    };
+    server.use(http.get('*/api/projects/:projectId/analysis', () => HttpResponse.json(analysis)));
+    act(() => useAppStore.getState().selectMethod(A));
+    render(<MetricsTab client={client} />);
+    await screen.findByRole('table', { name: 'Метрики методов' });
+    const rows = screen.getAllByRole('row').map((r) => r.getAttribute('title'));
+    expect(rows.filter(Boolean)).toEqual([A, 'com.demo.A.stop~0', 'com.demo.B.go~0']);
   });
 
   it('клик по проблеме выставляет в store methodId, issueId и blockId', async () => {
@@ -186,6 +234,17 @@ describe('панель анализа', () => {
 });
 
 describe('format', () => {
+  it('groupByScope: без текущего метода порядок не меняется; метод без id — в «Остальное»', () => {
+    const items = [{ m: 'a.B.x~0' }, { m: undefined }, { m: 'a.B.y~0' }, { m: 'a.C.x~0' }];
+    const by = (cur: string | null) => groupByScope(items, (i) => i.m, cur).map((g) => [g.key, g.items.map((i) => i.m)]);
+    expect(by(null)).toEqual([['rest', ['a.B.x~0', undefined, 'a.B.y~0', 'a.C.x~0']]]);
+    expect(by('a.B.y~0')).toEqual([
+      ['method', ['a.B.y~0']],
+      ['class', ['a.B.x~0']],
+      ['rest', [undefined, 'a.C.x~0']],
+    ]);
+  });
+
   it('ruleTitle: русское название по id, неизвестный id — как есть', () => {
     expect(ruleTitle('NestedLoopSameCollection')).toBe('Вложенный цикл по одной коллекции');
     expect(ruleTitle('StringConcatInLoop')).toBe('Конкатенация строк в цикле');

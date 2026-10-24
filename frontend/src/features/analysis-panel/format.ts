@@ -135,3 +135,43 @@ export function issuesSummary(pick: 'problems' | 'warnings', issues: readonly Is
   const fixable = issues.filter((i) => i.fixes.length > 0).length;
   return `${issues.length} ${plural(issues.length, 'проблема', 'проблемы', 'проблем')} · можно исправить автоматически: ${fixable}`;
 }
+
+export type ScopeKey = 'method' | 'class' | 'rest';
+
+export interface ScopeGroup<T> {
+  key: ScopeKey;
+  label: string;
+  items: T[];
+}
+
+const SCOPE_LABEL: Record<ScopeKey, string> = { method: 'Этот метод', class: 'Этот класс', rest: 'Остальное' };
+
+/** Класс метода из MethodNode.id: «com.demo.OrderService.merge~0» → «com.demo.OrderService». */
+function classOf(methodId: string): string {
+  return methodId.replace(/~\d+$/, '').split('.').slice(0, -1).join('.');
+}
+
+/**
+ * Группы «Этот метод» → «Этот класс» → «Остальное»; порядок внутри групп прежний (стабильно).
+ * Пустые группы опущены. Без текущего метода всё в `rest` (порядок не меняется).
+ */
+export function groupByScope<T>(
+  items: readonly T[],
+  methodIdOf: (item: T) => string | undefined,
+  currentMethodId: string | null,
+): ScopeGroup<T>[] {
+  const buckets: Record<ScopeKey, T[]> = { method: [], class: [], rest: [] };
+  const cls = currentMethodId ? classOf(currentMethodId) : null;
+  for (const item of items) {
+    const id = methodIdOf(item);
+    let key: ScopeKey = 'rest';
+    if (currentMethodId !== null && id !== undefined) {
+      if (id === currentMethodId) key = 'method';
+      else if (classOf(id) === cls) key = 'class';
+    }
+    buckets[key].push(item);
+  }
+  return (['method', 'class', 'rest'] as const)
+    .filter((key) => buckets[key].length > 0)
+    .map((key) => ({ key, label: SCOPE_LABEL[key], items: buckets[key] }));
+}

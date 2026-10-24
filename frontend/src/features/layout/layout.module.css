@@ -219,6 +219,7 @@
   gap: 0;
   flex: 1 1 auto;
   min-width: 0;
+  overflow: hidden;
 }
 
 .tabExtra {
@@ -237,7 +238,7 @@
   background: none;
   border: 0;
   cursor: pointer;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
