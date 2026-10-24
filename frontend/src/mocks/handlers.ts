@@ -16,6 +16,16 @@ export const handlers = [
   http.post(`${API}/projects`, () => HttpResponse.json(fixtures.project, { status: 201 })),
   http.get(`${API}/projects/:projectId`, () => HttpResponse.json(fixtures.project)),
   http.get(`${API}/projects/:projectId/tree`, () => HttpResponse.json(fixtures.tree)),
+  // Для файла экспорта фикстуры нет — байты-заглушка с заголовком Content-Disposition по контракту.
+  http.get(`${API}/projects/:projectId/export`, ({ request, params }) => {
+    const format = new URL(request.url).searchParams.get('format') === 'jar' ? 'jar' : 'zip';
+    return new HttpResponse(new Uint8Array([0x50, 0x4b, 0x03, 0x04]), {
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Content-Disposition': `attachment; filename="${String(params.projectId)}.${format}"`,
+      },
+    });
+  }),
   http.get(`${API}/projects/:projectId/methods/:methodId/blocks`, () =>
     HttpResponse.json(fixtures.methodViewMerge),
   ),
@@ -55,4 +65,63 @@ export const scenarios = {
   conflictOnFile: http.put(`${API}/projects/:projectId/files`, () =>
     HttpResponse.json(fixtures.errorConflict, { status: 409 }),
   ),
+
+  // POST /projects: проект без предупреждений и с предупреждениями всех кодов LoadWarning.
+  uploadClean: http.post(`${API}/projects`, () =>
+    HttpResponse.json<Schemas['Project']>({ ...fixtures.project, warnings: [] }, { status: 201 }),
+  ),
+  uploadWarnings: http.post(`${API}/projects`, () =>
+    HttpResponse.json<Schemas['Project']>({ ...fixtures.project, warnings: loadWarnings }, { status: 201 }),
+  ),
+  // POST /projects: отказы по кодам Error из контракта (§11).
+  uploadDuplicateFqn: http.post(`${API}/projects`, () =>
+    HttpResponse.json<Schemas['Error']>(
+      {
+        code: 'DUPLICATE_FQN',
+        message: 'класс com.demo.Order объявлен в нескольких файлах',
+        files: ['a/com/demo/Order.java', 'b/com/demo/Order.java'],
+      },
+      { status: 422 },
+    ),
+  ),
+  uploadNoSources: http.post(`${API}/projects`, () =>
+    HttpResponse.json<Schemas['Error']>(
+      { code: 'NO_SOURCES', message: 'нужны исходники, а не скомпилированный код' },
+      { status: 422 },
+    ),
+  ),
+  uploadZipSlip: http.post(`${API}/projects`, () =>
+    HttpResponse.json<Schemas['Error']>({ code: 'ZIP_SLIP', message: 'путь ../evil.java вне архива' }, { status: 422 }),
+  ),
+  uploadLimitExceeded: http.post(`${API}/projects`, () =>
+    HttpResponse.json<Schemas['Error']>(
+      { code: 'LIMIT_EXCEEDED', message: 'распакованный размер больше 20 МБ' },
+      { status: 413 },
+    ),
+  ),
+
+  // GET export: jar не компилируется (422) и jar ещё не реализован на бэке (501, тело — как у app сейчас).
+  exportJarCompileError: http.get(`${API}/projects/:projectId/export`, ({ request }) =>
+    new URL(request.url).searchParams.get('format') === 'jar'
+      ? HttpResponse.json<Schemas['Error']>(
+          { code: 'COMPILE_ERROR', message: 'OrderService.java:33 — cannot find symbol byId' },
+          { status: 422 },
+        )
+      : undefined,
+  ),
+  exportJarNotImplemented: http.get(`${API}/projects/:projectId/export`, ({ request }) =>
+    new URL(request.url).searchParams.get('format') === 'jar'
+      ? HttpResponse.json<Schemas['Error']>(
+          { code: 'INTERNAL', message: 'экспорт .jar пока не реализован' },
+          { status: 501 },
+        )
+      : undefined,
+  ),
 };
+
+const loadWarnings: Schemas['LoadWarning'][] = [
+  ...fixtures.project.warnings,
+  { code: 'TESTS_IMPORTED', message: 'Найдена папка tests/: 1 IO-тест.' },
+  { code: 'IGNORED_FILE', file: 'pom.xml', message: 'pom.xml не нужен — работаем с исходниками.' },
+  { code: 'UNPARSED_FILE', file: 'src/com/demo/Nested.java', message: 'Файл загружен текстом, без схемы.' },
+];

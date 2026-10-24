@@ -13,7 +13,7 @@ describe('App — каркас редактора на MSW', () => {
   beforeEach(() => resetAppState());
 
   it('рендерит шапку, дерево из tree.json, холст и обе панели вкладок', async () => {
-    render(<App client={client} />);
+    render(<App client={client} projectId="p-1" />);
 
     expect(screen.getByText('Java Blueprints')).toBeInTheDocument();
     const firstPackage = treeJson.packages[0]?.name ?? '';
@@ -43,7 +43,7 @@ describe('App — каркас редактора на MSW', () => {
   });
 
   it('клик по методу в дереве выбирает methodId и открывает его на холсте', async () => {
-    render(<App client={client} />);
+    render(<App client={client} projectId="p-1" />);
 
     const button = await screen.findByRole('button', { name: new RegExp(merge.name) });
     expect(button).toHaveAttribute('aria-pressed', 'false');
@@ -55,7 +55,7 @@ describe('App — каркас редактора на MSW', () => {
   });
 
   it('слот холста подставляет переданный компонент', async () => {
-    render(<App client={client} canvas={<div>холст FE-03</div>} />);
+    render(<App client={client} projectId="p-1" canvas={<div>холст FE-03</div>} />);
     expect(await screen.findByText('OrderService')).toBeInTheDocument();
     expect(screen.getByText('холст FE-03')).toBeInTheDocument();
     expect(screen.queryByTestId('canvas-stub')).not.toBeInTheDocument();

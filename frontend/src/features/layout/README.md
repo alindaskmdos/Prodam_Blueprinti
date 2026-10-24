@@ -5,7 +5,7 @@
 - `EditorLayout` — шапка + три колонки (дерево | центр | анализ), центр делится на холст и нижнюю панель.
   Слоты: `header`, `left`, `canvas`, `right`, `bottom`. Разделители перетаскиваются (react-resizable-panels),
   размеры запоминаются в localStorage (`jb-editor-columns`, `jb-editor-center`).
-- `EditorHeader` — логотип, проект и версия, точка входа; кнопки загрузки/экспорта/запуска/проверки пока неактивны (FE-13, FE-15).
+- `EditorHeader` — логотип, проект и версия, точка входа; «Загрузить проект» / «Экспорт» активны, если переданы `onUpload` / `onExport` (App вызывает команды `project.upload` / `project.export`); запуск и проверка пока неактивны (FE-13).
 - `CanvasSlot` — рамка холста: полоса с выбранным методом (`useAppStore().selectedMethodId`) и `children` — холст FE-03; без него заглушка.
 - `PanelTabs` — панель с вкладками из списка `TabDef {id, title, component}` (`role=tablist/tab/tabpanel`).
 - `stubPanel(text)` / `PanelStub` — заглушки вкладок для реестра `src/app/panels.ts`.

@@ -6,10 +6,14 @@ interface EditorHeaderProps {
   version: number | null;
   /** Точка входа, напр. «Main.main»; null — main не найден. */
   entryPoint: string | null;
+  /** «Загрузить проект»; без обработчика кнопка неактивна. */
+  onUpload?: () => void;
+  /** «Экспорт»; без обработчика кнопка неактивна. */
+  onExport?: () => void;
 }
 
-/** Шапка редактора. Кнопки — заглушки до FE-13 (запуск, проверка) и FE-15 (загрузка, экспорт). */
-export function EditorHeader({ projectName, version, entryPoint }: EditorHeaderProps) {
+/** Шапка редактора. Запуск и проверка — заглушки до FE-13. */
+export function EditorHeader({ projectName, version, entryPoint, onUpload, onExport }: EditorHeaderProps) {
   return (
     <header className={styles.header}>
       <div className={styles.brand}>
@@ -28,10 +32,10 @@ export function EditorHeader({ projectName, version, entryPoint }: EditorHeaderP
           </span>
         </div>
       </div>
-      <button type="button" className={styles.btn} disabled title="Появится в FE-15">
+      <button type="button" className={styles.btn} disabled={!onUpload} onClick={onUpload}>
         Загрузить проект
       </button>
-      <button type="button" className={styles.btn} disabled title="Появится в FE-15">
+      <button type="button" className={styles.btn} disabled={!onExport} onClick={onExport} aria-haspopup="dialog">
         Экспорт ▾
       </button>
       <div className={styles.spacer} />
