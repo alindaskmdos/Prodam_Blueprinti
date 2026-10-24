@@ -101,7 +101,7 @@ export interface paths {
             header?: never;
             path: {
                 projectId: components["parameters"]["ProjectId"];
-                /** @description FQN класса + имя + ~ + индекс перегрузки, напр. com.demo.service.OrderService.merge~0. Конструктор — имя <init>: com.demo.model.Order.<init>~0. Вложенный класс — через $ (Outer$Inner.run~0), анонимный/лямбда отдельного id не имеют (часть блоков метода-хозяина). Фронт кодирует id в пути через encodeURIComponent ($, <, > и т.п.). */
+                /** @description FQN класса + имя + ~ + индекс перегрузки, напр. com.demo.service.OrderService.merge~0. Конструктор — имя <init>: com.demo.model.Order.<init>~0. Вложенный класс — через $ (Outer$Inner.run~0), тогда как в ClassNode.fqn/UmlClass.id — через точку (Outer.Inner); перевод — заменой $ на . в части до последнего «.имяМетода~N». Анонимный/лямбда отдельного id не имеют (часть блоков метода-хозяина). Фронт кодирует id в пути через encodeURIComponent ($, <, > и т.п.). */
                 methodId: components["parameters"]["MethodId"];
             };
             cookie?: never;
@@ -151,6 +151,75 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/uml": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * UML-диаграмма классов проекта (§14а.1)
+         * @description Связи — только между классами проекта; типы JDK видны лишь как типы полей внутри карточки.
+         */
+        get: operations["getUml"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/dependencies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Граф зависимостей классов с циклами (§14а.4)
+         * @description «Класс → классы проекта, которые он использует». Связи внешний ↔ вложенный класс не учитываются.
+         *     Каждый цикл (сильно связная компонента) дублируется в GET analysis как Issue с rule=CyclicDependency.
+         */
+        get: operations["getDependencies"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/pmd-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        /** Конфиг PMD проекта (.blueprints/pmd-ruleset.xml) или стандартный набор (§14а.2) */
+        get: operations["getPmdConfig"];
+        /**
+         * Новый текст конфига PMD → перезапуск анализа (меняет version проекта)
+         * @description Конфиг сохраняется в .blueprints/pmd-ruleset.xml и экспортируется с проектом (zip, includeSettings).
+         */
+        put: operations["putPmdConfig"];
+        post?: never;
+        /** Сброс к стандартному набору — удаляет .blueprints/pmd-ruleset.xml, перезапуск анализа (меняет version проекта) */
+        delete: operations["resetPmdConfig"];
         options?: never;
         head?: never;
         patch?: never;
@@ -267,11 +336,11 @@ export interface components {
     schemas: {
         Error: {
             /** @enum {string} */
-            code: "VERSION_CONFLICT" | "NOT_FOUND" | "PARSE_ERROR" | "DUPLICATE_FQN" | "ZIP_SLIP" | "LIMIT_EXCEEDED" | "NO_SOURCES" | "COMPILE_ERROR" | "AMBIGUOUS_MAIN" | "INVALID_REQUEST" | "INTERNAL";
+            code: "VERSION_CONFLICT" | "NOT_FOUND" | "PARSE_ERROR" | "DUPLICATE_FQN" | "ZIP_SLIP" | "LIMIT_EXCEEDED" | "NO_SOURCES" | "COMPILE_ERROR" | "AMBIGUOUS_MAIN" | "INVALID_REQUEST" | "INVALID_RULESET" | "INTERNAL";
             message: string;
             /** @description PARSE_ERROR при PUT blocks */
             blockId?: string;
-            /** @description PARSE_ERROR при PUT files, с 1 */
+            /** @description PARSE_ERROR при PUT files, INVALID_RULESET при PUT pmd-config; с 1 */
             line?: number;
             /** @description DUPLICATE_FQN: конфликтующие файлы */
             files?: string[];
@@ -285,6 +354,11 @@ export interface components {
             file: string;
             startLine: number;
             endLine: number;
+        };
+        /** @description Точка в тексте файла, как позиция Monaco — line и column с 1, column в UTF-16 code units. */
+        TextPosition: {
+            line: number;
+            column: number;
         };
         ProjectFile: {
             /** @description Путь как в архиве, но без общей верхней папки-обёртки (§11). Экспорт .zip добавляет обёртку обратно. Этим путём файл адресуется в ?path= и Span.file */
@@ -317,21 +391,63 @@ export interface components {
                 }[];
             }[];
         };
+        /**
+         * @description Формы структуры (§7) правят заголовки объявлений через PUT files. Заголовок класса/метода заменяется
+         *     точно: текст от headerStart (включительно) до headerEnd (не включительно) — новым заголовком; сама «{»
+         *     (или «;» у метода без тела) и всё после неё сохраняются байт в байт. Так однострочные `int f() { return 1; }`
+         *     и `class A { int x; }` не теряют тело. Поле заменяется по строкам своего span.
+         *     Комментарии внутри заменяемого заголовка при перезаписи формой пропадают.
+         */
         ClassNode: {
+            /** @description Вложенный — Outer$Inner */
             name: string;
             /** @enum {string} */
             kind: "class" | "interface" | "enum" | "record";
+            /**
+             * @description FQN через точки (вложенный — pkg.Outer.Inner), = UmlClass.id = DependencyGraph.nodes[].id.
+             *     В MethodId вложенный класс записан через $ (pkg.Outer$Inner.run~0); перевод MethodId → fqn —
+             *     заменить $ на . в части до последнего «.имяМетода~N».
+             * @example com.demo.model.Order.Summary
+             */
+            fqn?: string;
             span?: components["schemas"]["Span"];
+            /** @description Строки заголовка: от первой аннотации/модификатора до строки с открывающей «{» (javadoc не входит). Для подсветки; точная граница замены — headerStart/headerEnd */
+            headerSpan?: components["schemas"]["Span"];
+            /** @description Начало заголовка: первый символ первой аннотации или модификатора (или ключевого слова class/interface/enum/record) */
+            headerStart?: components["schemas"]["TextPosition"];
+            /** @description Позиция открывающей «{» тела класса; заменяемый текст заканчивается перед ней */
+            headerEnd?: components["schemas"]["TextPosition"];
+            /** @description Аннотации класса текстом как в коде, напр. "@Deprecated" */
+            annotations?: string[];
+            /**
+             * @example [
+             *       "public",
+             *       "final"
+             *     ]
+             */
+            modifiers?: string[];
+            /**
+             * @description Параметры типа текстом как в коде, с угловыми скобками; нет — ключа нет
+             * @example <A, B>
+             */
+            typeParams?: string;
+            /** @description Текст после extends как в коде; у interface может быть список через запятую; нет — ключа нет */
+            extends?: string;
+            /** @description Типы после implements как в коде (с аргументами типа) */
+            implements?: string[];
             fields: {
                 name: string;
                 type: string;
                 modifiers?: string[];
+                /** @description Объявление поля целиком (с аннотациями и инициализатором). При `int a, b;` span общий для всего объявления — форма показывает такое поле только для чтения. У компонент record нет — они в заголовке класса */
+                span?: components["schemas"]["Span"];
             }[];
             constructors: components["schemas"]["MethodNode"][];
             methods: components["schemas"]["MethodNode"][];
         };
         MethodNode: {
             id: string;
+            /** @description У конструктора — простое имя класса */
             name: string;
             signature: string;
             /**
@@ -340,6 +456,36 @@ export interface components {
              */
             complexity?: string;
             issueCount: number;
+            /** @description Объявление целиком: аннотации, заголовок и тело */
+            span?: components["schemas"]["Span"];
+            /** @description Строки заголовка: от первой аннотации/модификатора до строки с открывающей «{» тела (у метода без тела — с «;»). Для подсветки; точная граница замены — headerStart/headerEnd (правило — в ClassNode). Комментарии внутри заголовка при перезаписи формой пропадают */
+            headerSpan?: components["schemas"]["Span"];
+            /** @description Начало заголовка: первый символ первой аннотации, модификатора, параметров типа или типа результата/имени */
+            headerStart?: components["schemas"]["TextPosition"];
+            /** @description Позиция открывающей «{» тела; у abstract- и interface-метода — позиция «;». Заменяется текст от headerStart до headerEnd не включительно, «{»/«;» и всё после сохраняются */
+            headerEnd?: components["schemas"]["TextPosition"];
+            /** @description Аннотации текстом как в коде, напр. "@Override" */
+            annotations?: string[];
+            /**
+             * @example [
+             *       "public",
+             *       "static"
+             *     ]
+             */
+            modifiers?: string[];
+            /**
+             * @description Параметры типа метода текстом с угловыми скобками; нет — ключа нет
+             * @example <C>
+             */
+            typeParams?: string;
+            /** @description Нет у конструкторов */
+            returnType?: string;
+            params?: {
+                name: string;
+                /** @description Как в коде, varargs — "String..." */
+                type: string;
+            }[];
+            throws?: string[];
         };
         FileText: {
             path: string;
@@ -408,7 +554,10 @@ export interface components {
         Issue: {
             /** @description Действителен только для version анализа, в котором получен */
             id: string;
-            /** @example NestedLoopSameCollection */
+            /**
+             * @description Цикл зависимостей классов — CyclicDependency (§14а.4)
+             * @example NestedLoopSameCollection
+             */
             rule: string;
             severity: components["schemas"]["Severity"];
             confidence: components["schemas"]["Confidence"];
@@ -417,9 +566,13 @@ export interface components {
              * @default blueprints
              */
             source?: string;
+            /** @description У находок уровня класса/проекта — объявление (первого) затронутого класса */
             span: components["schemas"]["Span"];
             methodId?: string;
-            blockId: string;
+            /** @description Нет у находок уровня класса/проекта */
+            blockId?: string;
+            /** @description FQN затронутых классов (как UmlClass.id) у находок уровня класса/проекта, напр. CyclicDependency */
+            classIds?: string[];
             message: string;
             recommendation?: string;
             complexity?: {
@@ -511,6 +664,121 @@ export interface components {
                 message: string;
             }[];
         };
+        /** @description Метод или конструктор в карточке класса. span нет — переход в Monaco/редактор идёт через tree (MethodNode с тем же id) или GET blocks по id. */
+        UmlMember: {
+            /** @description MethodId — тот же, что в tree и blocks (переход в редактор) */
+            id: string;
+            /** @description У конструктора — простое имя класса */
+            name: string;
+            signature: string;
+            modifiers: string[];
+        };
+        UmlClass: {
+            /**
+             * @description FQN через точки, вложенный — pkg.Outer.Inner (= ClassNode.fqn)
+             * @example com.demo.model.Order.Summary
+             */
+            id: string;
+            /**
+             * @description Имя для карточки: без пакета, вложенный — Outer.Inner
+             * @example Order.Summary
+             */
+            name: string;
+            /** @enum {string} */
+            kind: "class" | "interface" | "enum" | "record";
+            /** @description Пустая строка — пакет по умолчанию */
+            package: string;
+            /** @description Файл, как ProjectFile.path */
+            path: string;
+            span: components["schemas"]["Span"];
+            modifiers: string[];
+            /**
+             * @description Текстом с угловыми скобками; нет — ключа нет
+             * @example <A, B>
+             */
+            typeParams?: string;
+            /** @description Включая компоненты record. Типы — как в коде, в т.ч. JDK (без стрелок) */
+            fields: {
+                name: string;
+                type: string;
+                modifiers: string[];
+            }[];
+            constructors: components["schemas"]["UmlMember"][];
+            methods: components["schemas"]["UmlMember"][];
+        };
+        /**
+         * @description Связь между двумя классами проекта (from → to); с внешними типами связей нет.
+         *     На пару from/to — одна связь самого сильного вида: extends/implements > composition > aggregation > association > dependency.
+         *     association — поле типа класса проекта; dependency — использование в методе/конструкторе.
+         *     aggregation/composition — эвристика (heuristic=true): коллекция или объект из параметра конструктора → aggregation,
+         *     создан через new внутри класса → composition. Поле-коллекция (List<T>, Set<T>, Map<K,V> — по значению, массив)
+         *     даёт связь к T с multiplicity "*".
+         */
+        UmlRelation: {
+            /** @description UmlClass.id */
+            from: string;
+            /** @description UmlClass.id */
+            to: string;
+            /** @enum {string} */
+            kind: "extends" | "implements" | "association" | "dependency" | "aggregation" | "composition";
+            /** @description true для aggregation/composition — UI помечает «эвристика» */
+            heuristic: boolean;
+            /**
+             * @description Только у связей через поле; нет — ключа нет
+             * @enum {string}
+             */
+            multiplicity?: "1" | "*";
+            /** @description Имя поля или метода, давшего связь */
+            via?: string;
+        };
+        UmlDiagram: {
+            version: number;
+            classes: components["schemas"]["UmlClass"][];
+            relations: components["schemas"]["UmlRelation"][];
+        };
+        DependencyGraph: {
+            version: number;
+            nodes: {
+                /** @description FQN класса (= UmlClass.id) */
+                id: string;
+                /** @enum {string} */
+                kind?: "class" | "interface" | "enum" | "record";
+                /** @description Без пакета, вложенный — Outer.Inner */
+                name: string;
+                package: string;
+                path: string;
+            }[];
+            /** @description from использует to; без связей внешний ↔ вложенный класс и без петель */
+            edges: {
+                from: string;
+                to: string;
+                /** @description Ребро внутри цикла (сильно связной компоненты) — красная подсветка */
+                inCycle: boolean;
+            }[];
+            /** @description Сильно связные компоненты из 2+ классов (Tarjan) */
+            cycles: {
+                /** @description FQN классов цикла */
+                classes: string[];
+                /** @description 2 класса — low, 3+ — medium */
+                severity: components["schemas"]["Severity"];
+                /** @description Issue с rule=CyclicDependency в GET analysis той же version */
+                issueId: string;
+            }[];
+        };
+        PmdConfig: {
+            version: number;
+            /** @description Текст ruleset XML */
+            xml: string;
+            /** @description true — в проекте нет .blueprints/pmd-ruleset.xml, отдан стандартный набор (без правил, дублирующих наши детекторы) */
+            isDefault: boolean;
+        };
+        PmdConfigMutationResult: {
+            version: number;
+            /** @description Как в PmdConfig после сохранения */
+            isDefault: boolean;
+            /** @description Анализ с новым конфигом PMD */
+            analysis: components["schemas"]["Analysis"];
+        };
     };
     responses: {
         /** @description Ошибка */
@@ -552,7 +820,7 @@ export interface components {
     };
     parameters: {
         ProjectId: string;
-        /** @description FQN класса + имя + ~ + индекс перегрузки, напр. com.demo.service.OrderService.merge~0. Конструктор — имя <init>: com.demo.model.Order.<init>~0. Вложенный класс — через $ (Outer$Inner.run~0), анонимный/лямбда отдельного id не имеют (часть блоков метода-хозяина). Фронт кодирует id в пути через encodeURIComponent ($, <, > и т.п.). */
+        /** @description FQN класса + имя + ~ + индекс перегрузки, напр. com.demo.service.OrderService.merge~0. Конструктор — имя <init>: com.demo.model.Order.<init>~0. Вложенный класс — через $ (Outer$Inner.run~0), тогда как в ClassNode.fqn/UmlClass.id — через точку (Outer.Inner); перевод — заменой $ на . в части до последнего «.имяМетода~N». Анонимный/лямбда отдельного id не имеют (часть блоков метода-хозяина). Фронт кодирует id в пути через encodeURIComponent ($, <, > и т.п.). */
         MethodId: string;
         /** @description Путь файла как в архиве */
         FilePath: string;
@@ -729,7 +997,7 @@ export interface operations {
             header?: never;
             path: {
                 projectId: components["parameters"]["ProjectId"];
-                /** @description FQN класса + имя + ~ + индекс перегрузки, напр. com.demo.service.OrderService.merge~0. Конструктор — имя <init>: com.demo.model.Order.<init>~0. Вложенный класс — через $ (Outer$Inner.run~0), анонимный/лямбда отдельного id не имеют (часть блоков метода-хозяина). Фронт кодирует id в пути через encodeURIComponent ($, <, > и т.п.). */
+                /** @description FQN класса + имя + ~ + индекс перегрузки, напр. com.demo.service.OrderService.merge~0. Конструктор — имя <init>: com.demo.model.Order.<init>~0. Вложенный класс — через $ (Outer$Inner.run~0), тогда как в ClassNode.fqn/UmlClass.id — через точку (Outer.Inner); перевод — заменой $ на . в части до последнего «.имяМетода~N». Анонимный/лямбда отдельного id не имеют (часть блоков метода-хозяина). Фронт кодирует id в пути через encodeURIComponent ($, <, > и т.п.). */
                 methodId: components["parameters"]["MethodId"];
             };
             cookie?: never;
@@ -754,7 +1022,7 @@ export interface operations {
             header?: never;
             path: {
                 projectId: components["parameters"]["ProjectId"];
-                /** @description FQN класса + имя + ~ + индекс перегрузки, напр. com.demo.service.OrderService.merge~0. Конструктор — имя <init>: com.demo.model.Order.<init>~0. Вложенный класс — через $ (Outer$Inner.run~0), анонимный/лямбда отдельного id не имеют (часть блоков метода-хозяина). Фронт кодирует id в пути через encodeURIComponent ($, <, > и т.п.). */
+                /** @description FQN класса + имя + ~ + индекс перегрузки, напр. com.demo.service.OrderService.merge~0. Конструктор — имя <init>: com.demo.model.Order.<init>~0. Вложенный класс — через $ (Outer$Inner.run~0), тогда как в ClassNode.fqn/UmlClass.id — через точку (Outer.Inner); перевод — заменой $ на . в части до последнего «.имяМетода~N». Анонимный/лямбда отдельного id не имеют (часть блоков метода-хозяина). Фронт кодирует id в пути через encodeURIComponent ($, <, > и т.п.). */
                 methodId: components["parameters"]["MethodId"];
             };
             cookie?: never;
@@ -868,6 +1136,144 @@ export interface operations {
                 };
             };
             404: components["responses"]["Error"];
+        };
+    };
+    getUml: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UmlDiagram"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    getDependencies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DependencyGraph"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    getPmdConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmdConfig"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    putPmdConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Версия проекта, с которой работал фронт */
+                    version: number;
+                    /** @description Полный текст ruleset XML */
+                    xml: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Конфиг принят, версия увеличена */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmdConfigMutationResult"];
+                };
+            };
+            404: components["responses"]["Error"];
+            409: components["responses"]["Conflict"];
+            /** @description XML не разбирается или не является ruleset PMD (неизвестное правило и т.п.); code=INVALID_RULESET, line (если известна) и message. Конфиг остаётся прежним. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    resetPmdConfig: {
+        parameters: {
+            query: {
+                /** @description Версия проекта, с которой работал фронт */
+                version: number;
+            };
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Сброшено, isDefault=true, версия увеличена */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PmdConfigMutationResult"];
+                };
+            };
+            404: components["responses"]["Error"];
+            409: components["responses"]["Conflict"];
         };
     };
     applyFix: {

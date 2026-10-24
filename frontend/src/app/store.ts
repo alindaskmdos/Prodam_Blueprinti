@@ -5,7 +5,8 @@ export interface IssueSelection {
   issueId: string;
   /** Issue.methodId; нет — выбранный метод не меняется, а selectedBlockId сбрасывается. */
   methodId?: string | null;
-  blockId: string;
+  /** Issue.blockId; нет у находок уровня класса/проекта (CyclicDependency). */
+  blockId?: string | null;
 }
 
 /** Строки фрагмента кода, как Span контракта (с 1, включительно). */
@@ -104,7 +105,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
       set({ selectedIssueId: null, selectedBlockId: null, ...(h?.source === 'issue' ? { highlight: null } : {}) });
       return;
     }
-    const { issueId, methodId, blockId } = selection;
+    const { issueId, methodId } = selection;
+    const blockId = selection.blockId ?? null;
     // Без methodId неизвестно, в каком методе блок: blockId не ставим, чтобы холст не искал его в чужом методе.
     set(
       methodId

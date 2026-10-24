@@ -10,11 +10,40 @@
             {
               "name": "OrderService",
               "kind": "class",
-              "span": { "file": "src/com/demo/service/OrderService.java", "startLine": 10, "endLine": 140 },
-              "fields": [ { "name": "orders", "type": "List<Order>", "modifiers": ["private", "final"] } ],
+              "fqn": "com.demo.service.OrderService",
+              "span": { "file": "src/com/demo/service/OrderService.java", "startLine": 11, "endLine": 139 },
+              "headerSpan": { "file": "src/com/demo/service/OrderService.java", "startLine": 11, "endLine": 11 },
+              "headerStart": { "line": 11, "column": 1 },
+              "headerEnd": { "line": 11, "column": 27 },
+              "annotations": [],
+              "modifiers": ["public"],
+              "implements": [],
+              "fields": [
+                {
+                  "name": "orders",
+                  "type": "List<Order>",
+                  "modifiers": ["private", "final"],
+                  "span": { "file": "src/com/demo/service/OrderService.java", "startLine": 14, "endLine": 14 }
+                }
+              ],
               "constructors": [],
               "methods": [
-                { "id": "com.demo.service.OrderService.merge~0", "name": "merge", "signature": "public int merge()", "complexity": "O(n²)", "issueCount": 1 }
+                {
+                  "id": "com.demo.service.OrderService.merge~0",
+                  "name": "merge",
+                  "signature": "public int merge()",
+                  "complexity": "O(n²)",
+                  "issueCount": 1,
+                  "span": { "file": "src/com/demo/service/OrderService.java", "startLine": 37, "endLine": 55 },
+                  "headerSpan": { "file": "src/com/demo/service/OrderService.java", "startLine": 37, "endLine": 37 },
+                  "headerStart": { "line": 37, "column": 5 },
+                  "headerEnd": { "line": 37, "column": 24 },
+                  "annotations": [],
+                  "modifiers": ["public"],
+                  "returnType": "int",
+                  "params": [],
+                  "throws": []
+                }
               ]
             }
           ]

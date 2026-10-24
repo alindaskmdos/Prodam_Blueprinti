@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "nodes": [
+    { "id": "com.shop.Cart", "name": "Cart", "kind": "class", "package": "com.shop", "path": "src/com/shop/Cart.java" },
+    { "id": "com.shop.Pricing", "name": "Pricing", "kind": "class", "package": "com.shop", "path": "src/com/shop/Pricing.java" },
+    { "id": "com.shop.Item", "name": "Item", "kind": "record", "package": "com.shop", "path": "src/com/shop/Item.java" }
+  ],
+  "edges": [
+    { "from": "com.shop.Cart", "to": "com.shop.Pricing", "inCycle": true },
+    { "from": "com.shop.Pricing", "to": "com.shop.Cart", "inCycle": true },
+    { "from": "com.shop.Cart", "to": "com.shop.Item", "inCycle": false }
+  ],
+  "cycles": [
+    { "classes": ["com.shop.Cart", "com.shop.Pricing"], "severity": "low", "issueId": "ISSUE-7" }
+  ]
+}

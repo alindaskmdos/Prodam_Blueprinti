@@ -3,7 +3,7 @@
 > Пишет только оркестратор. Это «сохранение игры»: после /clear новая сессия начинает отсюда.
 > Обновлять полностью после каждых ~5 закрытых задач или крупного этапа.
 
-Обновлено: 2026-10-24 (фронт — полное обновление)
+Обновлено: 2026-10-25 (CT-02 влит)
 
 ## Backend
 
@@ -121,3 +121,4 @@
 - BE-27: Instrumenter — `__blueprints.Trace.hit(id)` перед каждой нодой как в AstToBlocks (метод, оператор, case, catch; не внутрь raw/лямбд/анонимных/switch-выражений), в той же строке; конструктор — после super()/this(); Rewrite.TRACE, RunResult.hits (long[] по id, null без файла), probes (file, methodId, path без comment, line, col); таймаут ×3; jar не инструментируется. Для BE-28: path составного оператора, ставшего raw в AstToBlocks, нет в дереве — пропускать; индексы cases/catches в AstToBlocks с comment, в probes без.
 - BE-32: модуль cli (picocli, без Spring, cli → runner по решению человека): `analyze <папка|zip|jar> [--fail-on O(n^2)] [--format json|text]`, `verify <проект>`; коды 0 ок / 1 нарушение / 2 аргументы / 3 загрузка, ввод-вывод / 4 песочница / 5 внутренняя; `:cli:installDist`. JSON analyze — Analysis без version, Issue без blockId, fixes пустые; --fail-on «не меньше», n·m как n². 2 круга ревью.
 - BE-45: runner — prepare (run/runBatch/command-job) с `--release 21` (class major 65); Instrumenter: сбой вставок в файле (включая StackOverflowError на глубокой вложенности) → файл без вставок, ноды убраны из probes; некомпилируемая копия → чистая, hits null, без ×3; trace — tmp + ATOMIC_MOVE + маркер `end`, битый → null; docker exec cat в totalMs.
+- CT-02: контракт GET /uml (UmlDiagram, связи с heuristic), GET /dependencies (inCycle, cycles → Issue CyclicDependency, Issue.blockId необязателен, classIds), GET/PUT/DELETE /pmd-config (422 INVALID_RULESET), поля дерева для FE-10 (headerStart/headerEnd — позиция `{`/`;`, modifiers, params…); фикстуры uml/dependencies/pmd/analysis.cycle. Вложенный класс: `$` в MethodId, `.` в FQN. Мелочи: headerStart/End и DependencyGraph.nodes.kind пока необязательны (обязать после BE-48/BE-25).

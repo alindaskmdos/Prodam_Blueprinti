@@ -190,6 +190,77 @@ paths:
           content: { application/json: { schema: { $ref: "#/components/schemas/Analysis" } } }
         "404": { $ref: "#/components/responses/Error" }
 
+  /projects/{projectId}/uml:
+    parameters: [ { $ref: "#/components/parameters/ProjectId" } ]
+    get:
+      summary: UML-диаграмма классов проекта (§14а.1)
+      description: Связи — только между классами проекта; типы JDK видны лишь как типы полей внутри карточки.
+      operationId: getUml
+      responses:
+        "200":
+          description: ok
+          content: { application/json: { schema: { $ref: "#/components/schemas/UmlDiagram" } } }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /projects/{projectId}/dependencies:
+    parameters: [ { $ref: "#/components/parameters/ProjectId" } ]
+    get:
+      summary: Граф зависимостей классов с циклами (§14а.4)
+      description: |
+        «Класс → классы проекта, которые он использует». Связи внешний ↔ вложенный класс не учитываются.
+        Каждый цикл (сильно связная компонента) дублируется в GET analysis как Issue с rule=CyclicDependency.
+      operationId: getDependencies
+      responses:
+        "200":
+          description: ok
+          content: { application/json: { schema: { $ref: "#/components/schemas/DependencyGraph" } } }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /projects/{projectId}/pmd-config:
+    parameters: [ { $ref: "#/components/parameters/ProjectId" } ]
+    get:
+      summary: Конфиг PMD проекта (.blueprints/pmd-ruleset.xml) или стандартный набор (§14а.2)
+      operationId: getPmdConfig
+      responses:
+        "200":
+          description: ok
+          content: { application/json: { schema: { $ref: "#/components/schemas/PmdConfig" } } }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      summary: Новый текст конфига PMD → перезапуск анализа (меняет version проекта)
+      description: Конфиг сохраняется в .blueprints/pmd-ruleset.xml и экспортируется с проектом (zip, includeSettings).
+      operationId: putPmdConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version, xml]
+              properties:
+                version: { type: integer, description: "Версия проекта, с которой работал фронт" }
+                xml: { type: string, description: "Полный текст ruleset XML" }
+      responses:
+        "200":
+          description: Конфиг принят, версия увеличена
+          content: { application/json: { schema: { $ref: "#/components/schemas/PmdConfigMutationResult" } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422":
+          description: XML не разбирается или не является ruleset PMD (неизвестное правило и т.п.); code=INVALID_RULESET, line (если известна) и message. Конфиг остаётся прежним.
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    delete:
+      summary: Сброс к стандартному набору — удаляет .blueprints/pmd-ruleset.xml, перезапуск анализа (меняет version проекта)
+      operationId: resetPmdConfig
+      parameters:
+        - { name: version, in: query, required: true, description: "Версия проекта, с которой работал фронт", schema: { type: integer } }
+      responses:
+        "200":
+          description: Сброшено, isDefault=true, версия увеличена
+          content: { application/json: { schema: { $ref: "#/components/schemas/PmdConfigMutationResult" } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
   /projects/{projectId}/issues/{issueId}/fix:
     parameters:
       - { $ref: "#/components/parameters/ProjectId" }
@@ -319,7 +390,7 @@ components:
       name: methodId
       in: path
       required: true
-      description: "FQN класса + имя + ~ + индекс перегрузки, напр. com.demo.service.OrderService.merge~0. Конструктор — имя <init>: com.demo.model.Order.<init>~0. Вложенный класс — через $ (Outer$Inner.run~0), анонимный/лямбда отдельного id не имеют (часть блоков метода-хозяина). Фронт кодирует id в пути через encodeURIComponent ($, <, > и т.п.)."
+      description: "FQN класса + имя + ~ + индекс перегрузки, напр. com.demo.service.OrderService.merge~0. Конструктор — имя <init>: com.demo.model.Order.<init>~0. Вложенный класс — через $ (Outer$Inner.run~0), тогда как в ClassNode.fqn/UmlClass.id — через точку (Outer.Inner); перевод — заменой $ на . в части до последнего «.имяМетода~N». Анонимный/лямбда отдельного id не имеют (часть блоков метода-хозяина). Фронт кодирует id в пути через encodeURIComponent ($, <, > и т.п.)."
       schema: { type: string }
     FilePath: { name: path, in: query, required: true, description: "Путь файла как в архиве", schema: { type: string } }
 
@@ -344,10 +415,10 @@ components:
       properties:
         code:
           type: string
-          enum: [VERSION_CONFLICT, NOT_FOUND, PARSE_ERROR, DUPLICATE_FQN, ZIP_SLIP, LIMIT_EXCEEDED, NO_SOURCES, COMPILE_ERROR, AMBIGUOUS_MAIN, INVALID_REQUEST, INTERNAL]
+          enum: [VERSION_CONFLICT, NOT_FOUND, PARSE_ERROR, DUPLICATE_FQN, ZIP_SLIP, LIMIT_EXCEEDED, NO_SOURCES, COMPILE_ERROR, AMBIGUOUS_MAIN, INVALID_REQUEST, INVALID_RULESET, INTERNAL]
         message: { type: string }
         blockId: { type: string, description: "PARSE_ERROR при PUT blocks" }
-        line: { type: integer, description: "PARSE_ERROR при PUT files, с 1" }
+        line: { type: integer, description: "PARSE_ERROR при PUT files, INVALID_RULESET при PUT pmd-config; с 1" }
         files: { type: array, items: { type: string }, description: "DUPLICATE_FQN: конфликтующие файлы" }
         details: { type: object, additionalProperties: true, description: "Прочее, напр. clientVersion/serverVersion при VERSION_CONFLICT" }
 
@@ -359,6 +430,14 @@ components:
         file: { type: string }
         startLine: { type: integer, minimum: 1 }
         endLine: { type: integer, minimum: 1 }
+
+    TextPosition:
+      type: object
+      description: Точка в тексте файла, как позиция Monaco — line и column с 1, column в UTF-16 code units.
+      required: [line, column]
+      properties:
+        line: { type: integer, minimum: 1 }
+        column: { type: integer, minimum: 1 }
 
     ProjectFile:
       type: object
@@ -411,11 +490,34 @@ components:
 
     ClassNode:
       type: object
+      description: |
+        Формы структуры (§7) правят заголовки объявлений через PUT files. Заголовок класса/метода заменяется
+        точно: текст от headerStart (включительно) до headerEnd (не включительно) — новым заголовком; сама «{»
+        (или «;» у метода без тела) и всё после неё сохраняются байт в байт. Так однострочные `int f() { return 1; }`
+        и `class A { int x; }` не теряют тело. Поле заменяется по строкам своего span.
+        Комментарии внутри заменяемого заголовка при перезаписи формой пропадают.
       required: [name, kind, fields, constructors, methods]
       properties:
-        name: { type: string }
+        name: { type: string, description: "Вложенный — Outer$Inner" }
         kind: { type: string, enum: [class, interface, enum, record] }
+        fqn:
+          type: string
+          example: com.demo.model.Order.Summary
+          description: |
+            FQN через точки (вложенный — pkg.Outer.Inner), = UmlClass.id = DependencyGraph.nodes[].id.
+            В MethodId вложенный класс записан через $ (pkg.Outer$Inner.run~0); перевод MethodId → fqn —
+            заменить $ на . в части до последнего «.имяМетода~N».
         span: { $ref: "#/components/schemas/Span" }
+        headerSpan:
+          $ref: "#/components/schemas/Span"
+          description: "Строки заголовка: от первой аннотации/модификатора до строки с открывающей «{» (javadoc не входит). Для подсветки; точная граница замены — headerStart/headerEnd"
+        headerStart: { $ref: "#/components/schemas/TextPosition", description: "Начало заголовка: первый символ первой аннотации или модификатора (или ключевого слова class/interface/enum/record)" }
+        headerEnd: { $ref: "#/components/schemas/TextPosition", description: "Позиция открывающей «{» тела класса; заменяемый текст заканчивается перед ней" }
+        annotations: { type: array, items: { type: string }, description: "Аннотации класса текстом как в коде, напр. \"@Deprecated\"" }
+        modifiers: { type: array, items: { type: string }, example: [public, final] }
+        typeParams: { type: string, example: "<A, B>", description: "Параметры типа текстом как в коде, с угловыми скобками; нет — ключа нет" }
+        extends: { type: string, description: "Текст после extends как в коде; у interface может быть список через запятую; нет — ключа нет" }
+        implements: { type: array, items: { type: string }, description: "Типы после implements как в коде (с аргументами типа)" }
         fields:
           type: array
           items:
@@ -425,6 +527,7 @@ components:
               name: { type: string }
               type: { type: string }
               modifiers: { type: array, items: { type: string } }
+              span: { $ref: "#/components/schemas/Span", description: "Объявление поля целиком (с аннотациями и инициализатором). При `int a, b;` span общий для всего объявления — форма показывает такое поле только для чтения. У компонент record нет — они в заголовке класса" }
         constructors:
           type: array
           items: { $ref: "#/components/schemas/MethodNode" }
@@ -437,10 +540,29 @@ components:
       required: [id, name, signature, issueCount]
       properties:
         id: { type: string }
-        name: { type: string }
+        name: { type: string, description: "У конструктора — простое имя класса" }
         signature: { type: string }
         complexity: { type: string, example: "O(n²)", description: "Упрощённая форма для бейджа" }
         issueCount: { type: integer }
+        span: { $ref: "#/components/schemas/Span", description: "Объявление целиком: аннотации, заголовок и тело" }
+        headerSpan:
+          $ref: "#/components/schemas/Span"
+          description: "Строки заголовка: от первой аннотации/модификатора до строки с открывающей «{» тела (у метода без тела — с «;»). Для подсветки; точная граница замены — headerStart/headerEnd (правило — в ClassNode). Комментарии внутри заголовка при перезаписи формой пропадают"
+        headerStart: { $ref: "#/components/schemas/TextPosition", description: "Начало заголовка: первый символ первой аннотации, модификатора, параметров типа или типа результата/имени" }
+        headerEnd: { $ref: "#/components/schemas/TextPosition", description: "Позиция открывающей «{» тела; у abstract- и interface-метода — позиция «;». Заменяется текст от headerStart до headerEnd не включительно, «{»/«;» и всё после сохраняются" }
+        annotations: { type: array, items: { type: string }, description: "Аннотации текстом как в коде, напр. \"@Override\"" }
+        modifiers: { type: array, items: { type: string }, example: [public, static] }
+        typeParams: { type: string, example: "<C>", description: "Параметры типа метода текстом с угловыми скобками; нет — ключа нет" }
+        returnType: { type: string, description: "Нет у конструкторов" }
+        params:
+          type: array
+          items:
+            type: object
+            required: [name, type]
+            properties:
+              name: { type: string }
+              type: { type: string, description: "Как в коде, varargs — \"String...\"" }
+        throws: { type: array, items: { type: string } }
 
     FileText:
       type: object
@@ -517,16 +639,17 @@ components:
 
     Issue:
       type: object
-      required: [id, rule, severity, confidence, span, blockId, message, fixes]
+      required: [id, rule, severity, confidence, span, message, fixes]
       properties:
         id: { type: string, description: "Действителен только для version анализа, в котором получен" }
-        rule: { type: string, example: NestedLoopSameCollection }
+        rule: { type: string, example: NestedLoopSameCollection, description: "Цикл зависимостей классов — CyclicDependency (§14а.4)" }
         severity: { $ref: "#/components/schemas/Severity" }
         confidence: { $ref: "#/components/schemas/Confidence" }
         source: { type: string, default: blueprints, description: "blueprints | PMD" }
-        span: { $ref: "#/components/schemas/Span" }
+        span: { $ref: "#/components/schemas/Span", description: "У находок уровня класса/проекта — объявление (первого) затронутого класса" }
         methodId: { type: string }
-        blockId: { type: string }
+        blockId: { type: string, description: "Нет у находок уровня класса/проекта" }
+        classIds: { type: array, items: { type: string }, description: "FQN затронутых классов (как UmlClass.id) у находок уровня класса/проекта, напр. CyclicDependency" }
         message: { type: string }
         recommendation: { type: string }
         complexity:
@@ -623,3 +746,117 @@ components:
               file: { type: string }
               line: { type: integer }
               message: { type: string }
+
+    UmlMember:
+      type: object
+      description: Метод или конструктор в карточке класса. span нет — переход в Monaco/редактор идёт через tree (MethodNode с тем же id) или GET blocks по id.
+      required: [id, name, signature, modifiers]
+      properties:
+        id: { type: string, description: "MethodId — тот же, что в tree и blocks (переход в редактор)" }
+        name: { type: string, description: "У конструктора — простое имя класса" }
+        signature: { type: string }
+        modifiers: { type: array, items: { type: string } }
+
+    UmlClass:
+      type: object
+      required: [id, name, kind, package, path, span, modifiers, fields, constructors, methods]
+      properties:
+        id: { type: string, example: com.demo.model.Order.Summary, description: "FQN через точки, вложенный — pkg.Outer.Inner (= ClassNode.fqn)" }
+        name: { type: string, example: Order.Summary, description: "Имя для карточки: без пакета, вложенный — Outer.Inner" }
+        kind: { type: string, enum: [class, interface, enum, record] }
+        package: { type: string, description: "Пустая строка — пакет по умолчанию" }
+        path: { type: string, description: "Файл, как ProjectFile.path" }
+        span: { $ref: "#/components/schemas/Span" }
+        modifiers: { type: array, items: { type: string } }
+        typeParams: { type: string, example: "<A, B>", description: "Текстом с угловыми скобками; нет — ключа нет" }
+        fields:
+          type: array
+          description: "Включая компоненты record. Типы — как в коде, в т.ч. JDK (без стрелок)"
+          items:
+            type: object
+            required: [name, type, modifiers]
+            properties:
+              name: { type: string }
+              type: { type: string }
+              modifiers: { type: array, items: { type: string } }
+        constructors: { type: array, items: { $ref: "#/components/schemas/UmlMember" } }
+        methods: { type: array, items: { $ref: "#/components/schemas/UmlMember" } }
+
+    UmlRelation:
+      type: object
+      description: |
+        Связь между двумя классами проекта (from → to); с внешними типами связей нет.
+        На пару from/to — одна связь самого сильного вида: extends/implements > composition > aggregation > association > dependency.
+        association — поле типа класса проекта; dependency — использование в методе/конструкторе.
+        aggregation/composition — эвристика (heuristic=true): коллекция или объект из параметра конструктора → aggregation,
+        создан через new внутри класса → composition. Поле-коллекция (List<T>, Set<T>, Map<K,V> — по значению, массив)
+        даёт связь к T с multiplicity "*".
+      required: [from, to, kind, heuristic]
+      properties:
+        from: { type: string, description: "UmlClass.id" }
+        to: { type: string, description: "UmlClass.id" }
+        kind: { type: string, enum: [extends, implements, association, dependency, aggregation, composition] }
+        heuristic: { type: boolean, description: "true для aggregation/composition — UI помечает «эвристика»" }
+        multiplicity: { type: string, enum: ["1", "*"], description: "Только у связей через поле; нет — ключа нет" }
+        via: { type: string, description: "Имя поля или метода, давшего связь" }
+
+    UmlDiagram:
+      type: object
+      required: [version, classes, relations]
+      properties:
+        version: { type: integer }
+        classes: { type: array, items: { $ref: "#/components/schemas/UmlClass" } }
+        relations: { type: array, items: { $ref: "#/components/schemas/UmlRelation" } }
+
+    DependencyGraph:
+      type: object
+      required: [version, nodes, edges, cycles]
+      properties:
+        version: { type: integer }
+        nodes:
+          type: array
+          items:
+            type: object
+            required: [id, name, package, path]
+            properties:
+              id: { type: string, description: "FQN класса (= UmlClass.id)" }
+              kind: { type: string, enum: [class, interface, enum, record] }
+              name: { type: string, description: "Без пакета, вложенный — Outer.Inner" }
+              package: { type: string }
+              path: { type: string }
+        edges:
+          type: array
+          description: "from использует to; без связей внешний ↔ вложенный класс и без петель"
+          items:
+            type: object
+            required: [from, to, inCycle]
+            properties:
+              from: { type: string }
+              to: { type: string }
+              inCycle: { type: boolean, description: "Ребро внутри цикла (сильно связной компоненты) — красная подсветка" }
+        cycles:
+          type: array
+          description: "Сильно связные компоненты из 2+ классов (Tarjan)"
+          items:
+            type: object
+            required: [classes, severity, issueId]
+            properties:
+              classes: { type: array, items: { type: string }, description: "FQN классов цикла" }
+              severity: { $ref: "#/components/schemas/Severity", description: "2 класса — low, 3+ — medium" }
+              issueId: { type: string, description: "Issue с rule=CyclicDependency в GET analysis той же version" }
+
+    PmdConfig:
+      type: object
+      required: [version, xml, isDefault]
+      properties:
+        version: { type: integer }
+        xml: { type: string, description: "Текст ruleset XML" }
+        isDefault: { type: boolean, description: "true — в проекте нет .blueprints/pmd-ruleset.xml, отдан стандартный набор (без правил, дублирующих наши детекторы)" }
+
+    PmdConfigMutationResult:
+      type: object
+      required: [version, isDefault, analysis]
+      properties:
+        version: { type: integer }
+        isDefault: { type: boolean, description: "Как в PmdConfig после сохранения" }
+        analysis: { $ref: "#/components/schemas/Analysis", description: "Анализ с новым конфигом PMD" }

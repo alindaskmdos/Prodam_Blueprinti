@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "n": 10000,
+  "issues": [
+    {
+      "id": "ISSUE-7",
+      "rule": "CyclicDependency",
+      "severity": "low",
+      "confidence": "high",
+      "source": "blueprints",
+      "span": { "file": "src/com/shop/Cart.java", "startLine": 5, "endLine": 40 },
+      "classIds": ["com.shop.Cart", "com.shop.Pricing"],
+      "message": "Циклическая зависимость классов: Cart → Pricing → Cart",
+      "recommendation": "Разорвать цикл: вынести общий интерфейс или передавать данные параметром",
+      "fixes": []
+    }
+  ],
+  "metrics": []
+}

@@ -1,0 +1,571 @@
+{
+  "version": 1,
+  "classes": [
+    {
+      "id": "com.demo.Main",
+      "name": "Main",
+      "kind": "class",
+      "package": "com.demo",
+      "path": "src/com/demo/Main.java",
+      "span": { "file": "src/com/demo/Main.java", "startLine": 29, "endLine": 158 },
+      "modifiers": ["public"],
+      "fields": [
+        { "name": "catalog", "type": "Catalog", "modifiers": ["private", "final"] },
+        { "name": "inventory", "type": "InventoryService", "modifiers": ["private", "final"] },
+        { "name": "orders", "type": "OrderService", "modifiers": ["private", "final"] },
+        { "name": "pricing", "type": "PricingService", "modifiers": ["private", "final"] },
+        { "name": "reports", "type": "ReportService", "modifiers": ["private", "final"] },
+        { "name": "validator", "type": "Validator", "modifiers": ["private", "final"] },
+        { "name": "errors", "type": "int", "modifiers": ["private"] }
+      ],
+      "constructors": [],
+      "methods": [
+        { "id": "com.demo.Main.main~0", "name": "main", "signature": "public static void main(String[] args) throws IOException", "modifiers": ["public", "static"] },
+        { "id": "com.demo.Main.out~0", "name": "out", "signature": "private static void out(String s)", "modifiers": ["private", "static"] },
+        { "id": "com.demo.Main.handle~0", "name": "handle", "signature": "private void handle(int lineNo, String raw)", "modifiers": ["private"] },
+        { "id": "com.demo.Main.dispatch~0", "name": "dispatch", "signature": "private void dispatch(CommandLine cmd)", "modifiers": ["private"] },
+        { "id": "com.demo.Main.parseLines~0", "name": "parseLines", "signature": "private List<OrderLine> parseLines(String spec)", "modifiers": ["private"] },
+        { "id": "com.demo.Main.printWatched~0", "name": "printWatched", "signature": "private void printWatched(String idList)", "modifiers": ["private"] },
+        { "id": "com.demo.Main.printIssues~0", "name": "printIssues", "signature": "private void printIssues()", "modifiers": ["private"] }
+      ]
+    },
+    {
+      "id": "com.demo.model.Customer",
+      "name": "Customer",
+      "kind": "record",
+      "package": "com.demo.model",
+      "path": "src/com/demo/model/Customer.java",
+      "span": { "file": "src/com/demo/model/Customer.java", "startLine": 3, "endLine": 13 },
+      "modifiers": ["public"],
+      "fields": [
+        { "name": "id", "type": "int", "modifiers": ["private", "final"] },
+        { "name": "name", "type": "String", "modifiers": ["private", "final"] },
+        { "name": "tier", "type": "Tier", "modifiers": ["private", "final"] }
+      ],
+      "constructors": [],
+      "methods": [{ "id": "com.demo.model.Customer.label~0", "name": "label", "signature": "public String label()", "modifiers": ["public"] }]
+    },
+    {
+      "id": "com.demo.model.Order",
+      "name": "Order",
+      "kind": "class",
+      "package": "com.demo.model",
+      "path": "src/com/demo/model/Order.java",
+      "span": { "file": "src/com/demo/model/Order.java", "startLine": 6, "endLine": 77 },
+      "modifiers": ["public"],
+      "fields": [
+        { "name": "id", "type": "int", "modifiers": ["private", "final"] },
+        { "name": "customerId", "type": "int", "modifiers": ["private", "final"] },
+        { "name": "lines", "type": "List<OrderLine>", "modifiers": ["private", "final"] },
+        { "name": "status", "type": "OrderStatus", "modifiers": ["private"] },
+        { "name": "note", "type": "String", "modifiers": ["private"] }
+      ],
+      "constructors": [{ "id": "com.demo.model.Order.<init>~0", "name": "Order", "signature": "public Order(int id, int customerId)", "modifiers": ["public"] }],
+      "methods": [
+        { "id": "com.demo.model.Order.getId~0", "name": "getId", "signature": "public int getId()", "modifiers": ["public"] },
+        { "id": "com.demo.model.Order.getCustomerId~0", "name": "getCustomerId", "signature": "public int getCustomerId()", "modifiers": ["public"] },
+        { "id": "com.demo.model.Order.getLines~0", "name": "getLines", "signature": "public List<OrderLine> getLines()", "modifiers": ["public"] },
+        { "id": "com.demo.model.Order.getStatus~0", "name": "getStatus", "signature": "public OrderStatus getStatus()", "modifiers": ["public"] },
+        { "id": "com.demo.model.Order.setStatus~0", "name": "setStatus", "signature": "public void setStatus(OrderStatus status)", "modifiers": ["public"] },
+        { "id": "com.demo.model.Order.getNote~0", "name": "getNote", "signature": "public String getNote()", "modifiers": ["public"] },
+        { "id": "com.demo.model.Order.setNote~0", "name": "setNote", "signature": "public void setNote(String note)", "modifiers": ["public"] },
+        { "id": "com.demo.model.Order.addLine~0", "name": "addLine", "signature": "public void addLine(OrderLine line)", "modifiers": ["public"] },
+        { "id": "com.demo.model.Order.totalQty~0", "name": "totalQty", "signature": "public int totalQty()", "modifiers": ["public"] },
+        { "id": "com.demo.model.Order.summary~0", "name": "summary", "signature": "public Summary summary()", "modifiers": ["public"] }
+      ]
+    },
+    {
+      "id": "com.demo.model.Order.Summary",
+      "name": "Order.Summary",
+      "kind": "class",
+      "package": "com.demo.model",
+      "path": "src/com/demo/model/Order.java",
+      "span": { "file": "src/com/demo/model/Order.java", "startLine": 59, "endLine": 72 },
+      "modifiers": ["public", "static"],
+      "fields": [{ "name": "orderId", "type": "int", "modifiers": ["public", "final"] }, { "name": "lineCount", "type": "int", "modifiers": ["public", "final"] }],
+      "constructors": [{ "id": "com.demo.model.Order$Summary.<init>~0", "name": "Summary", "signature": "public Summary(int orderId, int lineCount)", "modifiers": ["public"] }],
+      "methods": [{ "id": "com.demo.model.Order$Summary.toString~0", "name": "toString", "signature": "public String toString()", "modifiers": ["public"] }]
+    },
+    {
+      "id": "com.demo.model.OrderLine",
+      "name": "OrderLine",
+      "kind": "record",
+      "package": "com.demo.model",
+      "path": "src/com/demo/model/OrderLine.java",
+      "span": { "file": "src/com/demo/model/OrderLine.java", "startLine": 3, "endLine": 11 },
+      "modifiers": ["public"],
+      "fields": [{ "name": "productId", "type": "int", "modifiers": ["private", "final"] }, { "name": "qty", "type": "int", "modifiers": ["private", "final"] }],
+      "constructors": [],
+      "methods": [
+        { "id": "com.demo.model.OrderLine.withQty~0", "name": "withQty", "signature": "public OrderLine withQty(int newQty)", "modifiers": ["public"] },
+        { "id": "com.demo.model.OrderLine.plus~0", "name": "plus", "signature": "public OrderLine plus(OrderLine other)", "modifiers": ["public"] }
+      ]
+    },
+    {
+      "id": "com.demo.model.OrderStatus",
+      "name": "OrderStatus",
+      "kind": "enum",
+      "package": "com.demo.model",
+      "path": "src/com/demo/model/OrderStatus.java",
+      "span": { "file": "src/com/demo/model/OrderStatus.java", "startLine": 3, "endLine": 13 },
+      "modifiers": ["public"],
+      "fields": [],
+      "constructors": [],
+      "methods": [
+        { "id": "com.demo.model.OrderStatus.isFinal~0", "name": "isFinal", "signature": "public boolean isFinal()", "modifiers": ["public"] },
+        { "id": "com.demo.model.OrderStatus.canMerge~0", "name": "canMerge", "signature": "public boolean canMerge()", "modifiers": ["public"] }
+      ]
+    },
+    {
+      "id": "com.demo.model.Pair",
+      "name": "Pair",
+      "kind": "class",
+      "package": "com.demo.model",
+      "path": "src/com/demo/model/Pair.java",
+      "span": { "file": "src/com/demo/model/Pair.java", "startLine": 3, "endLine": 28 },
+      "modifiers": ["public", "final"],
+      "typeParams": "<A, B>",
+      "fields": [{ "name": "first", "type": "A", "modifiers": ["private", "final"] }, { "name": "second", "type": "B", "modifiers": ["private", "final"] }],
+      "constructors": [{ "id": "com.demo.model.Pair.<init>~0", "name": "Pair", "signature": "public Pair(A first, B second)", "modifiers": ["public"] }],
+      "methods": [
+        { "id": "com.demo.model.Pair.first~0", "name": "first", "signature": "public A first()", "modifiers": ["public"] },
+        { "id": "com.demo.model.Pair.second~0", "name": "second", "signature": "public B second()", "modifiers": ["public"] },
+        { "id": "com.demo.model.Pair.withSecond~0", "name": "withSecond", "signature": "public Pair<A, C> withSecond(C other)", "modifiers": ["public"] },
+        { "id": "com.demo.model.Pair.toString~0", "name": "toString", "signature": "public String toString()", "modifiers": ["public"] }
+      ]
+    },
+    {
+      "id": "com.demo.model.Product",
+      "name": "Product",
+      "kind": "class",
+      "package": "com.demo.model",
+      "path": "src/com/demo/model/Product.java",
+      "span": { "file": "src/com/demo/model/Product.java", "startLine": 3, "endLine": 48 },
+      "modifiers": ["public"],
+      "fields": [
+        { "name": "id", "type": "int", "modifiers": ["private", "final"] },
+        { "name": "name", "type": "String", "modifiers": ["private", "final"] },
+        { "name": "priceCents", "type": "long", "modifiers": ["private", "final"] },
+        { "name": "stock", "type": "int", "modifiers": ["private"] }
+      ],
+      "constructors": [
+        {
+          "id": "com.demo.model.Product.<init>~0",
+          "name": "Product",
+          "signature": "public Product(int id, String name, long priceCents, int stock)",
+          "modifiers": ["public"]
+        }
+      ],
+      "methods": [
+        { "id": "com.demo.model.Product.getId~0", "name": "getId", "signature": "public int getId()", "modifiers": ["public"] },
+        { "id": "com.demo.model.Product.getName~0", "name": "getName", "signature": "public String getName()", "modifiers": ["public"] },
+        { "id": "com.demo.model.Product.getPriceCents~0", "name": "getPriceCents", "signature": "public long getPriceCents()", "modifiers": ["public"] },
+        { "id": "com.demo.model.Product.getStock~0", "name": "getStock", "signature": "public int getStock()", "modifiers": ["public"] },
+        { "id": "com.demo.model.Product.take~0", "name": "take", "signature": "public boolean take(int qty)", "modifiers": ["public"] },
+        { "id": "com.demo.model.Product.give~0", "name": "give", "signature": "public void give(int qty)", "modifiers": ["public"] },
+        { "id": "com.demo.model.Product.toString~0", "name": "toString", "signature": "public String toString()", "modifiers": ["public"] }
+      ]
+    },
+    {
+      "id": "com.demo.model.Tier",
+      "name": "Tier",
+      "kind": "enum",
+      "package": "com.demo.model",
+      "path": "src/com/demo/model/Tier.java",
+      "span": { "file": "src/com/demo/model/Tier.java", "startLine": 4, "endLine": 44 },
+      "modifiers": ["public"],
+      "fields": [{ "name": "discountPercent", "type": "int", "modifiers": ["private", "final"] }, { "name": "code", "type": "String", "modifiers": ["private", "final"] }],
+      "constructors": [{ "id": "com.demo.model.Tier.<init>~0", "name": "Tier", "signature": "Tier(int discountPercent, String code)", "modifiers": [] }],
+      "methods": [
+        { "id": "com.demo.model.Tier.discountPercent~0", "name": "discountPercent", "signature": "public int discountPercent()", "modifiers": ["public"] },
+        { "id": "com.demo.model.Tier.code~0", "name": "code", "signature": "public String code()", "modifiers": ["public"] },
+        { "id": "com.demo.model.Tier.badge~0", "name": "badge", "signature": "public String badge()", "modifiers": ["public"] },
+        { "id": "com.demo.model.Tier.parse~0", "name": "parse", "signature": "public static Tier parse(String s)", "modifiers": ["public", "static"] }
+      ]
+    },
+    {
+      "id": "com.demo.service.Catalog",
+      "name": "Catalog",
+      "kind": "class",
+      "package": "com.demo.service",
+      "path": "src/com/demo/service/Catalog.java",
+      "span": { "file": "src/com/demo/service/Catalog.java", "startLine": 12, "endLine": 66 },
+      "modifiers": ["public"],
+      "fields": [
+        { "name": "customers", "type": "List<Customer>", "modifiers": ["private", "final"] },
+        { "name": "products", "type": "List<Product>", "modifiers": ["private", "final"] }
+      ],
+      "constructors": [],
+      "methods": [
+        {
+          "id": "com.demo.service.Catalog.addCustomer~0",
+          "name": "addCustomer",
+          "signature": "public void addCustomer(int id, String name, String tier)",
+          "modifiers": ["public"]
+        },
+        {
+          "id": "com.demo.service.Catalog.addProduct~0",
+          "name": "addProduct",
+          "signature": "public void addProduct(int id, String name, long priceCents, int stock)",
+          "modifiers": ["public"]
+        },
+        {
+          "id": "com.demo.service.Catalog.findCustomer~0",
+          "name": "findCustomer",
+          "signature": "public Optional<Customer> findCustomer(int id)",
+          "modifiers": ["public"]
+        },
+        { "id": "com.demo.service.Catalog.findProduct~0", "name": "findProduct", "signature": "public Optional<Product> findProduct(int id)", "modifiers": ["public"] },
+        { "id": "com.demo.service.Catalog.customers~0", "name": "customers", "signature": "public List<Customer> customers()", "modifiers": ["public"] },
+        { "id": "com.demo.service.Catalog.products~0", "name": "products", "signature": "public List<Product> products()", "modifiers": ["public"] },
+        { "id": "com.demo.service.Catalog.customerCount~0", "name": "customerCount", "signature": "public int customerCount()", "modifiers": ["public"] },
+        { "id": "com.demo.service.Catalog.productCount~0", "name": "productCount", "signature": "public int productCount()", "modifiers": ["public"] }
+      ]
+    },
+    {
+      "id": "com.demo.service.InventoryService",
+      "name": "InventoryService",
+      "kind": "class",
+      "package": "com.demo.service",
+      "path": "src/com/demo/service/InventoryService.java",
+      "span": { "file": "src/com/demo/service/InventoryService.java", "startLine": 12, "endLine": 97 },
+      "modifiers": ["public"],
+      "fields": [{ "name": "catalog", "type": "Catalog", "modifiers": ["private", "final"] }, { "name": "journal", "type": "List<String>", "modifiers": ["private", "final"] }],
+      "constructors": [
+        {
+          "id": "com.demo.service.InventoryService.<init>~0",
+          "name": "InventoryService",
+          "signature": "public InventoryService(Catalog catalog)",
+          "modifiers": ["public"]
+        }
+      ],
+      "methods": [
+        { "id": "com.demo.service.InventoryService.reserve~0", "name": "reserve", "signature": "public boolean reserve(Order order)", "modifiers": ["public"] },
+        {
+          "id": "com.demo.service.InventoryService.rollback~0",
+          "name": "rollback",
+          "signature": "private void rollback(List<OrderLine> taken)",
+          "modifiers": ["private"]
+        },
+        { "id": "com.demo.service.InventoryService.restock~0", "name": "restock", "signature": "public void restock(int productId, int qty)", "modifiers": ["public"] },
+        {
+          "id": "com.demo.service.InventoryService.watched~0",
+          "name": "watched",
+          "signature": "public List<Product> watched(List<Integer> watch)",
+          "modifiers": ["public"]
+        },
+        {
+          "id": "com.demo.service.InventoryService.distinctIds~0",
+          "name": "distinctIds",
+          "signature": "public List<Integer> distinctIds(List<Integer> ids)",
+          "modifiers": ["public"]
+        },
+        { "id": "com.demo.service.InventoryService.lowStock~0", "name": "lowStock", "signature": "public List<Product> lowStock(int threshold)", "modifiers": ["public"] },
+        { "id": "com.demo.service.InventoryService.journal~0", "name": "journal", "signature": "public List<String> journal()", "modifiers": ["public"] }
+      ]
+    },
+    {
+      "id": "com.demo.service.OrderService",
+      "name": "OrderService",
+      "kind": "class",
+      "package": "com.demo.service",
+      "path": "src/com/demo/service/OrderService.java",
+      "span": { "file": "src/com/demo/service/OrderService.java", "startLine": 11, "endLine": 139 },
+      "modifiers": ["public"],
+      "fields": [
+        { "name": "catalog", "type": "Catalog", "modifiers": ["private", "final"] },
+        { "name": "inventory", "type": "InventoryService", "modifiers": ["private", "final"] },
+        { "name": "orders", "type": "List<Order>", "modifiers": ["private", "final"] }
+      ],
+      "constructors": [
+        {
+          "id": "com.demo.service.OrderService.<init>~0",
+          "name": "OrderService",
+          "signature": "public OrderService(Catalog catalog, InventoryService inventory)",
+          "modifiers": ["public"]
+        }
+      ],
+      "methods": [
+        {
+          "id": "com.demo.service.OrderService.create~0",
+          "name": "create",
+          "signature": "public Order create(int id, int customerId, List<OrderLine> lines)",
+          "modifiers": ["public"]
+        },
+        { "id": "com.demo.service.OrderService.merge~0", "name": "merge", "signature": "public int merge()", "modifiers": ["public"] },
+        { "id": "com.demo.service.OrderService.absorb~0", "name": "absorb", "signature": "private void absorb(Order target, Order source)", "modifiers": ["private"] },
+        { "id": "com.demo.service.OrderService.reserveAll~0", "name": "reserveAll", "signature": "public int reserveAll()", "modifiers": ["public"] },
+        { "id": "com.demo.service.OrderService.shipReserved~0", "name": "shipReserved", "signature": "public int shipReserved()", "modifiers": ["public"] },
+        { "id": "com.demo.service.OrderService.cancel~0", "name": "cancel", "signature": "public void cancel(int orderId)", "modifiers": ["public"] },
+        { "id": "com.demo.service.OrderService.find~0", "name": "find", "signature": "public Order find(int orderId)", "modifiers": ["public"] },
+        { "id": "com.demo.service.OrderService.counts~0", "name": "counts", "signature": "public Pair<Integer, Integer> counts()", "modifiers": ["public"] },
+        { "id": "com.demo.service.OrderService.all~0", "name": "all", "signature": "public List<Order> all()", "modifiers": ["public"] }
+      ]
+    },
+    {
+      "id": "com.demo.service.PricingService",
+      "name": "PricingService",
+      "kind": "class",
+      "package": "com.demo.service",
+      "path": "src/com/demo/service/PricingService.java",
+      "span": { "file": "src/com/demo/service/PricingService.java", "startLine": 11, "endLine": 86 },
+      "modifiers": ["public"],
+      "fields": [
+        { "name": "catalog", "type": "Catalog", "modifiers": ["private", "final"] },
+        { "name": "rounding", "type": "LongUnaryOperator", "modifiers": ["private", "final"] }
+      ],
+      "constructors": [{ "id": "com.demo.service.PricingService.<init>~0", "name": "PricingService", "signature": "public PricingService(Catalog catalog)", "modifiers": ["public"] }],
+      "methods": [
+        { "id": "com.demo.service.PricingService.bulk~0", "name": "bulk", "signature": "public long bulk(long cents, int qty)", "modifiers": ["public"] },
+        { "id": "com.demo.service.PricingService.lineTotal~0", "name": "lineTotal", "signature": "public long lineTotal(OrderLine line)", "modifiers": ["public"] },
+        { "id": "com.demo.service.PricingService.subtotal~0", "name": "subtotal", "signature": "public long subtotal(Order order)", "modifiers": ["public"] },
+        { "id": "com.demo.service.PricingService.total~0", "name": "total", "signature": "public long total(Order order)", "modifiers": ["public"] },
+        {
+          "id": "com.demo.service.PricingService.describe~0",
+          "name": "describe",
+          "signature": "public String describe(Rule rule, long cents, int qty)",
+          "modifiers": ["public"]
+        },
+        { "id": "com.demo.service.PricingService.flat~0", "name": "flat", "signature": "public static Rule flat(long off)", "modifiers": ["public", "static"] },
+        { "id": "com.demo.service.PricingService.percent~0", "name": "percent", "signature": "public static Rule percent(int pct)", "modifiers": ["public", "static"] }
+      ]
+    },
+    {
+      "id": "com.demo.service.PricingService.Rule",
+      "name": "PricingService.Rule",
+      "kind": "interface",
+      "package": "com.demo.service",
+      "path": "src/com/demo/service/PricingService.java",
+      "span": { "file": "src/com/demo/service/PricingService.java", "startLine": 19, "endLine": 21 },
+      "modifiers": ["public"],
+      "fields": [],
+      "constructors": [],
+      "methods": [{ "id": "com.demo.service.PricingService$Rule.apply~0", "name": "apply", "signature": "long apply(long cents, int qty)", "modifiers": [] }]
+    },
+    {
+      "id": "com.demo.service.ReportService",
+      "name": "ReportService",
+      "kind": "class",
+      "package": "com.demo.service",
+      "path": "src/com/demo/service/ReportService.java",
+      "span": { "file": "src/com/demo/service/ReportService.java", "startLine": 15, "endLine": 164 },
+      "modifiers": ["public"],
+      "fields": [
+        { "name": "catalog", "type": "Catalog", "modifiers": ["private", "final"] },
+        { "name": "orders", "type": "OrderService", "modifiers": ["private", "final"] },
+        { "name": "pricing", "type": "PricingService", "modifiers": ["private", "final"] }
+      ],
+      "constructors": [
+        {
+          "id": "com.demo.service.ReportService.<init>~0",
+          "name": "ReportService",
+          "signature": "public ReportService(Catalog catalog, OrderService orders, PricingService pricing)",
+          "modifiers": ["public"]
+        }
+      ],
+      "methods": [
+        { "id": "com.demo.service.ReportService.fullReport~0", "name": "fullReport", "signature": "public String fullReport()", "modifiers": ["public"] },
+        {
+          "id": "com.demo.service.ReportService.hotProducts~0",
+          "name": "hotProducts",
+          "signature": "public List<String> hotProducts(int minQty)",
+          "modifiers": ["public"]
+        },
+        {
+          "id": "com.demo.service.ReportService.customerSummary~0",
+          "name": "customerSummary",
+          "signature": "public String customerSummary(int customerId)",
+          "modifiers": ["public"]
+        },
+        { "id": "com.demo.service.ReportService.stockTable~0", "name": "stockTable", "signature": "public String stockTable()", "modifiers": ["public"] },
+        {
+          "id": "com.demo.service.ReportService.neverBought~0",
+          "name": "neverBought",
+          "signature": "public List<String> neverBought(int customerId)",
+          "modifiers": ["public"]
+        },
+        {
+          "id": "com.demo.service.ReportService.productsOutside~0",
+          "name": "productsOutside",
+          "signature": "public List<String> productsOutside(java.util.Collection<Integer> ids)",
+          "modifiers": ["public"]
+        }
+      ]
+    },
+    {
+      "id": "com.demo.service.Validator",
+      "name": "Validator",
+      "kind": "class",
+      "package": "com.demo.service",
+      "path": "src/com/demo/service/Validator.java",
+      "span": { "file": "src/com/demo/service/Validator.java", "startLine": 12, "endLine": 75 },
+      "modifiers": ["public"],
+      "fields": [{ "name": "catalog", "type": "Catalog", "modifiers": ["private", "final"] }],
+      "constructors": [{ "id": "com.demo.service.Validator.<init>~0", "name": "Validator", "signature": "public Validator(Catalog catalog)", "modifiers": ["public"] }],
+      "methods": [
+        { "id": "com.demo.service.Validator.check~0", "name": "check", "signature": "public List<Issue> check(List<Order> orders)", "modifiers": ["public"] },
+        { "id": "com.demo.service.Validator.checkLines~0", "name": "checkLines", "signature": "private List<Issue> checkLines(Order o)", "modifiers": ["private"] }
+      ]
+    },
+    {
+      "id": "com.demo.service.Validator.Issue",
+      "name": "Validator.Issue",
+      "kind": "class",
+      "package": "com.demo.service",
+      "path": "src/com/demo/service/Validator.java",
+      "span": { "file": "src/com/demo/service/Validator.java", "startLine": 19, "endLine": 32 },
+      "modifiers": ["public", "static", "final"],
+      "fields": [{ "name": "orderId", "type": "int", "modifiers": ["private", "final"] }, { "name": "text", "type": "String", "modifiers": ["private", "final"] }],
+      "constructors": [{ "id": "com.demo.service.Validator$Issue.<init>~0", "name": "Issue", "signature": "public Issue(int orderId, String text)", "modifiers": ["public"] }],
+      "methods": [{ "id": "com.demo.service.Validator$Issue.toString~0", "name": "toString", "signature": "public String toString()", "modifiers": ["public"] }]
+    },
+    {
+      "id": "com.demo.util.CommandLine",
+      "name": "CommandLine",
+      "kind": "class",
+      "package": "com.demo.util",
+      "path": "src/com/demo/util/CommandLine.java",
+      "span": { "file": "src/com/demo/util/CommandLine.java", "startLine": 7, "endLine": 62 },
+      "modifiers": ["public"],
+      "fields": [{ "name": "verb", "type": "String", "modifiers": ["private", "final"] }, { "name": "args", "type": "List<String>", "modifiers": ["private", "final"] }],
+      "constructors": [
+        {
+          "id": "com.demo.util.CommandLine.<init>~0",
+          "name": "CommandLine",
+          "signature": "private CommandLine(String verb, List<String> args)",
+          "modifiers": ["private"]
+        }
+      ],
+      "methods": [
+        { "id": "com.demo.util.CommandLine.parse~0", "name": "parse", "signature": "public static CommandLine parse(String raw)", "modifiers": ["public", "static"] },
+        { "id": "com.demo.util.CommandLine.verb~0", "name": "verb", "signature": "public String verb()", "modifiers": ["public"] },
+        { "id": "com.demo.util.CommandLine.size~0", "name": "size", "signature": "public int size()", "modifiers": ["public"] },
+        { "id": "com.demo.util.CommandLine.arg~0", "name": "arg", "signature": "public String arg(int i)", "modifiers": ["public"] },
+        { "id": "com.demo.util.CommandLine.intArg~0", "name": "intArg", "signature": "public int intArg(int i)", "modifiers": ["public"] },
+        { "id": "com.demo.util.CommandLine.rest~0", "name": "rest", "signature": "public String rest(int from)", "modifiers": ["public"] }
+      ]
+    },
+    {
+      "id": "com.demo.util.Stats",
+      "name": "Stats",
+      "kind": "class",
+      "package": "com.demo.util",
+      "path": "src/com/demo/util/Stats.java",
+      "span": { "file": "src/com/demo/util/Stats.java", "startLine": 6, "endLine": 39 },
+      "modifiers": ["public", "final"],
+      "fields": [],
+      "constructors": [{ "id": "com.demo.util.Stats.<init>~0", "name": "Stats", "signature": "private Stats()", "modifiers": ["private"] }],
+      "methods": [
+        {
+          "id": "com.demo.util.Stats.sum~0",
+          "name": "sum",
+          "signature": "public static long sum(Collection<T> items, ToLongFunction<T> f)",
+          "modifiers": ["public", "static"]
+        },
+        {
+          "id": "com.demo.util.Stats.max~0",
+          "name": "max",
+          "signature": "public static long max(Collection<T> items, ToLongFunction<T> f)",
+          "modifiers": ["public", "static"]
+        },
+        {
+          "id": "com.demo.util.Stats.average~0",
+          "name": "average",
+          "signature": "public static double average(Collection<T> items, ToLongFunction<T> f)",
+          "modifiers": ["public", "static"]
+        },
+        { "id": "com.demo.util.Stats.clamp~0", "name": "clamp", "signature": "public static int clamp(int v, int lo, int hi)", "modifiers": ["public", "static"] }
+      ]
+    },
+    {
+      "id": "com.demo.util.Texts",
+      "name": "Texts",
+      "kind": "class",
+      "package": "com.demo.util",
+      "path": "src/com/demo/util/Texts.java",
+      "span": { "file": "src/com/demo/util/Texts.java", "startLine": 5, "endLine": 72 },
+      "modifiers": ["public", "final"],
+      "fields": [],
+      "constructors": [{ "id": "com.demo.util.Texts.<init>~0", "name": "Texts", "signature": "private Texts()", "modifiers": ["private"] }],
+      "methods": [
+        {
+          "id": "com.demo.util.Texts.padRight~0",
+          "name": "padRight",
+          "signature": "public static String padRight(String s, int width)",
+          "modifiers": ["public", "static"]
+        },
+        { "id": "com.demo.util.Texts.padLeft~0", "name": "padLeft", "signature": "public static String padLeft(String s, int width)", "modifiers": ["public", "static"] },
+        { "id": "com.demo.util.Texts.money~0", "name": "money", "signature": "public static String money(long cents)", "modifiers": ["public", "static"] },
+        {
+          "id": "com.demo.util.Texts.join~0",
+          "name": "join",
+          "signature": "public static String join(List<String> parts, String sep)",
+          "modifiers": ["public", "static"]
+        },
+        { "id": "com.demo.util.Texts.repeat~0", "name": "repeat", "signature": "public static String repeat(char c, int n)", "modifiers": ["public", "static"] },
+        { "id": "com.demo.util.Texts.isInt~0", "name": "isInt", "signature": "public static boolean isInt(String s)", "modifiers": ["public", "static"] }
+      ]
+    }
+  ],
+  "relations": [
+    { "from": "com.demo.Main", "to": "com.demo.service.Catalog", "kind": "composition", "heuristic": true, "multiplicity": "1", "via": "catalog" },
+    { "from": "com.demo.Main", "to": "com.demo.service.InventoryService", "kind": "composition", "heuristic": true, "multiplicity": "1", "via": "inventory" },
+    { "from": "com.demo.Main", "to": "com.demo.service.OrderService", "kind": "composition", "heuristic": true, "multiplicity": "1", "via": "orders" },
+    { "from": "com.demo.Main", "to": "com.demo.service.PricingService", "kind": "composition", "heuristic": true, "multiplicity": "1", "via": "pricing" },
+    { "from": "com.demo.Main", "to": "com.demo.service.ReportService", "kind": "composition", "heuristic": true, "multiplicity": "1", "via": "reports" },
+    { "from": "com.demo.Main", "to": "com.demo.service.Validator", "kind": "composition", "heuristic": true, "multiplicity": "1", "via": "validator" },
+    { "from": "com.demo.Main", "to": "com.demo.util.CommandLine", "kind": "dependency", "heuristic": false, "via": "handle" },
+    { "from": "com.demo.Main", "to": "com.demo.util.Texts", "kind": "dependency", "heuristic": false, "via": "dispatch" },
+    { "from": "com.demo.Main", "to": "com.demo.model.Order", "kind": "dependency", "heuristic": false, "via": "dispatch" },
+    { "from": "com.demo.Main", "to": "com.demo.model.OrderLine", "kind": "dependency", "heuristic": false, "via": "parseLines" },
+    { "from": "com.demo.Main", "to": "com.demo.model.Product", "kind": "dependency", "heuristic": false, "via": "dispatch" },
+    { "from": "com.demo.Main", "to": "com.demo.service.Validator.Issue", "kind": "dependency", "heuristic": false, "via": "printIssues" },
+    { "from": "com.demo.model.Customer", "to": "com.demo.model.Tier", "kind": "aggregation", "heuristic": true, "multiplicity": "1", "via": "tier" },
+    { "from": "com.demo.model.Order", "to": "com.demo.model.OrderLine", "kind": "aggregation", "heuristic": true, "multiplicity": "*", "via": "lines" },
+    { "from": "com.demo.model.Order", "to": "com.demo.model.OrderStatus", "kind": "association", "heuristic": false, "multiplicity": "1", "via": "status" },
+    { "from": "com.demo.model.Order", "to": "com.demo.model.Order.Summary", "kind": "dependency", "heuristic": false, "via": "summary" },
+    { "from": "com.demo.service.Catalog", "to": "com.demo.model.Customer", "kind": "aggregation", "heuristic": true, "multiplicity": "*", "via": "customers" },
+    { "from": "com.demo.service.Catalog", "to": "com.demo.model.Product", "kind": "aggregation", "heuristic": true, "multiplicity": "*", "via": "products" },
+    { "from": "com.demo.service.Catalog", "to": "com.demo.model.Tier", "kind": "dependency", "heuristic": false, "via": "addCustomer" },
+    { "from": "com.demo.service.InventoryService", "to": "com.demo.service.Catalog", "kind": "aggregation", "heuristic": true, "multiplicity": "1", "via": "catalog" },
+    { "from": "com.demo.service.InventoryService", "to": "com.demo.model.Order", "kind": "dependency", "heuristic": false, "via": "reserve" },
+    { "from": "com.demo.service.InventoryService", "to": "com.demo.model.OrderLine", "kind": "dependency", "heuristic": false, "via": "reserve" },
+    { "from": "com.demo.service.InventoryService", "to": "com.demo.model.OrderStatus", "kind": "dependency", "heuristic": false, "via": "reserve" },
+    { "from": "com.demo.service.InventoryService", "to": "com.demo.model.Product", "kind": "dependency", "heuristic": false, "via": "reserve" },
+    { "from": "com.demo.service.OrderService", "to": "com.demo.service.Catalog", "kind": "aggregation", "heuristic": true, "multiplicity": "1", "via": "catalog" },
+    {
+      "from": "com.demo.service.OrderService",
+      "to": "com.demo.service.InventoryService",
+      "kind": "aggregation",
+      "heuristic": true,
+      "multiplicity": "1",
+      "via": "inventory"
+    },
+    { "from": "com.demo.service.OrderService", "to": "com.demo.model.Order", "kind": "aggregation", "heuristic": true, "multiplicity": "*", "via": "orders" },
+    { "from": "com.demo.service.OrderService", "to": "com.demo.model.OrderLine", "kind": "dependency", "heuristic": false, "via": "create" },
+    { "from": "com.demo.service.OrderService", "to": "com.demo.model.OrderStatus", "kind": "dependency", "heuristic": false, "via": "merge" },
+    { "from": "com.demo.service.OrderService", "to": "com.demo.model.Pair", "kind": "dependency", "heuristic": false, "via": "counts" },
+    { "from": "com.demo.service.PricingService", "to": "com.demo.service.Catalog", "kind": "aggregation", "heuristic": true, "multiplicity": "1", "via": "catalog" },
+    { "from": "com.demo.service.PricingService", "to": "com.demo.service.PricingService.Rule", "kind": "dependency", "heuristic": false, "via": "describe" },
+    { "from": "com.demo.service.PricingService", "to": "com.demo.model.Customer", "kind": "dependency", "heuristic": false, "via": "total" },
+    { "from": "com.demo.service.PricingService", "to": "com.demo.model.Order", "kind": "dependency", "heuristic": false, "via": "subtotal" },
+    { "from": "com.demo.service.PricingService", "to": "com.demo.model.OrderLine", "kind": "dependency", "heuristic": false, "via": "lineTotal" },
+    { "from": "com.demo.service.PricingService", "to": "com.demo.model.Product", "kind": "dependency", "heuristic": false, "via": "lineTotal" },
+    { "from": "com.demo.service.ReportService", "to": "com.demo.service.Catalog", "kind": "aggregation", "heuristic": true, "multiplicity": "1", "via": "catalog" },
+    { "from": "com.demo.service.ReportService", "to": "com.demo.service.OrderService", "kind": "aggregation", "heuristic": true, "multiplicity": "1", "via": "orders" },
+    { "from": "com.demo.service.ReportService", "to": "com.demo.service.PricingService", "kind": "aggregation", "heuristic": true, "multiplicity": "1", "via": "pricing" },
+    { "from": "com.demo.service.ReportService", "to": "com.demo.model.Customer", "kind": "dependency", "heuristic": false, "via": "fullReport" },
+    { "from": "com.demo.service.ReportService", "to": "com.demo.model.Order", "kind": "dependency", "heuristic": false, "via": "fullReport" },
+    { "from": "com.demo.service.ReportService", "to": "com.demo.model.OrderLine", "kind": "dependency", "heuristic": false, "via": "hotProducts" },
+    { "from": "com.demo.service.ReportService", "to": "com.demo.model.OrderStatus", "kind": "dependency", "heuristic": false, "via": "fullReport" },
+    { "from": "com.demo.service.ReportService", "to": "com.demo.model.Product", "kind": "dependency", "heuristic": false, "via": "stockTable" },
+    { "from": "com.demo.service.ReportService", "to": "com.demo.util.Stats", "kind": "dependency", "heuristic": false, "via": "fullReport" },
+    { "from": "com.demo.service.ReportService", "to": "com.demo.util.Texts", "kind": "dependency", "heuristic": false, "via": "fullReport" },
+    { "from": "com.demo.service.Validator", "to": "com.demo.service.Catalog", "kind": "aggregation", "heuristic": true, "multiplicity": "1", "via": "catalog" },
+    { "from": "com.demo.service.Validator", "to": "com.demo.service.Validator.Issue", "kind": "dependency", "heuristic": false, "via": "check" },
+    { "from": "com.demo.service.Validator", "to": "com.demo.model.Order", "kind": "dependency", "heuristic": false, "via": "check" },
+    { "from": "com.demo.service.Validator", "to": "com.demo.model.OrderLine", "kind": "dependency", "heuristic": false, "via": "checkLines" },
+    { "from": "com.demo.service.Validator", "to": "com.demo.model.Product", "kind": "dependency", "heuristic": false, "via": "checkLines" },
+    { "from": "com.demo.util.CommandLine", "to": "com.demo.util.Texts", "kind": "dependency", "heuristic": false, "via": "intArg" }
+  ]
+}
