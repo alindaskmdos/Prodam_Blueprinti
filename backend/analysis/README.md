@@ -76,4 +76,11 @@ dependency — тип/статическое обращение в методе,
 текстовый: параметры типа, вложенные своего и внешних классов, single-импорт, свой пакет, импорт `*`, полное имя. `nested(a, b)` —
 внешний/вложенный. Ограничения: унаследованные вложенные типы и статические импорты не резолвятся, `Outer.Inner.X` в выражении даёт только Outer.
 
+Граф зависимостей (§14а.4): `ProjectAnalysis.dependencies()` → `DependencyGraph` — nodes (классы UML), edges (все связи UML без
+внешний ↔ вложенный и петель; `inCycle` — оба конца в одной компоненте), cycles (сильно связные компоненты 2+ классов через Тарьяна
+`CallGraph`; classes в порядке узлов, severity 2 → low, 3+ → medium, issueId = `CyclicDependency:<FQN первого>`).
+Детектор уровня проекта: `Detector.detectProject(project)` (по умолчанию пусто), `DetectorRegistry.run` зовёт его после методов.
+`CyclicDependency` — Issue на каждый цикл: без methodId/blockId, classIds, span — объявление первого класса, confidence high,
+message с маршрутом `A → B → A`, без фиксов.
+
 Зависит от: model, source. Тесты: `./gradlew :analysis:test` (в т.ч. прогон по `samples/demo` и `samples/roundtrip`).

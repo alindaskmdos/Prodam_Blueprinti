@@ -45,6 +45,7 @@ public final class ProjectAnalysis {
     private final List<TypeInfo> types = new ArrayList<>();
     private Set<String> stringLiterals;
     private UmlModel uml;
+    private DependencyGraph dependencies;
     private final CallGraph callGraph;
     private final long n;
 
@@ -100,6 +101,12 @@ public final class ProjectAnalysis {
     public UmlModel uml() {
         if (uml == null) uml = UmlModel.build(this);
         return uml;
+    }
+
+    /** Граф зависимостей классов с циклами (§14а.4), строится лениво из {@link #uml()}. */
+    public DependencyGraph dependencies() {
+        if (dependencies == null) dependencies = DependencyGraph.of(uml());
+        return dependencies;
     }
 
     /** Типы проекта в порядке файлов; внутри файла — внешний, затем вложенные (как в дереве проекта). */

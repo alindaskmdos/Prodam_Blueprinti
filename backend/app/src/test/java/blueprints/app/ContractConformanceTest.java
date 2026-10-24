@@ -112,6 +112,9 @@ class ContractConformanceTest {
         Contract.validate("Analysis", Contract.fixture("analysis.merge.json"));
         Contract.validate("MethodView", Contract.fixture("method-view.merge.json"));
         Contract.validate("UmlDiagram", Contract.fixture("uml.demo.json"));
+        Contract.validate("DependencyGraph", Contract.fixture("dependencies.demo.json"));
+        Contract.validate("DependencyGraph", Contract.fixture("dependencies.cycle.json"));
+        Contract.validate("Analysis", Contract.fixture("analysis.cycle.json"));
     }
 
     /** Analysis / MethodView / ProjectTree из ProjectView на демо — по схемам; проблема merge — как в фикстуре. */
@@ -341,8 +344,12 @@ class ContractConformanceTest {
 
     /** Загрузка samples/demo через POST /projects; возвращает базовый путь проекта. */
     String uploadDemo() throws IOException {
+        return upload(ProjectsApiTest.demoFiles());
+    }
+
+    String upload(Map<String, byte[]> files) throws IOException {
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-        ProjectsApiTest.demoFiles().forEach((path, data) -> {
+        files.forEach((path, data) -> {
             body.add("files", ProjectsApiTest.part(path.replaceAll(".*/", ""), data));
             body.add("paths", path);
         });
@@ -373,6 +380,81 @@ class ContractConformanceTest {
     private static java.util.Set<String> relations(JsonNode diagram) {
         java.util.Set<String> out = new java.util.TreeSet<>();
         diagram.get("relations").forEach(r -> out.add(((com.fasterxml.jackson.databind.node.ObjectNode) r.deepCopy()).without("via").toString()));
+        return out;
+    }
+
+    /** GET dependencies на демо — по схеме, узлы как в dependencies.demo.json, рёбра тем же набором, циклов нет. */
+    @Test
+    void dependenciesOnDemoMatchSchemaAndFixture() throws IOException {
+        String base = uploadDemo();
+        JsonNode deps = ok(rest.getForEntity(base + "/dependencies", String.class));
+        Contract.validate("DependencyGraph", deps);
+        JsonNode fx = Contract.fixture("dependencies.demo.json");
+        assertEquals(fx.get("version"), deps.get("version"));
+        assertEquals(fx.get("nodes"), deps.get("nodes"));
+        assertEquals(edges(fx), edges(deps));
+        assertEquals(fx.get("cycles"), deps.get("cycles"));
+        for (JsonNode i : ok(rest.getForEntity(base + "/analysis", String.class)).get("issues")) {
+            assertFalse(i.get("rule").asText().equals("CyclicDependency"), i.toString());
+        }
+        notFound(rest.getForEntity("/api/projects/p-none/dependencies", String.class));
+    }
+
+    /** Цикл Cart ↔ Pricing: как dependencies.cycle.json / analysis.cycle.json; issueId цикла — Issue в analysis; tree валиден. */
+    @Test
+    void cycleIssueInDependenciesAndAnalysis() throws IOException {
+        Map<String, byte[]> files = new LinkedHashMap<>();
+        files.put("src/com/shop/Cart.java", """
+                package com.shop;
+
+                import java.util.List;
+
+                public class Cart {
+                    private final Pricing pricing = new Pricing();
+                    private List<Item> items;
+                    long total() { return pricing.total(this); }
+                }
+                """.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        files.put("src/com/shop/Pricing.java", """
+                package com.shop;
+
+                public class Pricing {
+                    long total(Cart cart) { return 0; }
+                }
+                """.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        files.put("src/com/shop/Item.java", "package com.shop;\n\npublic record Item(String name) {}\n"
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String base = upload(files);
+        JsonNode deps = ok(rest.getForEntity(base + "/dependencies", String.class));
+        Contract.validate("DependencyGraph", deps);
+        JsonNode fx = Contract.fixture("dependencies.cycle.json");
+        assertEquals(edges(fx), edges(deps));
+        JsonNode cycle = deps.get("cycles").get(0);
+        assertEquals(1, deps.get("cycles").size());
+        assertEquals(fx.get("cycles").get(0).get("classes"), cycle.get("classes"));
+        assertEquals(fx.get("cycles").get(0).get("severity"), cycle.get("severity"));
+
+        JsonNode analysis = ok(rest.getForEntity(base + "/analysis", String.class));
+        Contract.validate("Analysis", analysis);
+        JsonNode issue = null;
+        for (JsonNode i : analysis.get("issues")) if (i.get("id").equals(cycle.get("issueId"))) issue = i;
+        JsonNode expected = Contract.fixture("analysis.cycle.json").get("issues").get(0);
+        for (String f : List.of("rule", "severity", "confidence", "source", "classIds", "message", "recommendation", "fixes")) {
+            assertEquals(expected.get(f), issue.get(f), f);
+        }
+        assertTrue(issue.get("span").get("file").asText().endsWith("com/shop/Cart.java"), issue.toString()); // общая папка src/ отрезается
+        assertEquals(5, issue.get("span").get("startLine").asInt());
+        assertFalse(issue.has("blockId") || issue.has("methodId"), issue.toString());
+
+        JsonNode tree = ok(rest.getForEntity(base + "/tree", String.class));
+        Contract.validate("ProjectTree", tree);
+        for (JsonNode ms : tree.findValues("methods")) for (JsonNode m : ms) assertEquals(0, m.get("issueCount").asInt(), m.toString());
+        Contract.validate("UmlDiagram", ok(rest.getForEntity(base + "/uml", String.class)));
+    }
+
+    private static java.util.Set<String> edges(JsonNode graph) {
+        java.util.Set<String> out = new java.util.TreeSet<>();
+        graph.get("edges").forEach(e -> out.add(e.toString()));
         return out;
     }
 }

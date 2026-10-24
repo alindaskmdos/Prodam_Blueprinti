@@ -14,17 +14,18 @@ public final class DetectorRegistry {
 
     public static DetectorRegistry defaults() {
         return new DetectorRegistry(List.of(new NestedLoopSameCollection(), new LinearSearchInLoop(), new ExpensiveCallInLoop(),
-                new StringConcatInLoop(), new LongMethod(), new DeepNesting(), new DeadCode()));
+                new StringConcatInLoop(), new LongMethod(), new DeepNesting(), new DeadCode(), new CyclicDependency()));
     }
 
     public List<Detector> detectors() {
         return detectors;
     }
 
-    /** Все проблемы проекта: методы по порядку файлов, внутри метода — детекторы по порядку регистрации. */
+    /** Все проблемы проекта: методы по порядку файлов, внутри метода — детекторы по порядку регистрации; затем находки уровня проекта. */
     public List<Issue> run(ProjectAnalysis project) {
         List<Issue> out = new ArrayList<>();
         for (MethodAnalysis m : project.methods()) for (Detector d : detectors) out.addAll(d.detect(m, project));
+        for (Detector d : detectors) out.addAll(d.detectProject(project));
         return out;
     }
 }

@@ -6,7 +6,9 @@ Spring Boot: REST по `contract/openapi.yaml`, хранение проекто�
 Главный класс: `blueprints.app.Application`. Эндпоинты (`/api`): `GET /health` (`{status: UP, docker, llm}`: docker — `docker version` за 2 с, кэш 5 с; llm — непустой `LLM_API_KEY`), `POST /projects` (multipart `files[]` + `paths[]`), `GET /projects/{id}`, `GET /projects/{id}/tree`, `GET /projects/{id}/export?format=zip&includeSettings=` / `?format=jar&mainClass=`,
 `PUT /projects/{id}/methods/{methodId}/blocks` (`{version, root}`), `PUT /projects/{id}/files?path=` (`{version, text}`) -> MutationResult,
 `GET /projects/{id}/methods/{methodId}/blocks` -> MethodView, `GET /projects/{id}/files?path=` -> FileText, `GET /projects/{id}/analysis` -> Analysis,
-`GET /projects/{id}/uml` -> UmlDiagram (`DiagramController`, `ProjectAnalysis.uml()` по текущей версии).
+`GET /projects/{id}/uml` -> UmlDiagram (`DiagramController`, `ProjectAnalysis.uml()` по текущей версии),
+`GET /projects/{id}/dependencies` -> DependencyGraph (kind узлов всегда; cycles[].issueId = Issue CyclicDependency в analysis).
+Находки уровня проекта (methodId null) в ProjectView идут без blockId и фиксов и не входят в issueCount методов.
 
 - GET blocks / analysis — те же представления `ProjectView`, что в MutationResult (снимок строится на каждый запрос, без кэша);
   неизвестный проект/метод/файл -> 404 NOT_FOUND. `GET analysis?n=` (по умолчанию 10 000) — ops проблем при этом n, оно же в поле `n`; n < 1 -> 400 INVALID_REQUEST.
