@@ -1,5 +1,5 @@
 import type { Schemas } from '../api';
-import { ESTIMATE_NOTE, formatOpsEstimate, issueLocation, SEVERITY_LABEL } from './format';
+import { ESTIMATE_NOTE, formatOpsEstimate, issueLocation, ruleTitle, SEVERITY_LABEL } from './format';
 import styles from './AnalysisPanel.module.css';
 
 type Issue = Schemas['Issue'];
@@ -49,11 +49,13 @@ export function IssueCard({ issue, selected, onSelect, analysisN, onApplyFix, fi
       <button type="button" className={styles.issueSelect} aria-pressed={selected} onClick={() => onSelect(issue)}>
         <span className={styles.issueHead}>
           <SeverityBadge issue={issue} />
-          <span className={styles.rule}>{issue.rule}</span>
-          {issue.source && issue.source !== 'blueprints' && <span className={styles.source}>{issue.source}</span>}
-          <span className={styles.where} title={`${span.file}, строки ${lines}`}>
-            {issueLocation(issue)}
+          <span className={styles.rule} title={issue.rule}>
+            {ruleTitle(issue.rule)}
           </span>
+          {issue.source && issue.source !== 'blueprints' && <span className={styles.source}>{issue.source}</span>}
+        </span>
+        <span className={styles.where} title={`${span.file}, строки ${lines}`}>
+          {issueLocation(issue)}
         </span>
         <span className={styles.message}>{issue.message}</span>
         {(complexity?.before || complexity?.after) && (

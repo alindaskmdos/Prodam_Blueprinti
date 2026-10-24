@@ -6,7 +6,7 @@ import { sandboxDisabledReason, useSandboxStore } from '../sandbox';
 import { runCommand } from '../../app/commands';
 import { useAppStore } from '../../app/store';
 import { useAnalysis } from './analysisStore';
-import { splitIssues } from './format';
+import { issuesSummary, splitIssues } from './format';
 import { IssueCard } from './IssueCard';
 import { OpsEstimate } from './OpsEstimate';
 import styles from './AnalysisPanel.module.css';
@@ -120,6 +120,9 @@ function IssuesContent({
   const issues = useMemo(() => splitIssues(analysis.issues)[pick], [analysis.issues, pick]);
   return (
     <>
+      <div className={styles.summary} data-testid="issues-summary">
+        {issuesSummary(pick, issues)}
+      </div>
       <IssueList analysis={analysis} issues={issues} empty={empty} />
       <OpsEstimate issue={estimateIssue(issues, selectedIssueId)} analysisN={analysis.n} />
     </>
@@ -188,7 +191,7 @@ function MetricsContent({ analysis }: { analysis: Analysis }) {
                 <span role="cell" className={deep}>
                   {m.maxNesting}
                 </span>
-                <span role="cell" className={styles.mono}>
+                <span role="cell" className={styles.mono} title={m.complexity}>
                   {m.complexity}
                 </span>
               </button>

@@ -87,3 +87,37 @@ export function issueLocation(issue: Issue): string {
   const where = issue.methodId ? shortMethodName(issue.methodId) : fileName(issue.span.file);
   return `${where}:${issue.span.startLine}`;
 }
+
+const RULE_TITLES: Record<string, string> = {
+  DeadCode: 'Мёртвый код',
+  DeepNesting: 'Глубокая вложенность',
+  ExpensiveCallInLoop: 'Дорогой вызов в цикле',
+  LinearSearchInLoop: 'Линейный поиск в цикле',
+  LongMethod: 'Слишком длинный метод',
+  NestedLoopSameCollection: 'Вложенный цикл по одной коллекции',
+  StringConcatInLoop: 'Конкатенация строк в цикле',
+  CyclicDependency: 'Циклическая зависимость классов',
+};
+
+/** Понятное название правила по id; неизвестный id (PMD и др.) — как есть. */
+export function ruleTitle(rule: string): string {
+  return RULE_TITLES[rule] ?? rule;
+}
+
+/** Русское склонение: plural(12, 'проблема', 'проблемы', 'проблем') → «проблем». */
+export function plural(n: number, one: string, few: string, many: string): string {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+  return many;
+}
+
+/** Строка-пояснение над списком вкладки: счётчик и чем вкладка отличается от соседней. */
+export function issuesSummary(pick: 'problems' | 'warnings', issues: readonly Issue[]): string {
+  if (pick === 'warnings') {
+    return `${issues.length} ${plural(issues.length, 'предупреждение', 'предупреждения', 'предупреждений')} · низкая уверенность, без автоисправления`;
+  }
+  const fixable = issues.filter((i) => i.fixes.length > 0).length;
+  return `${issues.length} ${plural(issues.length, 'проблема', 'проблемы', 'проблем')} · можно исправить автоматически: ${fixable}`;
+}

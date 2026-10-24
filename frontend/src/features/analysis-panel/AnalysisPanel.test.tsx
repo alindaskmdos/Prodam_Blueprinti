@@ -11,7 +11,7 @@ import { panelsIn } from '../../app/panels';
 import { resetAppState, useAppStore } from '../../app/store';
 import { resetAnalysisState, useAnalysisStore } from './analysisStore';
 import { ProblemsTab } from './AnalysisTabs';
-import { formatOps, parseN, sortBySeverity, splitIssues } from './format';
+import { formatOps, issuesSummary, parseN, ruleTitle, sortBySeverity, splitIssues } from './format';
 
 const client = createApiClient('http://localhost/api');
 const [high, low] = analysisJson.issues;
@@ -41,7 +41,9 @@ describe('панель анализа', () => {
     expect(await screen.findByText(high.message)).toBeInTheDocument();
     expect(screen.queryByText(low.message)).not.toBeInTheDocument();
     expect(screen.getByText('высокая')).toBeInTheDocument();
-    expect(screen.getByText(high.rule)).toBeInTheDocument();
+    expect(screen.getByText(ruleTitle(high.rule))).toBeInTheDocument();
+    expect(screen.queryByText(high.rule)).not.toBeInTheDocument();
+    expect(screen.getByTestId('issues-summary')).toHaveTextContent('можно исправить автоматически: 1');
     expect(screen.getByText('OrderService.merge:44')).toBeInTheDocument();
     expect(screen.getByText('index-by-id')).toBeInTheDocument();
     const ops = screen.getByTestId('ops');
@@ -58,6 +60,7 @@ describe('панель анализа', () => {
     expect(screen.getByText(low.message)).toBeInTheDocument();
     expect(screen.queryByText(high.message)).not.toBeInTheDocument();
     expect(screen.getByText('возможно')).toBeInTheDocument();
+    expect(screen.getByTestId('issues-summary')).toHaveTextContent('низкая уверенность, без автоисправления');
     expect(screen.getByText('Низкая уверенность · без автоисправления')).toBeInTheDocument();
 
     // Метрики: MethodMetrics.
@@ -183,6 +186,20 @@ describe('панель анализа', () => {
 });
 
 describe('format', () => {
+  it('ruleTitle: русское название по id, неизвестный id — как есть', () => {
+    expect(ruleTitle('NestedLoopSameCollection')).toBe('Вложенный цикл по одной коллекции');
+    expect(ruleTitle('StringConcatInLoop')).toBe('Конкатенация строк в цикле');
+    expect(ruleTitle('UnusedLocalVariable')).toBe('UnusedLocalVariable');
+  });
+
+  it('issuesSummary: счётчик со склонением и число авто-исправимых', () => {
+    const fixable = issue({ fixes: ['f'] });
+    const plain = issue({ fixes: [] });
+    expect(issuesSummary('problems', [fixable, plain, plain])).toBe('3 проблемы · можно исправить автоматически: 1');
+    expect(issuesSummary('problems', Array(12).fill(plain))).toContain('12 проблем ·');
+    expect(issuesSummary('warnings', [plain])).toBe('1 предупреждение · низкая уверенность, без автоисправления');
+  });
+
   it('formatOps — порядок готового числа из контракта', () => {
     expect(formatOps(100_000_000)).toBe('≈10⁸');
     expect(formatOps(10_000)).toBe('≈10⁴');
