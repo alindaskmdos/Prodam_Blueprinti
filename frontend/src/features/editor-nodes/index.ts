@@ -41,3 +41,5 @@ export {
   type BlockSyncStatus,
   type InvalidEdit,
 } from './blockSync';
+export { blockAtLine, findBlockById, spanOfBlock } from './blockLocate';
+export { centerOnNode, flowNodeOfBlock, useFocusCenter, type CenterApi, type FocusRequest } from './focus';

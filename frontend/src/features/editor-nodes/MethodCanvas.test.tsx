@@ -325,3 +325,54 @@ describe('MethodCanvas — вставка, удаление, вверх/вниз
     expect(useAppStore.getState().version).toBe(7);
   }, 20_000);
 });
+
+describe('MethodCanvas — подсветка строка ↔ нода, проблема (FE-05)', () => {
+  const FILE = 'src/com/demo/service/OrderService.java';
+  const wrapper = (id: string) => document.querySelector<HTMLElement>(`.react-flow__node[data-id="${CSS.escape(id)}"]`);
+  const HL = styles.lineHighlight ?? 'lineHighlight';
+  const PULSE = styles.issuePulse ?? 'issuePulse';
+
+  beforeEach(() => {
+    resetAppState();
+    useAppStore.getState().openProject('p-1', 7);
+    useAppStore.getState().selectMethod(methodId);
+  });
+
+  it('курсор в коде (store code) → подсвечена самая глубокая нода строки, в store холст не пишет', async () => {
+    render(<MethodCanvas projectId="p-1" methodId={methodId} client={client} />);
+    await screen.findByTestId('node-method', {}, { timeout: 10_000 });
+    act(() => useAppStore.getState().setHighlight({ source: 'code', span: { file: FILE, startLine: 45, endLine: 45 } }));
+    const before = useAppStore.getState().highlight;
+    await waitFor(() => expect(wrapper(`${methodId}/body/1/body/2/body/0`)).toHaveClass(HL));
+    expect(useAppStore.getState().highlight).toBe(before);
+
+    // Строка заголовка цикла — подсвечивается заголовок контейнера.
+    act(() => useAppStore.getState().setHighlight({ source: 'code', span: { file: FILE, startLine: 44, endLine: 44 } }));
+    await waitFor(() => expect(wrapper(`${methodId}/body/1/body/2#head`)).toHaveClass(HL));
+    expect(wrapper(`${methodId}/body/1/body/2/body/0`)).not.toHaveClass(HL);
+  }, 15_000);
+
+  it('клик по ноде → store highlight canvas с id и span блока', async () => {
+    render(<MethodCanvas projectId="p-1" methodId={methodId} client={client} />);
+    await screen.findByTestId('node-method', {}, { timeout: 10_000 });
+    const node = wrapper(`${methodId}/body/0`);
+    if (!node) throw new Error('нет ноды body/0');
+    fireEvent.click(node);
+    expect(useAppStore.getState().highlight).toMatchObject({
+      source: 'canvas',
+      blockId: `${methodId}/body/0`,
+      span: { file: FILE, startLine: 38, endLine: 38 },
+    });
+    await waitFor(() => expect(wrapper(`${methodId}/body/0`)).toHaveClass(HL));
+  }, 15_000);
+
+  it('выбор проблемы → нода пульсирует (контейнер — заголовок); снятие выбора — без пульса', async () => {
+    render(<MethodCanvas projectId="p-1" methodId={methodId} client={client} />);
+    await screen.findByTestId('node-method', {}, { timeout: 10_000 });
+    act(() => useAppStore.getState().selectIssue({ issueId: 'I-1', methodId, blockId: `${methodId}/body/1/body/2` }));
+    const head = `${methodId}/body/1/body/2#head`;
+    await waitFor(() => expect(wrapper(head)).toHaveClass(PULSE));
+    act(() => useAppStore.getState().selectIssue(null));
+    await waitFor(() => expect(wrapper(head)).not.toHaveClass(PULSE));
+  }, 15_000);
+});

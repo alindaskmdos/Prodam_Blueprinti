@@ -10,13 +10,15 @@ import { CodeEditor } from './CodeEditor';
 // Monaco в jsdom не работает — подменяем представление textarea с тем же интерфейсом.
 vi.mock('./MonacoView', async () => {
   const { useEffect, useState } = await import('react');
-  function FakeMonaco({ text, loadSeq, parseError, onChange, readOnly }: MonacoViewProps) {
+  function FakeMonaco({ text, loadSeq, parseError, onChange, readOnly, reveal, onCursorLine }: MonacoViewProps) {
     const [value, setValue] = useState(text);
     useEffect(() => setValue(text), [text, loadSeq]);
     return (
       <textarea
         aria-label="код"
         data-error-line={parseError?.line ?? ''}
+        data-reveal={reveal ? `${reveal.startLine}-${reveal.endLine}` : ''}
+        onSelect={(e) => onCursorLine?.(Number(e.currentTarget.dataset.cursorLine ?? '1'))}
         value={value}
         readOnly={readOnly}
         onChange={(e) => {
@@ -172,5 +174,22 @@ describe('<CodeEditor>', () => {
     rerender(<CodeEditor {...props} version={2} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Скопировать' }));
     expect(writeText).toHaveBeenCalledWith('class Main { int mine; }');
+  });
+
+  it('FE-05: reveal доходит до редактора, курсор пользователя → onCursorLine', async () => {
+    serveFile('class Main {\n  void f() {}\n}', 1);
+    const onCursorLine = vi.fn();
+    const { rerender } = render(
+      <CodeEditor client={client} projectId="p-1" path={PATH} reveal={{ startLine: 2, endLine: 2, seq: 1 }} onCursorLine={onCursorLine} />,
+    );
+    const area = await screen.findByLabelText('код');
+    expect(area).toHaveAttribute('data-reveal', '2-2');
+
+    area.dataset.cursorLine = '3';
+    fireEvent.select(area);
+    expect(onCursorLine).toHaveBeenCalledWith(3);
+
+    rerender(<CodeEditor client={client} projectId="p-1" path={PATH} reveal={null} onCursorLine={onCursorLine} />);
+    expect(screen.getByLabelText('код')).toHaveAttribute('data-reveal', '');
   });
 });

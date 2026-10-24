@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect } from 'react';
 import { api, type ApiClient, type Schemas } from '../api';
 import type { ConflictInfo, FileSyncStatus } from './fileSync';
+import type { RevealLines } from './reveal';
 import { useFileSync } from './useFileSync';
 import styles from './CodeEditor.module.css';
 
@@ -21,6 +22,10 @@ export interface CodeEditorProps {
   onMutation?: (result: Schemas['MutationResult']) => void;
   onConflict?: (error: Schemas['Error']) => void;
   debounceMs?: number;
+  /** Подсветить строки и прокрутить к ним (клик по ноде, выбор проблемы, FE-05); null — снять подсветку. */
+  reveal?: RevealLines | null;
+  /** Пользователь поставил курсор на строку (мышь/клавиатура) — для подсветки ноды на холсте. */
+  onCursorLine?: (line: number) => void;
 }
 
 const STATUS_TEXT: Record<FileSyncStatus, string> = {
@@ -54,7 +59,18 @@ function copyText(text: string): void {
 }
 
 /** Код Java файла в Monaco с синхронизацией: правка → 500 мс → PUT files. */
-export function CodeEditor({ client = api, projectId, path, version, onVersion, onMutation, onConflict, debounceMs }: CodeEditorProps) {
+export function CodeEditor({
+  client = api,
+  projectId,
+  path,
+  version,
+  onVersion,
+  onMutation,
+  onConflict,
+  debounceMs,
+  reveal = null,
+  onCursorLine,
+}: CodeEditorProps) {
   const { state, edit, dismissConflict, takeTheirs, keepMine } = useFileSync({
     client,
     projectId,
@@ -136,6 +152,8 @@ export function CodeEditor({ client = api, projectId, path, version, onVersion, 
               parseError={parseError}
               onChange={edit}
               readOnly={stale !== null}
+              reveal={reveal}
+              onCursorLine={onCursorLine}
             />
           </Suspense>
         ) : (

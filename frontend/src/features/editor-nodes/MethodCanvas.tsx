@@ -1,13 +1,15 @@
-import { Background, BackgroundVariant, Controls, ReactFlow, type Edge, type Node } from '@xyflow/react';
+import { Background, BackgroundVariant, Controls, ReactFlow, useReactFlow, type Edge, type Node } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useAppStore } from '../../app/store';
+import { useAppStore, type LineSpan } from '../../app/store';
 import { api, type ApiClient, type Schemas } from '../api';
 import { blockAt, withFields, type BlockPath } from './blockEdit';
 import { currentRoot, type ConflictInfo, type InvalidEdit } from './blockSync';
 import { canMove, insertOptions, nestedCount, type InsertOption, type InsertPoint } from './blockTree';
+import { blockAtLine } from './blockLocate';
 import { blocksToGraph, type GraphNodeData } from './blocksToGraph';
 import { NodeEditContext, type NodeEditApi } from './editContext';
+import { FOCUS_ZOOM, flowNodeOfBlock, useFocusCenter, type FocusRequest } from './focus';
 import { layoutGraph } from './layout';
 import { edgeTypes, nodeTypes } from './nodeTypes';
 import { InsertMenu } from './structureUi';
@@ -30,6 +32,23 @@ export interface MethodGraphProps {
   errors?: Record<string, string>;
   /** Правка текста нод; нет — схема только для просмотра. */
   edit?: NodeEditApi;
+  /** Подсветить ноду блока (клик по ней, строка курсора в Monaco) — рамка акцентом (FE-05). */
+  highlightBlockId?: string | null;
+  /** Нода выбранной проблемы — pulse-анимация (без анимации при prefers-reduced-motion). */
+  pulseBlockId?: string | null;
+  /** Центрировать схему на блоке; один раз на seq, после загрузки дерева, если блока ещё нет. */
+  focus?: FocusRequest | null;
+  /** Клик по ноде блока: id и span блока (для подсветки строк в коде). */
+  onBlockClick?: (blockId: string, span: LineSpan | null) => void;
+  /** Клик по пустому месту холста. */
+  onPaneClick?: () => void;
+}
+
+/** Внутри <ReactFlow>: центрирует схему на ноде запроса (нужен экземпляр из контекста React Flow). */
+function FocusCenter({ targetNodeId, seq, done }: { targetNodeId: string | null; seq: number | null; done: { current: number | null } }) {
+  const rf = useReactFlow();
+  useFocusCenter(rf, targetNodeId, seq, done);
+  return null;
 }
 
 /** Клавиша пришла из поля ввода (инлайн-редактор, Monaco) — не команда схемы. */
@@ -41,7 +60,16 @@ function fromTextInput(target: EventTarget | null): boolean {
  * Схема метода: дерево блоков → ELK → React Flow. С `edit` — тексты нод правятся (FE-07), «+» на стрелках,
  * удаление и вверх/вниз (FE-08): Delete / Alt+↑ / Alt+↓ на выделенной ноде.
  */
-export function MethodGraph({ view, errors, edit }: MethodGraphProps) {
+export function MethodGraph({
+  view,
+  errors,
+  edit,
+  highlightBlockId = null,
+  pulseBlockId = null,
+  focus = null,
+  onBlockClick,
+  onPaneClick,
+}: MethodGraphProps) {
   const insertable = edit !== undefined;
   const graph = useMemo(
     () => blocksToGraph(view.root, { methodBadge: view.complexity, insertable, ...(errors ? { errors } : {}) }),
@@ -101,10 +129,28 @@ export function MethodGraph({ view, errors, edit }: MethodGraphProps) {
   // Раскладка от предыдущего метода не показывается, пока не готова новая.
   const layout: LayoutState = state.graph === graph ? state.layout : { status: 'pending' };
   const flowNodes = layout.status === 'ready' ? layout.flow.nodes : null;
+  const highlightId = flowNodes && highlightBlockId ? flowNodeOfBlock(flowNodes, highlightBlockId) : null;
+  const pulseId = flowNodes && pulseBlockId ? flowNodeOfBlock(flowNodes, pulseBlockId) : null;
   const nodes = useMemo(
-    () => flowNodes?.map((n) => (n.id === selection?.id ? { ...n, selected: true } : n)) ?? [],
-    [flowNodes, selection],
+    () =>
+      flowNodes?.map((n) => {
+        const cls = [n.id === highlightId && styles.lineHighlight, n.id === pulseId && styles.issuePulse].filter(Boolean);
+        if (n.id !== selection?.id && cls.length === 0) return n;
+        return {
+          ...n,
+          ...(n.id === selection?.id ? { selected: true } : {}),
+          ...(cls.length > 0 ? { className: cls.join(' ') } : {}),
+        };
+      }) ?? [],
+    [flowNodes, selection, highlightId, pulseId],
   );
+  // Центрирование по проблеме (FE-05): seq уже показанного запроса — переживает перерисовки схемы.
+  const focusDone = useRef<number | null>(null);
+  const focusNodeId = flowNodes && focus ? flowNodeOfBlock(flowNodes, focus.blockId) : null;
+  const focusSeq = focus?.seq ?? null;
+  // Первый показ схемы с ещё не показанной целью — начальный fitView сразу на ноду (иначе он перебил бы центрирование).
+  const initialFit =
+    focusNodeId !== null && focusDone.current !== focusSeq ? { nodes: [{ id: focusNodeId }], maxZoom: FOCUS_ZOOM } : undefined;
 
   return (
     <NodeEditContext.Provider value={edit ?? null}>
@@ -122,10 +168,14 @@ export function MethodGraph({ view, errors, edit }: MethodGraphProps) {
           edges={layout.flow.edges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
-          onNodeClick={(_, n) =>
-            setSelection(n.selectable === false || n.data.path === 'root' ? null : { id: n.id, path: n.data.path })
-          }
-          onPaneClick={() => setSelection(null)}
+          onNodeClick={(_, n) => {
+            setSelection(n.selectable === false || n.data.path === 'root' ? null : { id: n.id, path: n.data.path });
+            if (n.selectable !== false) onBlockClick?.(n.data.blockId, n.data.span ?? null);
+          }}
+          onPaneClick={() => {
+            setSelection(null);
+            onPaneClick?.();
+          }}
           nodesDraggable={false}
           nodesConnectable={false}
           edgesFocusable={false}
@@ -134,6 +184,7 @@ export function MethodGraph({ view, errors, edit }: MethodGraphProps) {
           zoomOnDoubleClick={false}
           colorMode="dark"
           fitView
+          {...(initialFit ? { fitViewOptions: initialFit } : {})}
           minZoom={0.1}
           proOptions={{ hideAttribution: true }}
         >
@@ -145,6 +196,7 @@ export function MethodGraph({ view, errors, edit }: MethodGraphProps) {
             bgColor="var(--jb-bg)"
           />
           <Controls showInteractive={false} />
+          <FocusCenter targetNodeId={focusNodeId} seq={focusSeq} done={focusDone} />
         </ReactFlow>
       )}
     </div>
@@ -221,6 +273,28 @@ export function MethodCanvas({ projectId, methodId, client = api, version, onVer
   }, [view, pending, invalid]);
   const root = shown?.root ?? null;
 
+  // Подсветка строка ↔ нода (FE-05): холст пишет в store только клик по ноде, на свои события не реагирует.
+  const highlight = useAppStore((s) => s.highlight);
+  const selectedBlockId = useAppStore((s) => s.selectedBlockId);
+  const setHighlight = useAppStore((s) => s.setHighlight);
+  const highlightBlockId = useMemo(() => {
+    if (!highlight) return null;
+    if (highlight.source !== 'code') return highlight.blockId;
+    if (!root || !highlight.span) return null;
+    return blockAtLine(root, highlight.span.startLine, highlight.span.file)?.id ?? null;
+  }, [highlight, root]);
+  const focus = useMemo<FocusRequest | null>(
+    () => (highlight?.source === 'issue' && highlight.blockId ? { blockId: highlight.blockId, seq: highlight.seq } : null),
+    [highlight],
+  );
+  const onBlockClick = useCallback(
+    (blockId: string, span: LineSpan | null) => setHighlight({ source: 'canvas', blockId, span }),
+    [setHighlight],
+  );
+  const onPaneClick = useCallback(() => {
+    if (useAppStore.getState().highlight?.source === 'canvas') setHighlight(null);
+  }, [setHighlight]);
+
   const edit = useMemo<NodeEditApi>(
     () => ({
       editing,
@@ -266,7 +340,16 @@ export function MethodCanvas({ projectId, methodId, client = api, version, onVer
   return (
     <div className={styles.host} ref={hostRef}>
       {shown ? (
-        <MethodGraph view={shown} errors={errors} edit={edit} />
+        <MethodGraph
+          view={shown}
+          errors={errors}
+          edit={edit}
+          highlightBlockId={highlightBlockId}
+          pulseBlockId={selectedBlockId}
+          focus={focus}
+          onBlockClick={onBlockClick}
+          onPaneClick={onPaneClick}
+        />
       ) : (
         <div className={styles.canvas} data-testid="method-canvas">
           {status === 'error' ? (

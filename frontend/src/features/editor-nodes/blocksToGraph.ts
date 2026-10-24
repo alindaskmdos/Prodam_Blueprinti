@@ -29,6 +29,8 @@ export interface GraphNodeData {
   fields: Record<string, string>;
   /** Можно ли править текст ноды (FE-07). У slot и group-ноды контейнера — нет. */
   editable: boolean;
+  /** Строки блока в файле (Block.span); у вставленного локально блока нет. */
+  span?: NonNullable<Block['span']>;
   /** Ошибка текста ноды (422 PARSE_ERROR): нода красная, правка не применена. */
   error?: string;
   /** Только у insert: куда вставит «+» (конец слота или пустой слот). */
@@ -201,6 +203,7 @@ export function blocksToGraph(root: Block, options: ToGraphOptions = {}): Graph 
       path,
       fields: block.fields ?? {},
       editable: block.kind !== 'method' && editableFields(block).length > 0,
+      ...(block.span ? { span: block.span } : {}),
       ...(error !== undefined ? { error } : {}),
     };
   };

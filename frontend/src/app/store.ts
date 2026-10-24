@@ -8,6 +8,29 @@ export interface IssueSelection {
   blockId: string;
 }
 
+/** Строки фрагмента кода, как Span контракта (с 1, включительно). */
+export interface LineSpan {
+  file: string;
+  startLine: number;
+  endLine: number;
+}
+
+/**
+ * Подсветка «строка ↔ нода» (FE-05). Каждая сторона пишет только своё событие и реагирует только на чужое:
+ * холст (клик по ноде) → `canvas` с блоком и его span → Monaco подсвечивает строки; курсор Monaco → `code`
+ * со строкой → холст подсвечивает самый глубокий блок; выбор проблемы → `issue` (холст центрирует ноду,
+ * Monaco прокручивает к span проблемы). Ответных записей нет — циклов «подсветка → событие → подсветка» нет.
+ */
+export interface Highlight {
+  source: 'canvas' | 'code' | 'issue';
+  /** canvas / issue: блок (Block.id). */
+  blockId: string | null;
+  /** canvas: span блока; code: файл и строка курсора (startLine = endLine); issue: null (span — у Issue). */
+  span: LineSpan | null;
+  /** Растёт на каждое событие: повторный клик по той же проблеме снова центрирует. */
+  seq: number;
+}
+
 /** Общее состояние приложения: открытый проект, его версия, выбранный метод и проблема. */
 export interface AppState {
   projectId: string | null;
@@ -19,6 +42,8 @@ export interface AppState {
   selectedIssueId: string | null;
   /** Issue.blockId выбранной проблемы — нода, которую холст должен показать (FE-05). */
   selectedBlockId: string | null;
+  /** Последнее событие подсветки строка ↔ нода (FE-05); null — ничего не подсвечено. */
+  highlight: Highlight | null;
   /** Открыть проект: сбрасывает выбранный метод и проблему. */
   openProject: (projectId: string, version?: number | null) => void;
   setVersion: (version: number) => void;
@@ -26,6 +51,8 @@ export interface AppState {
   selectMethod: (methodId: string | null) => void;
   /** Выбрать проблему (панель анализа): метод проблемы + issueId/blockId; `null` — снять выбор проблемы. */
   selectIssue: (selection: IssueSelection | null) => void;
+  /** Подсветка от холста (`canvas`) или редактора кода (`code`); null — снять. */
+  setHighlight: (highlight: { source: 'canvas' | 'code'; blockId?: string | null; span?: LineSpan | null } | null) => void;
 }
 
 const initial = {
@@ -34,7 +61,11 @@ const initial = {
   selectedMethodId: null,
   selectedIssueId: null,
   selectedBlockId: null,
+  highlight: null,
 };
+
+let highlightSeq = 0;
+const nextSeq = () => ++highlightSeq;
 
 /**
  * Store на zustand: в компонентах — `useAppStore((s) => s.selectedMethodId)`,
@@ -47,23 +78,32 @@ export const useAppStore = create<AppState>()((set, get) => ({
       if (version !== null) set({ version });
       return;
     }
-    set({ projectId, version, selectedMethodId: null, selectedIssueId: null, selectedBlockId: null });
+    set({ projectId, version, selectedMethodId: null, selectedIssueId: null, selectedBlockId: null, highlight: null });
   },
   setVersion: (version) => set({ version }),
-  selectMethod: (selectedMethodId) => set({ selectedMethodId, selectedIssueId: null, selectedBlockId: null }),
+  selectMethod: (selectedMethodId) =>
+    set({ selectedMethodId, selectedIssueId: null, selectedBlockId: null, highlight: null }),
   selectIssue: (selection) => {
     if (!selection) {
-      set({ selectedIssueId: null, selectedBlockId: null });
+      const h = get().highlight;
+      set({ selectedIssueId: null, selectedBlockId: null, ...(h?.source === 'issue' ? { highlight: null } : {}) });
       return;
     }
     const { issueId, methodId, blockId } = selection;
     // Без methodId неизвестно, в каком методе блок: blockId не ставим, чтобы холст не искал его в чужом методе.
     set(
       methodId
-        ? { selectedIssueId: issueId, selectedBlockId: blockId, selectedMethodId: methodId }
-        : { selectedIssueId: issueId, selectedBlockId: null },
+        ? {
+            selectedIssueId: issueId,
+            selectedBlockId: blockId,
+            selectedMethodId: methodId,
+            highlight: { source: 'issue', blockId, span: null, seq: nextSeq() },
+          }
+        : { selectedIssueId: issueId, selectedBlockId: null, highlight: { source: 'issue', blockId: null, span: null, seq: nextSeq() } },
     );
   },
+  setHighlight: (h) =>
+    set({ highlight: h ? { source: h.source, blockId: h.blockId ?? null, span: h.span ?? null, seq: nextSeq() } : null }),
 }));
 
 /** Сброс к начальному состоянию (тесты). */

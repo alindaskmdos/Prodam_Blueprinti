@@ -634,3 +634,27 @@
   font: 500 12.5px/18px var(--jb-font-code);
   white-space: pre-wrap;
 }
+
+/* FE-05: нода блока под курсором Monaco / по клику — рамка акцентом. */
+:global(.react-flow__node).lineHighlight > .node,
+:global(.react-flow__node).lineHighlight > .comment {
+  border-color: var(--jb-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--jb-accent) 45%, transparent);
+}
+
+/* FE-05: нода выбранной проблемы пульсирует (jb-pulse, tokens.css); prefers-reduced-motion — без анимации. */
+:global(.react-flow__node).issuePulse {
+  border-radius: 10px;
+  animation: jb-pulse var(--jb-dur-pulse) ease-out infinite;
+}
+
+:global(.react-flow__node).issuePulse > .node {
+  border-color: var(--jb-severity-high);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :global(.react-flow__node).issuePulse {
+    animation: none;
+    box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.55);
+  }
+}

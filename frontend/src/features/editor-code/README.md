@@ -2,19 +2,19 @@
 
 Код Java файла в Monaco + синхронизация с бэкендом (ТЗ §5, §12 «Синхронизация»).
 
-- `<CodeEditor projectId path />` (`index.ts`) — панель «Код Java»: Monaco, статус «● синхронизировано», сообщение о синтаксической ошибке, тост 409. Пропсы: `client?`, `version?` (версия, известная приложению — берётся, если новее), `onVersion`, `onMutation` (`MutationResult`: новое дерево и анализ), `onConflict` (приложению перезагрузить состояние), `debounceMs?` (по умолчанию 500).
+- `<CodeEditor projectId path />` (`index.ts`) — панель «Код Java»: Monaco, статус «● синхронизировано», сообщение о синтаксической ошибке, тост 409. Пропсы: `client?`, `version?` (версия, известная приложению — берётся, если новее), `onVersion`, `onMutation` (`MutationResult`: новое дерево и анализ), `onConflict` (приложению перезагрузить состояние), `debounceMs?` (по умолчанию 500), `reveal?` / `onCursorLine?` (FE-05, см. MonacoView). `revealFor(highlight, path, issueSpan)` (`reveal.ts`, из `index.ts`) — какие строки подсветить по событию store: `canvas` — span блока, `issue` — span проблемы, `code` (свой курсор) и чужой файл — ничего.
 - `fileSync.ts` — `FileSync`, логика без React и Monaco: GET files → текст и версия; правка → debounce 500 мс → PUT files с полным текстом и текущей версией (в полёте максимум один запрос, правки во время запроса уходят после ответа); 200 → новая версия; 422 PARSE_ERROR → `parseError {line, message}`, версия не меняется. Пользовательский ввод не теряется молча:
   - Внешняя версия новее (`adoptVersion`: правка нод, фикс) → GET files (не только версия — иначе PUT со старым текстом затёр бы чужую правку); PUT в полёте — проверка после ответа. Одинаковая/меньшая версия — ничего; версия, выросшая во время GET, догоняется повторным GET.
   - Правки во время GET копятся. Неотправленный текст (debounce, набранный во время PUT/GET, отклонённый 422) после ответа GET: файл не изменился относительно базы правок → уходит PUT с новой версией; изменился → новый текст в редактор (`loadSeq++`), свой — в `stale {text, reason: 'external'}`.
   - 409 → `conflict` (тост) и GET; неотправленный текст → `stale {reason: 'conflict'}` — плашка «Проект изменён — ваши правки не отправлены».
   - Плашка: «Взять новый текст» (`takeTheirs`), «Оставить мои» (`keepMine`: свой текст в редактор и PUT с актуальной версией; если GET перед этим упал — сначала повторный GET, файл изменился → плашка снова с тем же черновиком), «Скопировать». Пока плашка открыта, редактор только для чтения (`edit` игнорируется), повторная внешняя версия обновляет только новый текст, черновик сохраняется.
 - `useFileSync.ts` — React-обёртка (`useSyncExternalStore`), экземпляр на `projectId + path`.
-- `MonacoView.tsx` — только Monaco: подмена текста при смене `loadSeq` без события правки, маркер ошибки по `line`, `readOnly` при открытой плашке. Грузится лениво отдельным чанком.
+- `MonacoView.tsx` — только Monaco: подмена текста при смене `loadSeq` без события правки, маркер ошибки по `line`, `readOnly` при открытой плашке. Грузится лениво отдельным чанком. FE-05: проп `reveal {startLine, endLine, seq}` — декорация строк (`jb-code-highlight`) и прокрутка без смены курсора; `onCursorLine(line)` — только курсор пользователя (не `api`/`model`, не подмена текста).
 - `monacoSetup.ts` — локальная сборка Monaco без CDN (`loader.config({ monaco })`, ядро + подсветка Java + editor.worker), тема `jb-graphite` на токенах `tokens.css`, шрифт JetBrains Mono.
 
 Версия проекта хранится в `FileSync`; общий стор подключается через `version` / `onVersion`.
 Текст из ответа PUT (`fileText`) в редактор не подставляется, чтобы не сбивать курсор.
 
-Тесты: `fileSync.test.ts` (fake timers + MSW), `CodeEditor.test.tsx` (MonacoView подменён textarea).
+Тесты: `fileSync.test.ts` (fake timers + MSW), `CodeEditor.test.tsx` (MonacoView подменён textarea; reveal и onCursorLine).
 Моки: PUT files по умолчанию в `src/mocks/handlers.ts`, `scenarios.conflictOnFile`; GET files по умолчанию нет — в фикстурах нет текста файлов.
 - `monaco.ts` — отдельная точка входа для других фич: `setupMonaco`, `GRAPHITE_THEME`, `CODE_FONT` (напр. JUnit-редактор tests-panel). В `index.ts` не реэкспортируется, чтобы monaco-editor не попал в основной чанк; импортировать `../editor-code/monaco` только из лениво загружаемых модулей.

@@ -1,7 +1,7 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { api, type ApiClient, type Schemas } from '../features/api';
 import { useAnalysisStore } from '../features/analysis-panel';
-import { CodeEditor } from '../features/editor-code';
+import { CodeEditor, revealFor } from '../features/editor-code';
 import { MethodCanvas } from '../features/editor-nodes';
 import { PanelStub } from '../features/layout';
 import { findMethodFile, reloadProjectTree, useTreeStore } from '../features/project-tree';
@@ -39,7 +39,8 @@ export function SelectedMethodCanvas({ client = api }: Props) {
 /**
  * Вкладка «Код Java»: файл выбранного метода (путь — из дерева проекта) в редакторе кода.
  * Новая версия (только рост) → store; ответ PUT files → onMutation (анализ из ответа, перезагрузка дерева);
- * 409 → перезагрузка дерева.
+ * 409 → перезагрузка дерева. Подсветка (FE-05): клик по ноде / выбор проблемы → строки в редакторе
+ * (span проблемы — из анализа), курсор пользователя → store `highlight` (source 'code') → нода на холсте.
  */
 export function SelectedMethodCode({ client = api }: Props) {
   const projectId = useAppStore((s) => s.projectId);
@@ -55,6 +56,17 @@ export function SelectedMethodCode({ client = api }: Props) {
   const onConflict = useCallback(() => void reloadProjectTree(), []);
   const onMutation = useOnMutation(projectId);
 
+  const highlight = useAppStore((s) => s.highlight);
+  const issueId = useAppStore((s) => s.selectedIssueId);
+  const issueSpan = useAnalysisStore((s) => (issueId ? s.analysis?.issues.find((i) => i.id === issueId)?.span : null) ?? null);
+  const reveal = useMemo(() => (path ? revealFor(highlight, path, issueSpan) : null), [highlight, path, issueSpan]);
+  const onCursorLine = useCallback(
+    (line: number) => {
+      if (path) useAppStore.getState().setHighlight({ source: 'code', span: { file: path, startLine: line, endLine: line } });
+    },
+    [path],
+  );
+
   if (!projectId) return null;
   if (!methodId) return <PanelStub text="Выберите метод в дереве проекта — здесь откроется код его файла" />;
   if (!path) {
@@ -69,6 +81,8 @@ export function SelectedMethodCode({ client = api }: Props) {
       onVersion={onVersion}
       onMutation={onMutation}
       onConflict={onConflict}
+      reveal={reveal}
+      onCursorLine={onCursorLine}
     />
   );
 }
