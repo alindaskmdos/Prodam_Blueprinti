@@ -2,6 +2,7 @@ import { editableFields } from './blockEdit';
 import { insertableSlots, nestedCount, type InsertPoint } from './blockTree';
 import { blockKey, blocksLabel, subtreeIssues } from './collapse';
 import { blockText } from './blockText';
+import { explainParseError } from './parseError';
 import { isContainer, isKnownKind, kindMeta, orderedSlots, type Block, type BlockKind, type SlotSpec } from './kinds';
 
 /**
@@ -139,13 +140,15 @@ export interface ToGraphOptions {
 /** Ширина бейджа «N блоков» в заголовке свёрнутого контейнера (для оценки размера). */
 const COLLAPSED_EXTRA = '  ▸ 00 блоков ';
 
-// Строка сообщения об ошибке под текстом ноды (Inter 12px).
-const ERROR_CHAR_W = 6.6;
+// Сообщение об ошибке под текстом ноды (Inter 12px): текст + «В код не попало.» + кнопка «Отменить правку».
+const ERROR_CHAR_W = 6.8;
 const ERROR_LINE_H = 16;
+const ERROR_SUFFIX = ' В код не попало.';
 
 function withErrorSize(size: { width: number; height: number }, error: string): { width: number; height: number } {
   const perLine = Math.max(1, Math.floor((size.width - 24) / ERROR_CHAR_W));
-  return { width: size.width, height: size.height + Math.ceil(error.length / perLine) * ERROR_LINE_H + 10 };
+  const lines = Math.ceil((explainParseError(error).text.length + ERROR_SUFFIX.length) / perLine) + 1;
+  return { width: size.width, height: size.height + lines * ERROR_LINE_H + 14 };
 }
 
 /**

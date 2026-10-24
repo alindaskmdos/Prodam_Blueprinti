@@ -30,6 +30,15 @@ export function BlockPalette() {
   const edit = useNodeEdit();
   const open = useEditorView((s) => s.paletteOpen);
   const setOpen = useEditorView((s) => s.setPaletteOpen);
+  // Esc закрывает палитру; Esc редактора/меню (stopPropagation) сюда не доходит.
+  useEffect(() => {
+    if (!open) return;
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !e.defaultPrevented) setOpen(false);
+    };
+    document.addEventListener('keydown', esc);
+    return () => document.removeEventListener('keydown', esc);
+  }, [open, setOpen]);
   if (!edit) return null;
   return (
     <div className={`${styles.paletteWrap} nodrag nopan`}>
@@ -38,7 +47,7 @@ export function BlockPalette() {
         className={styles.paletteToggle}
         aria-expanded={open}
         aria-label="Палитра блоков"
-        title={open ? 'Свернуть палитру блоков' : 'Палитра блоков: перетащите блок на стрелку схемы'}
+        title={open ? 'Закрыть палитру блоков (Esc)' : 'Палитра блоков: перетащите блок на стрелку схемы'}
         data-testid="palette-toggle"
         onClick={() => setOpen(!open)}
       >

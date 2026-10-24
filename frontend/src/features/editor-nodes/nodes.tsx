@@ -1,5 +1,7 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import type { CSSProperties, ReactNode } from 'react';
+import { useAnalysisStore } from '../analysis-panel/analysisStore';
+import { issueTooltip } from '../analysis-panel/format';
 import { editableFields } from './blockEdit';
 import type { GraphNodeData } from './blocksToGraph';
 import { blocksLabel } from './collapse';
@@ -8,6 +10,7 @@ import { useNodeEdit } from './editContext';
 import { JavaText } from './JavaText';
 import { kindMeta } from './kinds';
 import { NodeTextEditor } from './NodeTextEditor';
+import { explainParseError } from './parseError';
 import { NodeTools } from './structureUi';
 import styles from './MethodCanvas.module.css';
 
@@ -26,17 +29,19 @@ function kindColor(data: GraphNodeData): CSSProperties {
   return { '--kind': kindMeta(data.kind).color } as CSSProperties;
 }
 
-function IssueBadge({ issues }: { issues: string[] }) {
+/** «!» в заголовке: подсказка — русское название правила, серьёзность и текст каждой проблемы ноды. */
+export function IssueBadge({ issues }: { issues: string[] }) {
+  const all = useAnalysisStore((s) => s.analysis?.issues);
   if (issues.length === 0) return null;
   return (
-    <span className={styles.issueBadge} title={issues.join(', ')}>
+    <span className={styles.issueBadge} title={issueTooltip(issues, all)}>
       !
     </span>
   );
 }
 
 /**
- * Шеврон сворачивания (FE-06) в заголовке контейнера: ▾ — развёрнут (свернуть), ▸ — свёрнут (развернуть).
+ * Кнопка сворачивания (FE-06) в заголовке контейнера рядом с ↑ ↓ ✕: ▾ — развёрнут (свернуть), ▸ — свёрнут (развернуть).
  * locked — внутри открыт редактор или красная нода: свернуть нельзя.
  */
 function CollapseToggle({ data }: { data: GraphNodeData }) {
@@ -46,7 +51,7 @@ function CollapseToggle({ data }: { data: GraphNodeData }) {
   return (
     <button
       type="button"
-      className={`${styles.chevron} nodrag`}
+      className={`${styles.collapseBtn} nodrag`}
       aria-label={c.collapsed ? `Развернуть: ${data.title}` : `Свернуть: ${data.title}`}
       aria-expanded={!c.collapsed}
       title={c.locked ? 'Внутри идёт правка — свернуть нельзя' : c.collapsed ? 'Развернуть' : 'Свернуть'}
@@ -136,8 +141,8 @@ function EditableBody({ data, className, view }: { data: GraphNodeData; classNam
         {view}
       </pre>
       {data.error !== undefined && (
-        <div className={styles.nodeError} role="alert">
-          <span>{data.error} В код не попало.</span>
+        <div className={styles.nodeError} role="alert" title={explainParseError(data.error).details}>
+          <span>{explainParseError(data.error).text} В код не попало.</span>
           {e && (
             <button type="button" className={`${styles.errorUndo} nodrag`} onClick={e.edit.discardInvalid}>
               Отменить правку
@@ -168,7 +173,6 @@ export function BlockNode({ data }: NodeProps<FlowNode>) {
       <Pins />
       <div className={`${styles.header} ${data.kind === 'method' ? styles.headerLight : ''}`}>
         <span className={styles.headerTitle}>
-          <CollapseToggle data={data} />
           {data.error !== undefined ? `${data.title} · ошибка` : data.title}
         </span>
         {data.badge && (
@@ -178,6 +182,7 @@ export function BlockNode({ data }: NodeProps<FlowNode>) {
         )}
         <HiddenBadge data={data} />
         <IssueBadge issues={data.issues} />
+        <CollapseToggle data={data} />
         <EditButton data={data} />
         <NodeTools data={data} />
       </div>
@@ -199,11 +204,11 @@ export function RawNode({ data }: NodeProps<FlowNode>) {
       <Pins />
       <div className={`${styles.header} ${styles.rawHeader}`}>
         <span className={styles.headerTitle}>
-          <CollapseToggle data={data} />
           {data.title}
         </span>
         <HiddenBadge data={data} />
         <IssueBadge issues={data.issues} />
+        <CollapseToggle data={data} />
         <EditButton data={data} />
         <NodeTools data={data} />
       </div>

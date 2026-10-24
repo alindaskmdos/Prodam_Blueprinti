@@ -339,6 +339,11 @@ describe('MethodCanvas — вставка, удаление, вверх/вниз
     fireEvent.click(toggle);
     expect(screen.queryByTestId('palette')).not.toBeInTheDocument();
     expect(localStorage.getItem(PALETTE_OPEN_KEY)).toBe('false');
+
+    fireEvent.click(toggle);
+    expect(screen.getByTestId('palette')).toBeInTheDocument();
+    fireEvent.keyDown(document.body, { key: 'Escape' }); // Esc закрывает палитру (FE-43)
+    expect(screen.queryByTestId('palette')).not.toBeInTheDocument();
   }, 20_000);
 
   it('Backspace на выделенной ноде — то же удаление, что ✕ (confirm для контейнера); в поле ввода — нет', async () => {

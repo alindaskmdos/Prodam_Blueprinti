@@ -104,6 +104,20 @@ export function ruleTitle(rule: string): string {
   return RULE_TITLES[rule] ?? rule;
 }
 
+/**
+ * Подсказка к «!» на ноде: по каждой проблеме «Название правила · серьёзность» и текст (message).
+ * Нет проблемы с таким id в текущем анализе — только название правила из id («Правило:метод~0:24:35»).
+ */
+export function issueTooltip(ids: readonly string[], issues: readonly Issue[] = []): string {
+  return ids
+    .map((id) => {
+      const issue = issues.find((i) => i.id === id);
+      if (!issue) return ruleTitle(id.split(':')[0] ?? id);
+      return `${ruleTitle(issue.rule)} · ${SEVERITY_LABEL[issue.severity]}\n${issue.message}`;
+    })
+    .join('\n\n');
+}
+
 /** Русское склонение: plural(12, 'проблема', 'проблемы', 'проблем') → «проблем». */
 export function plural(n: number, one: string, few: string, many: string): string {
   const m10 = n % 10;

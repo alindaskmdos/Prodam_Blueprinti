@@ -113,24 +113,32 @@
 
 /* ── Сворачивание контейнеров (FE-06, Kit.dc.html «свёрнутый контейнер») ── */
 
-.chevron {
-  margin: 0 4px 0 -2px;
-  padding: 0 3px;
+/* Кнопка сворачивания — справа в заголовке, рядом с ↑ ↓ ✕, всегда видна (в отличие от них). */
+.collapseBtn {
+  margin-left: auto;
+  padding: 0 5px;
   border: 0;
   border-radius: 4px;
-  background: transparent;
+  background: rgba(0, 0, 0, 0.18);
   color: inherit;
   font: 700 11px var(--jb-font-ui);
   line-height: 16px;
   cursor: pointer;
 }
 
-.chevron:hover,
-.chevron:focus-visible {
-  background: rgba(0, 0, 0, 0.2);
+.badge + .collapseBtn,
+.issueBadge + .collapseBtn,
+.collapseBtn + .editBtn,
+.collapseBtn + .tools {
+  margin-left: 0;
 }
 
-.chevron:disabled {
+.collapseBtn:hover,
+.collapseBtn:focus-visible {
+  background: rgba(0, 0, 0, 0.32);
+}
+
+.collapseBtn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
@@ -203,6 +211,7 @@
   white-space: pre;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 0 0 auto;
 }
 
 .tok_keyword {
@@ -607,6 +616,8 @@
   font: 400 12px/16px var(--jb-font-ui);
   color: #ffb4ac;
   white-space: normal;
+  overflow-wrap: anywhere;
+  flex: 0 0 auto;
 }
 
 .comment.invalid {
