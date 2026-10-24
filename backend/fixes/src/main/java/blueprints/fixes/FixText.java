@@ -2,12 +2,16 @@ package blueprints.fixes;
 
 import blueprints.source.SourceFile;
 import com.github.javaparser.Position;
+import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.ImportDeclaration;
 import com.github.javaparser.ast.Node;
+import com.github.javaparser.ast.body.TypeDeclaration;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -73,5 +77,37 @@ final class FixText {
             i += text.startsWith("\r\n", i) ? 2 : 1;
         }
         return i + p.column - 1;
+    }
+
+    /**
+     * Импорты {@code java.util.<name>}, которых нет (после последнего импорта, иначе после package, иначе в начало файла);
+     * null — имя занято другим типом (свой тип в файле или чужой импорт).
+     */
+    static List<Edit> importEdits(CompilationUnit cu, String text, List<String> names) {
+        String nl = newline(text);
+        StringBuilder imports = new StringBuilder();
+        for (String name : names) {
+            Boolean has = imported(cu, name);
+            if (has == null) return null;
+            if (!has) imports.append(nl).append("import java.util.").append(name).append(';');
+        }
+        if (imports.isEmpty()) return List.of();
+        Optional<? extends Node> anchor = cu.getImports().isNonEmpty()
+                ? Optional.of(cu.getImports().getLast().orElseThrow()) : cu.getPackageDeclaration();
+        if (anchor.isPresent()) return List.of(new Edit(end(text, anchor.get()), end(text, anchor.get()), imports.toString()));
+        return List.of(new Edit(0, 0, imports.substring(nl.length()) + nl));
+    }
+
+    /** TRUE — имя java.util уже доступно, FALSE — нужен импорт, null — имя занято другим типом. */
+    private static Boolean imported(CompilationUnit cu, String name) {
+        if (cu.findFirst(Node.class, d -> d instanceof TypeDeclaration<?> td && td.getNameAsString().equals(name)).isPresent()) return null;
+        boolean has = false;
+        for (ImportDeclaration i : cu.getImports()) {
+            if (i.isStatic()) continue;
+            String n = i.getNameAsString();
+            if (i.isAsterisk() ? n.equals("java.util") : n.equals("java.util." + name)) has = true;
+            else if (!i.isAsterisk() && n.endsWith("." + name)) return null;
+        }
+        return has;
     }
 }
