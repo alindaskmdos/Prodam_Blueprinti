@@ -15,11 +15,11 @@
 
 ## Frontend
 
-**Готово:** —
+**Готово:** FE-01
 **В работе:** —
-**Висящие ветки/worktree:** —
+**Висящие ветки/worktree:** —. Локальный main впереди origin (FE-01) — нужен push.
 **Заблокировано:** —
-**Следующие шаги:** FE-01 (контракт готов).
+**Следующие шаги:** FE-02, FE-03, FE-04, FE-14 (зависят только от FE-01). Агенты fe-implementer/verifier/reviewer подхватываются, только если сессия открыта из Prodam_Blueprinti/. К FE-04/FE-05: добавить мок PUT blocks в обработчики по умолчанию; тест-сверка фикстур со схемой (сейчас `fixture<T>()` — просто `as T`).
 
 ## Известные проблемы
 
@@ -32,6 +32,8 @@
 - Windows: 2 теста RunnerTest (fakeDocker) пропускаются — нужен /bin/bash.
 - testing: TestResult/IoTestCase пока свои типы в `testing` — после BE-05 заменить на `model` адаптером.
 - testing/JUnit: причина compile_error («тесты» vs «программа») определяется по простому имени файла — при совпадении имён может быть неверной.
+- backend/fixes: StringBuilderFixTest.demoJoinAndFullReportCompileAndKeepOutput падает под ru_RU (на main, с BE-19) — та же причина, что ReportService.java:80 `String.format("%.2f")` без Locale. Под C/en зелёный. Нужна задача бэку.
+- Фронт: Vitest 3.2.7 — npm audit: уязвимости в dev-зависимостях (tinypool, @vitest/mocker); vitest 4 не ставится на npm 10.9.8 (edgesOut).
 - Фронт: у `passed` IO- и JUnit-теста (пропущенный @Disabled) `error` может быть непустым — это пояснение («оригинал не проходит этот тест — правка его исправила»), не ошибка.
 
 - app/PUT files: не пересчитывает предупреждения загрузки, mainClasses, дубликаты FQN; UNPARSED_FILE через PUT files не правится (422); при переименовании метода сигнатурой поля method в ответе нет.
@@ -69,3 +71,4 @@
 - BE-19: StringBuilderFix `string-builder` (переменные из StringConcatInLoop.concats; sSb до цикла, append, s = sSb.toString() после; только локальная не-null String, без меток и try между объявлением и циклом), RefactoringRegistry.defaults()/byId(); target = id Issue. Demo через QualityGate, вывод сверен локальной java (Docker-теста нет: fixes не зависит от runner).
 - BE-38: TestsController (GET/PUT/DELETE tests, имя по шаблону, version обязателен, 409; одноимённые .json/.java видны оба), RunController (run/verify; 422 AMBIGUOUS_MAIN/INVALID_REQUEST — у verify только при IO-тестах; 503 SandboxUnavailable на ошибку Runner), ProjectStore.original — эталон для verify, .in/.out → mode manual. Контракт правлен по решению человека. Полный build с Docker зелёный (впервые выполнены Docker-тесты runner/testing/app; 2 пропуска fakeDocker).
 - BE-20: LinkedHashSetFix `linked-hash-set` (находка LinearSearchInLoop; `Set<T> xsSet = xs == null ? null : new LinkedHashSet<>(xs)` перед ближайшим циклом, только contains; отказ при изменении/алиасах/views списка, сторонних вызовах для не-new, неподходящем типе аргумента). FixText — общие текстовые хелперы. 4 круга ревью.
+- FE-01: скелет фронта (Vite+React 18+TS strict, ESLint, Vitest), gen:api (openapi-typescript, `--default-non-nullable false` — поля с default не required), клиент openapi-fetch /api, MSW из contract/fixtures при VITE_USE_MOCKS (иначе proxy /api → :8080), tokens.css Graphite, реестры panels.ts/commands.ts, job frontend в CI.

@@ -1,0 +1,126 @@
+/* Дизайн-токены Graphite (docs/design/README.md). Тёмная тема по умолчанию. */
+:root {
+  color-scheme: dark;
+
+  /* Поверхности */
+  --jb-bg: #0b0e13;
+  --jb-header: #0e1218;
+  --jb-panel: #11151b;
+  --jb-raised: #161b23;
+  --jb-selected: #1b2532;
+  --jb-border: #1f2630;
+  --jb-border-strong: #2a323e;
+
+  /* Текст */
+  --jb-text: #e6eaf0;
+  --jb-text-secondary: #9aa4b2;
+
+  /* Семантика */
+  --jb-accent: #5b9bff;
+  --jb-success: #4ade80;
+  --jb-severity-high: #f87171;
+  --jb-severity-medium: #fbbf24;
+  --jb-severity-maybe: #a9c6ff;
+
+  /* Ноды по kind */
+  --jb-node-method: #8b5cf6;
+  --jb-node-var: #60a5fa;
+  --jb-node-assign: #93c5fd;
+  --jb-node-expr: #22d3ee;
+  --jb-node-if: #fbbf24;
+  --jb-node-for: #a78bfa;
+  --jb-node-foreach: #a78bfa;
+  --jb-node-while: #c4b5fd;
+  --jb-node-dowhile: #c4b5fd;
+  --jb-node-switch: #fb923c;
+  --jb-node-case: #fb923c;
+  --jb-node-try: #f87171;
+  --jb-node-catch: #f87171;
+  --jb-node-throw: #fca5a5;
+  --jb-node-return: #4ade80;
+  --jb-node-break: #94a3b8;
+  --jb-node-continue: #94a3b8;
+  --jb-node-comment: #fde68a; /* стикер */
+  --jb-node-raw: #5e6878; /* пунктирная рамка */
+  --jb-node-raw-border: 1px dashed var(--jb-node-raw);
+
+  /* Шрифты */
+  --jb-font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --jb-font-code: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  /* Длительности */
+  --jb-dur-hover: 160ms;
+  --jb-dur-rise: 500ms;
+  --jb-rise-stagger: 60ms;
+  --jb-dur-flow: 900ms;
+  --jb-dur-pulse: 1.8s;
+  --jb-dur-pop: 450ms;
+  --jb-dur-fill: 900ms;
+  --jb-dur-shake: 500ms;
+  --jb-ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@keyframes jb-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes jb-flow {
+  to { background-position: 0 20px; }
+}
+
+@keyframes jb-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.5); }
+  70% { box-shadow: 0 0 0 14px rgba(248, 113, 113, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0); }
+}
+
+@keyframes jb-pop {
+  0% { transform: scale(0.4); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+@keyframes jb-fill {
+  from { width: 0; }
+}
+
+@keyframes jb-shake {
+  0%, 100% { transform: none; }
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+/* Утилиты анимаций. Каскад rise: style="--jb-i: N" → задержка N × 60 мс. */
+.jb-rise { animation: jb-rise var(--jb-dur-rise) var(--jb-ease-out) both; animation-delay: calc(var(--jb-i, 0) * var(--jb-rise-stagger)); }
+.jb-flow { animation: jb-flow var(--jb-dur-flow) linear infinite; }
+.jb-pulse { animation: jb-pulse var(--jb-dur-pulse) ease-out infinite; }
+.jb-pop { animation: jb-pop var(--jb-dur-pop) both; }
+.jb-fill { animation: jb-fill var(--jb-dur-fill) var(--jb-ease-out) both; }
+.jb-shake { animation: jb-shake var(--jb-dur-shake) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* База */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--jb-bg);
+  color: var(--jb-text);
+  font-family: var(--jb-font-ui);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+code, pre, kbd { font-family: var(--jb-font-code); }

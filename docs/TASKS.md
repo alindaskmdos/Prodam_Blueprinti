@@ -39,7 +39,7 @@
 
 ## Frontend
 
-- [ ] FE-01 Скелет Vite+TS, `gen:api`, MSW на фикстурах, `VITE_USE_MOCKS`, CI | frontend/* | CT-01 | §2
+- [x] FE-01 Скелет Vite+TS, `gen:api`, MSW на фикстурах, `VITE_USE_MOCKS`, CI | frontend/* | CT-01 | §2
 - [ ] FE-02 Каркас экрана как слайд 4: дерево, холст, панель анализа, нижняя панель; реестр вкладок | layout | FE-01 | §6
 - [ ] FE-03 Ноды только просмотр: React Flow + ELK, контейнеры, стиль Blueprints, ноды-комментарии | editor-nodes | FE-01 | §6
 - [ ] FE-04 Monaco + синхронизация (debounce, версия, 409) | editor-code | FE-01 | §5, §12
