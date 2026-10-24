@@ -258,6 +258,10 @@ public final class MethodAnalysis {
                 || n instanceof SwitchStmt || n instanceof SwitchExpr || n instanceof TryStmt || n instanceof SynchronizedStmt;
     }
 
+    ProjectAnalysis project() {
+        return project;
+    }
+
     // ---- для ProjectAnalysis ----
 
     boolean accepts(int argc) {

@@ -4,7 +4,6 @@ import blueprints.runner.Runner;
 import blueprints.source.LoadedProject;
 import blueprints.source.ProjectExporter;
 import blueprints.source.ProjectLoader;
-import blueprints.source.TreeBuilder;
 import blueprints.testing.TestContext;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
@@ -59,7 +58,7 @@ class ProjectsController {
     @GetMapping("/{id}/tree")
     ProjectDto.TreeDto tree(@PathVariable String id) {
         var s = store.get(id);
-        return new ProjectDto.TreeDto(s.version(), TreeBuilder.build(s.content()));
+        return new ProjectView(s.content()).tree(s.version());
     }
 
     @GetMapping("/{id}/methods/{methodId}/blocks")
@@ -77,11 +76,12 @@ class ProjectsController {
                 .orElseThrow(() -> new ApiException(404, "NOT_FOUND", "файл не найден: " + path));
     }
 
-    /** ponytail: параметр n не читается — ops считаются при n = 10 000 (Issues.DEFAULT_N), это и отдаётся в n. */
+    /** n — размер входа для «≈ операций» (§8.4); n < 1 -> 400 INVALID_REQUEST. */
     @GetMapping("/{id}/analysis")
-    ProjectView.AnalysisDto analysis(@PathVariable String id) {
+    ProjectView.AnalysisDto analysis(@PathVariable String id, @RequestParam(defaultValue = "10000") int n) {
+        if (n < 1) throw new ApiException(400, "INVALID_REQUEST", "n должно быть ≥ 1: " + n);
         var s = store.get(id);
-        return new ProjectView(s.content()).analysis(s.version());
+        return new ProjectView(s.content(), n).analysis(s.version());
     }
 
     @GetMapping("/{id}/export")

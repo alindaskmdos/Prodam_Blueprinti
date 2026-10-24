@@ -2,7 +2,7 @@
 
 Big O, символы размера, граф вызовов, детекторы дефектов (§8 ТЗ). Без Spring.
 
-- `ProjectAnalysis.of(List<SourceFile>)` — разбор файлов (неразобранный файл пропускается, `warnings()`), индекс методов
+- `ProjectAnalysis.of(List<SourceFile>[, long n])` — n (≥ 1, по умолчанию `Issues.DEFAULT_N` = 10 000, `n()`) — размер входа для ops проблем; разбор файлов (неразобранный файл пропускается, `warnings()`), индекс методов
   с теми же id, что в дереве проекта (`FQN.имя~N`, `FQN.<init>~N`), `callGraph()`, `methods()` / `method(id)`.
 - `MethodAnalysis` — один метод: `complexity()` (Big O с вызовами методов проекта, мемоизация по графу),
   `confidence()` high/low + `warnings()` (рекурсия, while/do, нераспознанный размер — у себя или у вызываемых),
@@ -22,7 +22,7 @@ Big O, символы размера, граф вызовов, детектор�
 (`run(project)` — все проблемы). Новое правило = новый класс + строка в `DetectorRegistry.defaults()` + тест на
 позитивный и негативный пример. `Issues.of(rule, severity, confidence, method, node, message, recommendation,
 before, after)` — общая сборка Issue: id `rule:methodId:строка:колонка`, span по узлу, `blockId` = null (подставляет app по
-диапазону строк), `fixes` пусты, ops при `Issues.DEFAULT_N` = 10 000.
+диапазону строк), `fixes` пусты, ops (`BigO.ops`) при `n()` проекта метода.
 
 Детекторы: `NestedLoopSameCollection` — вложенные циклы с общим символом размера (span — внутренний цикл,
 while/do или нераспознанный (fresh) символ → confidence low; общий курсор вложенных while не считается; одноимённые коллекции разных классов не совпадают — символы квалифицированы).

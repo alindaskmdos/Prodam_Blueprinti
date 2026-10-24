@@ -42,8 +42,10 @@ public final class ProjectAnalysis {
     private final Map<String, List<MethodAnalysis>> methodsByType = new LinkedHashMap<>();
     private final List<String> warnings = new ArrayList<>();
     private final CallGraph callGraph;
+    private final long n;
 
-    private ProjectAnalysis(List<SourceFile> files) {
+    private ProjectAnalysis(List<SourceFile> files, long n) {
+        this.n = n;
         JavaParser parser = new JavaParser(new ParserConfiguration().setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21));
         for (SourceFile f : files) {
             ParseResult<CompilationUnit> r = parser.parse(f.text());
@@ -59,7 +61,17 @@ public final class ProjectAnalysis {
     }
 
     public static ProjectAnalysis of(List<SourceFile> files) {
-        return new ProjectAnalysis(files);
+        return of(files, Issues.DEFAULT_N);
+    }
+
+    /** n — размер входа для «≈ операций» (opsBefore/opsAfter) проблем детекторов (§8.4). */
+    public static ProjectAnalysis of(List<SourceFile> files, long n) {
+        if (n < 1) throw new IllegalArgumentException("n должно быть ≥ 1: " + n);
+        return new ProjectAnalysis(files, n);
+    }
+
+    public long n() {
+        return n;
     }
 
     /** Все методы и конструкторы проекта в порядке файлов; сложность посчитана. */

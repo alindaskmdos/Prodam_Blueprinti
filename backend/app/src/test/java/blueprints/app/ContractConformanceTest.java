@@ -66,9 +66,24 @@ class ContractConformanceTest {
         JsonNode analysis = ok(rest.getForEntity(base + "/analysis?n=500", String.class));
         Contract.validate("Analysis", analysis);
         assertEquals(1, analysis.get("version").asInt());
-        assertEquals(10000, analysis.get("n").asInt());
+        assertEquals(500, analysis.get("n").asInt());
         JsonNode rule = Contract.fixture("analysis.merge.json").get("issues").get(0).get("rule");
         assertTrue(analysis.get("issues").findValues("rule").contains(rule), "нет проблемы " + rule);
+        JsonNode atN = issue(analysis, rule.asText()).get("complexity");
+        assertEquals(250_000, atN.get("opsBefore").asLong()); // O(n²) при n = 500
+        assertEquals(500, atN.get("opsAfter").asLong());
+        JsonNode byDefault = ok(rest.getForEntity(base + "/analysis", String.class));
+        assertEquals(10000, byDefault.get("n").asInt());
+        assertEquals(Contract.fixture("analysis.merge.json").get("issues").get(0).get("complexity").get("opsBefore").asLong(),
+                issue(byDefault, rule.asText()).get("complexity").get("opsBefore").asLong());
+        assertEquals(HttpStatus.BAD_REQUEST, rest.getForEntity(base + "/analysis?n=0", String.class).getStatusCode());
+
+        JsonNode tree = ok(rest.getForEntity(base + "/tree", String.class));
+        Contract.validate("ProjectTree", tree);
+        JsonNode mergeNode = null;
+        for (JsonNode m : tree.findValues("methods")) for (JsonNode x : m) if (x.get("id").asText().equals(merge)) mergeNode = x;
+        assertTrue(mergeNode.get("issueCount").asInt() >= 1, "issueCount у merge");
+        assertTrue(mergeNode.get("complexity").asText().startsWith("O("), "complexity у merge");
 
         notFound(rest.getForEntity(base + "/methods/com.demo.Nope.x~0/blocks", String.class));
         notFound(rest.getForEntity(base + "/files?path=nope.java", String.class));
@@ -122,6 +137,14 @@ class ContractConformanceTest {
         for (JsonNode x : analysis.get("metrics")) if (x.get("methodId").asText().equals(merge)) metric = x;
         assertEquals(fx.get("metrics").get(0).get("lines"), metric.get("lines"));
         assertEquals(fx.get("n"), analysis.get("n"));
+        for (String f : List.of("opsBefore", "opsAfter")) {
+            assertEquals(expected.get("complexity").get(f).asLong(), actual.get("complexity").get(f).asLong(), f);
+        }
+    }
+
+    private static JsonNode issue(JsonNode analysis, String rule) {
+        for (JsonNode i : analysis.get("issues")) if (i.get("rule").asText().equals(rule)) return i;
+        throw new AssertionError("нет проблемы " + rule);
     }
 
     @Test

@@ -8,13 +8,14 @@ Spring Boot: REST по `contract/openapi.yaml`, хранение проекто�
 `GET /projects/{id}/methods/{methodId}/blocks` -> MethodView, `GET /projects/{id}/files?path=` -> FileText, `GET /projects/{id}/analysis` -> Analysis.
 
 - GET blocks / analysis — те же представления `ProjectView`, что в MutationResult (снимок строится на каждый запрос, без кэша);
-  неизвестный проект/метод/файл -> 404 NOT_FOUND. Параметр `n` у analysis пока не читается: ops всегда при n = 10 000, это и в поле `n`.
+  неизвестный проект/метод/файл -> 404 NOT_FOUND. `GET analysis?n=` (по умолчанию 10 000) — ops проблем при этом n, оно же в поле `n`; n < 1 -> 400 INVALID_REQUEST.
+  `GET tree` — `ProjectView.tree` (complexity и issueCount методов).
 
 - `EditController` — правки через `ProjectStore.update`: PUT blocks = `NodeValidator` -> `BlocksToJava.replaceMethod` -> повторный разбор;
   неверная нода -> 422 PARSE_ERROR с blockId, версия не растёт; PUT files — разбор JavaParser, ошибка -> 422 PARSE_ERROR с line.
   Пакет файла пересчитывается; предупреждения загрузки, mainClasses и дубликаты FQN — нет. Файл, загруженный как UNPARSED_FILE, через PUT files не правится (422).
   `method` в ответе нет, если сигнатура переименовала метод (под старым id другой метод).
-- `ProjectView` — снимок для ответов: Analysis (`ProjectAnalysis` + `DetectorRegistry.defaults()`, n = 10 000; blockId проблемы —
+- `ProjectView` — снимок для ответов: Analysis (`ProjectAnalysis` + `DetectorRegistry.defaults()`, `new ProjectView(project[, n])`, n по умолчанию 10 000, в MutationResult — всегда оно; blockId проблемы —
   самый глубокий блок метода, чей span содержит span проблемы; metrics complexity/lines/maxNesting), ProjectTree с complexity и issueCount, MethodView с id проблем в блоках. Экспорт zip возвращает исходную структуру вместе с отрезанной обёрткой (`LoadedProject.root`).
 
 - `TestsController` — `GET /projects/{id}/tests`, `GET/PUT/DELETE /tests/{name}`: источник правды — файлы `tests/` проекта
