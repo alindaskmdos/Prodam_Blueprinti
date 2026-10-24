@@ -15,11 +15,11 @@
 
 ## Frontend
 
-**Готово:** FE-01, FE-02, FE-03, FE-04, FE-11
+**Готово:** FE-01, FE-02, FE-03, FE-04, FE-11, FE-15
 **В работе:** Также в работе (запущены 2026-10-24, исполнители в worktree `.claude/worktrees/agent-*`, ветки `worktree-agent-*` — смотреть `git worktree list`): FE-15 (upload, App.tsx выбор экрана, кнопки шапки, commands.ts, мок POST /projects), FE-07 (editor-nodes: инлайн-правка текста ноды, PUT blocks, красная нода на 422, мок PUT blocks). Если сессия прервалась: есть коммит FE-xx в ветке → verifier + reviewer; нет → перезапустить исполнителя на ту же ветку.
-FE-15 готов, на проверке (verifier+reviewer; при мерже конфликт только frontend/README.md). FE-12 (tests-panel, вкладка «Тесты» в panels.ts, GET/PUT/DELETE tests с version, показ результатов) — в работе.
+FE-12 (tests-panel, вкладка «Тесты» в panels.ts, GET/PUT/DELETE tests с version, показ результатов) — в работе.
 FE-14 отложен: нужен Dockerfile бэка (зона бэкенда) и Docker-сокет хоста с одинаковым путём BLUEPRINTS_RUN_DIR — согласовать с бэкендом.
-**Висящие ветки/worktree:** FE-15, FE-07, FE-12 (см. выше). Локальный main впереди origin: FE-02, фикстура file.order-service.json, FE-04 — нужен push.
+**Висящие ветки/worktree:** FE-07 (на правках после ревью: внешняя version без перезагрузки дерева), FE-12 (см. выше). Локальный main впереди origin: FE-02, фикстура file.order-service.json, FE-04 — нужен push.
 **Заблокировано:** —
 **Следующие шаги:** интеграция (FE-03 влит): MethodCanvas в проп `canvas` у App (FE-02), CodeEditor в `bottom.code` в panels.ts, мок GET files по умолчанию из contract/fixtures/file.order-service.json (добавлена по разрешению человека 2026-10-24). Дальше FE-05, FE-06, FE-07, FE-11, FE-14. Агенты из `.claude/agents` подхватываются, только если сессия открыта из Prodam_Blueprinti/ (иначе general-purpose + путь к промпту роли).
 **Мелочи с ревью (на будущее):** mock PUT blocks по умолчанию нет; fixture<T>() — просто `as T`, нет сверки фикстур со схемой; store.version приходит только из GET tree, selectedMethodId не сверяется после перезагрузки; panels.ts findPanel — мёртвый код; фичи импортируют app/store (обратная зависимость); fileSync: после сетевой ошибки/5xx нет повтора PUT; FE-04: fileText из ответа PUT в редактор не подставляется (намеренно, курсор).
@@ -82,3 +82,5 @@ FE-14 отложен: нужен Dockerfile бэка (зона бэкенда) �
 - FE-04: CodeEditor (Monaco локально, ленивый чанк), fileSync: debounce 500 мс, полный текст + version, 409 → тост и перезагрузка, 422 → маркер, один запрос в полёте; мок PUT files по умолчанию.
 - FE-03: MethodCanvas/MethodGraph (GET blocks), blocksToGraph — чистая функция дерево → ноды/рёбра, ELK layered в воркере (bundled-фолбэк), все kind + фолбэк неизвестного как raw, стрелки не редактируются, цвета из tokens.css. 2 круга ревью.
 - FE-11: панель анализа (вкладки Проблемы/Предупреждения/Метрики в panels.ts, сортировка high→medium→low, confidence low = «возможно», оценка ≈ операций из opsBefore/opsAfter «при n = …» + «асимптотическая оценка», n → GET analysis?n, selectIssue в store). 2 круга ревью.
+- FE-15: экран загрузки (drag&drop, .zip/.jar, папка → multipart files+paths, шаги, LoadWarning с фолбэком неизвестного кода, ошибки по Error.code), экспорт .zip (includeSettings) / .jar (422 по code, 501 — заглушка бэка вне контракта), project.upload/export в commands.ts, App: без projectId — экран загрузки. 2 круга ревью.
+- Бэку: export jar 501 нет в контракте — внести или отдавать 422/INTERNAL.
