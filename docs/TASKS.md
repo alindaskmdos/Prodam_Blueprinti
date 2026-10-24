@@ -69,6 +69,9 @@
 - [x] FE-30 Красный тест на main: UploadScreen «папка (webkitdirectory) уходит multipart-запросом» получает content-type text/plain — найти причину (код загрузки или тестовое окружение) и починить | upload | FE-15 | §11
 - [ ] FE-31 e2e на Playwright в `frontend/e2e/`: загрузка samples/demo, проблема → схема, правка ноды, фикс через Quality Gate, запуск со STDIN, verify зелёный и красный, экспорт zip/jar, drag из палитры; против URL из env (локально или compose) | frontend (e2e) | FE-14 | §2
 - [x] FE-32 Красный тест на main при Node 26: MethodCanvas.collapse «Комментарии выкл» — `localStorage` undefined (Node-овский Web Storage перекрывает jsdom); in-memory Storage в setup.ts | frontend (test env) | FE-30 | —
+- [x] FE-33 Ранжирование в командной палитре: точное > префикс > подстрока > инициалы > описание, без подпоследовательностей; навигация выше действий (Enter по имени метода не запускает фикс) | command-palette | FE-28 | §14а.14
+- [x] FE-34 Длинный метод (switch на 14 case) открывается верхом схемы в читаемом масштабе вместо fitView 0.1; Fit View по-прежнему вписывает всё | editor-nodes | FE-29 | §6
+- [x] FE-35 Выбор метода в дереве/палитре прокручивает Monaco к началу метода (MethodView.root.span) и подсвечивает его; клик по проблеме — как в FE-05 | editor-code, app | FE-05 | §6
 - [ ] CI-01 `.github/workflows/ci.yml`: job `compose` — `docker compose up`, /health → docker:true, FE-31 e2e; job `deploy` только на main после всех зелёных — POST на webhook Coolify (секреты COOLIFY_WEBHOOK, COOLIFY_TOKEN) | .github | BE-47, FE-14, FE-31 | §2
 
 ## Если успеем (только после того, как обязательный путь работает целиком; по порядку)
