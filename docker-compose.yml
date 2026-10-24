@@ -1,5 +1,4 @@
-# Деплой через Coolify (build pack «Docker Compose»). Домен вешается в Coolify на frontend:80.
-# Порты наружу не публикуем — только expose.
+# Локальный запуск (сборка из исходников). Для Coolify см. docker-compose.coolify.yml.
 services:
   backend:
     build:
@@ -26,6 +25,8 @@ services:
       dockerfile: frontend/Dockerfile
     expose:
       - "80"
+    ports:
+      - "8000:80"
     depends_on:
       backend:
         condition: service_healthy

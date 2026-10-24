@@ -1,0 +1,30 @@
+# Деплой через Coolify (build pack «Docker Compose», файл /docker-compose.coolify.yml).
+# Образы собирает CI (job images в .github/workflows/ci.yml) и пушит в GHCR: на VPS сборка не идёт
+# (у хостера не ходит IPv4 до Cloudflare — Docker Hub/npm недоступны из BuildKit).
+# Домен вешается в Coolify на frontend:80. Порты наружу не публикуем — только expose.
+services:
+  backend:
+    image: ghcr.io/alindaskmdos/prodam_blueprinti-backend:latest
+    # init: в образе перед exec java идёт фоновый docker pull — без init он остаётся зомби.
+    init: true
+    expose:
+      - "8080"
+    volumes:
+      # Запуск/тесты пользовательского кода идут в соседних контейнерах через docker.sock;
+      # рабочий каталог монтируется по одному и тому же пути на хосте и в контейнере.
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/blueprints-run:/var/lib/blueprints-run
+    environment:
+      BLUEPRINTS_RUN_DIR: /var/lib/blueprints-run
+      BLUEPRINTS_RUN_IMAGE: eclipse-temurin:21-jdk
+      LLM_API_KEY: ${LLM_API_KEY:-}
+    restart: unless-stopped
+
+  frontend:
+    image: ghcr.io/alindaskmdos/prodam_blueprinti-frontend:latest
+    expose:
+      - "80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
