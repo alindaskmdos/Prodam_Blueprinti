@@ -29,9 +29,13 @@
   `Rewrite.JUNIT` = seed + `packagePrivate` (убирает `private`, для JUnit). Исходники не меняются. Замена регулярками, не AST.
 - Инструментация (§14а.6, BE-27): `Rewrite.TRACE` (= RUN + `trace`; для JUnit — `new Rewrite(true, true, true)`) — копия
   проходит `Instrumenter.instrument(sources)`: перед каждой нодой `__blueprints.Trace.hit(id);` (`long[]`, `counts[id]++`),
-  класс `__blueprints/Trace.java` добавляется в копию; shutdown-hook пишет `/tmp/__blueprints.trace`, после запуска runner
-  читает его `docker exec cat` → `RunResult.hits()` (`long[]` по id; null — без trace или файла нет). Таймаут такого запуска ×3;
-  `timedOut` — счётчики неполные. `run()` с trace идёт через `runBatch`. `jar()` не инструментируется никогда.
+  класс `__blueprints/Trace.java` добавляется в копию; shutdown-hook пишет `/tmp/__blueprints.trace` атомарно (временный файл +
+  `ATOMIC_MOVE`, последняя строка `end`), после запуска runner читает его `docker exec cat` (время чтения входит в общий таймаут
+  контейнера) → `RunResult.hits()` (`long[]` по id; null — без trace, файла нет (`Runtime.halt`, SIGKILL) или он битый/обрезанный).
+  Таймаут такого запуска ×3 (только с trace); `timedOut` — счётчики неполные.
+  Код пользователя из-за инструментации не ломается: файл, на котором вставка упала (исключение, StackOverflowError), идёт без
+  вставок и без нод в `probes()`; если инструментированная копия не компилируется, а чистая — да, программа запускается чистой
+  (без ×3, `hits == null`). `run()` с trace идёт через `runBatch`. `jar()` не инструментируется никогда.
   `Instrumenter.instrument(sources).probes()` — таблица нод (детерминирована, id = индекс): `Probe(file, methodId, path, line, column)`,
   `methodId` как у `TreeBuilder`, `path` — путь в дереве блоков (`""` — метод, `body/0/then/1`, `body/2/cases/0/body/0`,
   `.../catches/0/body/0`, `.../finally/0`), индексы **без блоков comment**. Ноды — как у `AstToBlocks`: метод, операторы, case, catch;
@@ -39,6 +43,7 @@
   Правила: в конструкторе — после `super(...)`/`this(...)`; одиночное тело if/else/цикла и `case X -> expr;` оборачиваются в `{ }`;
   `case X:` — после двоеточия; вставки в той же строке (номера строк не меняются). Файл, который JavaParser не разбирает, — без вставок.
 
+Код для запуска в контейнере (`run`, `runBatch`, command-запуски, `jar`) компилируется с `--release 21` — сервер может быть на JDK 22+.
 Компиляция идёт в процессе сервера, но с `-proc:none`: пользовательский код при компиляции не исполняется. Вывод усечён до 1 МБ на поток (`truncated`), `-Xmx` = 75% лимита памяти.
 
 Настройка (`Config.defaults()`): env `BLUEPRINTS_RUN_DIR` (рабочая папка запусков) и `BLUEPRINTS_RUN_IMAGE` (по умолчанию `eclipse-temurin:21-jdk`).

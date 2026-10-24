@@ -83,6 +83,15 @@ class RunnerTest {
         assertFalse(r.diagnostics().isEmpty());
     }
 
+    /** Код для контейнера (JDK 21) компилируется с --release 21: class file major 65, даже если сервер на JDK 22+. */
+    @Test
+    void runCopyIsCompiledForJdk21(@TempDir Path tmp) throws Exception {
+        assertEquals(List.of(), Runner.prepare(Map.of("a/A.java", "package a; class A { }"), Runner.Rewrite.RUN, List.of(),
+                tmp.resolve("src"), tmp.resolve("classes")));
+        byte[] cls = Files.readAllBytes(tmp.resolve("classes/a/A.class"));
+        assertEquals(65, ((cls[6] & 0xff) << 8) | (cls[7] & 0xff));
+    }
+
     // --- интеграция с реальным Docker ---
 
     private static boolean dockerUp() {

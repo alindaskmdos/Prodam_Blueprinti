@@ -55,22 +55,32 @@ public final class Instrumenter {
 
     private Instrumenter() {}
 
-    /** Детерминирована: файлы — по пути, ноды — в порядке обхода. Файл, который JavaParser не разбирает, — без вставок. */
+    /**
+     * Детерминирована: файлы — по пути, ноды — в порядке обхода. Файл, который JavaParser не разбирает или на котором
+     * вставка падает (в т.ч. StackOverflowError на глубокой вложенности), — без вставок и без нод в таблице.
+     */
     public static Result instrument(Map<String, String> sources) {
         JavaParser parser = new JavaParser(new ParserConfiguration().setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21));
         List<Probe> probes = new ArrayList<>();
         Map<String, String> out = new LinkedHashMap<>();
         for (var e : new TreeMap<>(sources).entrySet()) {
-            var pr = parser.parse(e.getValue());
-            if (!pr.isSuccessful() || pr.getResult().isEmpty()) {
-                out.put(e.getKey(), e.getValue());
-                continue;
+            int mark = probes.size();
+            String text = e.getValue();
+            try {
+                var pr = parser.parse(e.getValue());
+                if (pr.isSuccessful() && pr.getResult().isPresent()) {
+                    File f = new File(e.getKey(), e.getValue(), probes);
+                    CompilationUnit cu = pr.getResult().get();
+                    String pkg = cu.getPackageDeclaration().map(p -> p.getNameAsString() + ".").orElse("");
+                    for (TypeDeclaration<?> t : cu.getTypes()) f.type(t, pkg);
+                    text = f.apply();
+                }
+            } catch (RuntimeException | StackOverflowError ex) {
+                // код пользователя не должен ломаться из-за инструментации: файл идёт как есть
+                probes.subList(mark, probes.size()).clear();
+                text = e.getValue();
             }
-            File f = new File(e.getKey(), e.getValue(), probes);
-            CompilationUnit cu = pr.getResult().get();
-            String pkg = cu.getPackageDeclaration().map(p -> p.getNameAsString() + ".").orElse("");
-            for (TypeDeclaration<?> t : cu.getTypes()) f.type(t, pkg);
-            out.put(e.getKey(), f.apply());
+            out.put(e.getKey(), text);
         }
         out.put("__blueprints/Trace.java", traceSource(probes.size()));
         return new Result(out, probes);
@@ -88,21 +98,38 @@ public final class Instrumenter {
                 + "  private static void dump() {\n"
                 + "    StringBuilder s = new StringBuilder();\n"
                 + "    for (int i = 0; i < C.length; i++) if (C[i] != 0) s.append(i).append(' ').append(C[i]).append('\\n');\n"
-                + "    try { java.nio.file.Files.writeString(java.nio.file.Path.of(\"" + TRACE_FILE + "\"), s); } catch (Throwable e) { }\n"
+                + "    s.append(\"" + END + "\\n\");\n"
+                // во временный файл + атомарный rename: SIGKILL посреди записи не оставит обрезанный файл
+                + "    try {\n"
+                + "      java.nio.file.Path t = java.nio.file.Path.of(\"" + TRACE_FILE + ".tmp\");\n"
+                + "      java.nio.file.Files.writeString(t, s);\n"
+                + "      java.nio.file.Files.move(t, java.nio.file.Path.of(\"" + TRACE_FILE + "\"),"
+                + " java.nio.file.StandardCopyOption.ATOMIC_MOVE);\n"
+                + "    } catch (Throwable e) { }\n"
                 + "  }\n"
                 + "}\n";
     }
 
-    /** Разбор вывода Trace: строки {@code id count}; null — файла нет. */
+    /** Последняя строка файла Trace: без неё файл обрезан. */
+    private static final String END = "end";
+
+    /** Разбор вывода Trace: строки {@code id count} и {@code end}; null — файл битый или обрезанный; id вне таблицы пропускаются. */
     static long[] parseHits(String text, int n) {
+        if (!text.endsWith(END + "\n")) return null;
         long[] hits = new long[n];
-        for (String l : text.split("\n")) {
-            String[] p = l.trim().split(" ");
-            if (p.length != 2) continue;
-            int i = Integer.parseInt(p[0]);
-            if (i >= 0 && i < n) hits[i] = Long.parseLong(p[1]);
+        String[] lines = text.split("\n");
+        for (int k = 0; k < lines.length - 1; k++) {
+            String[] p = lines[k].split(" ");
+            try {
+                int i = Integer.parseInt(p[0]);
+                if (p.length != 2) return null;
+                long c = Long.parseLong(p[1]);
+                if (i >= 0 && i < n) hits[i] = c;
+            } catch (NumberFormatException e) {
+                return null;
+            }
         }
-        return hits;
+        return lines[lines.length - 1].equals(END) ? hits : null;
     }
 
     private record Edit(int offset, String text) {}

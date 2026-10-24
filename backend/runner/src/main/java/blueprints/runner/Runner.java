@@ -151,6 +151,8 @@ public final class Runner {
     /** Скрипты запусков пакета в контейнере (read-only), см. {@link #jobScript}. */
     static final String JOBS = "/app/jobs";
     private static final int MAX_OUTPUT = 1 << 20;
+    /** Версия классов для образа с JDK 21 (§11а). */
+    private static final List<String> RELEASE = List.of("--release", "21");
     static final String SANDBOX_DEAD = "прогон прерван: песочница не отвечала";
     private static final Pattern MAIN_NAME = Pattern.compile("[\\w.$]+");
     private static final Pattern MOUNT_DST = Pattern.compile("(/[\\w.-]+)+");
@@ -260,7 +262,7 @@ public final class Runner {
             work = Files.createTempDirectory("bp-jar-");
             Path src = work.resolve("src"), classes = work.resolve("classes");
             writeSources(sources, Rewrite.NONE, src);
-            List<String> errors = compile(src, classes, List.of(), List.of("--release", "21"));
+            List<String> errors = compile(src, classes, List.of(), RELEASE);
             if (!errors.isEmpty()) return new JarResult(null, errors);
             Manifest mf = new Manifest();
             mf.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
@@ -368,14 +370,23 @@ public final class Runner {
                 classes.add(c);
                 Program p = programs.get(i);
                 Rewrite rw = p.rewrite() != null ? p.rewrite() : rewrite;
-                Map<String, String> src = p.sources();
+                Path dir = work.resolve("p" + i);
                 probes.add(-1);
+                List<String> err = null;
                 if (rw.trace()) {
-                    var ins = Instrumenter.instrument(src);
-                    src = ins.sources();
-                    probes.set(i, ins.probes().size());
+                    var ins = Instrumenter.instrument(p.sources());
+                    err = prepare(ins.sources(), rw, p.classpath(), dir.resolve("src"), c);
+                    if (err.isEmpty()) {
+                        probes.set(i, ins.probes().size());
+                    } else {
+                        // инструментированная копия не компилируется — запуск без вставок (hits == null),
+                        // ошибки компиляции — только чистой копии: код пользователя из-за трассировки не ломается
+                        deleteQuietly(dir);
+                        err = null;
+                    }
                 }
-                errors.add(prepare(src, rw, p.classpath(), work.resolve("p" + i).resolve("src"), c));
+                if (err == null) err = prepare(p.sources(), rw, p.classpath(), dir.resolve("src"), c);
+                errors.add(err);
             }
             if (jobs.stream().noneMatch(j -> errors.get(j.program()).isEmpty())) {
                 return jobs.stream().map(j -> compileFailed(errors.get(j.program()))).toList();
@@ -414,11 +425,14 @@ public final class Runner {
         return mainClass;
     }
 
-    /** Пишет переписанную копию исходников в src и компилирует в classes. Пустой список — успех. */
-    private static List<String> prepare(Map<String, String> sources, Rewrite rewrite, List<Path> classpath,
-                                        Path src, Path classes) throws IOException {
+    /**
+     * Пишет переписанную копию исходников в src и компилирует в classes для запуска в контейнере: {@code --release 21}
+     * (образ — JDK 21, а сервер может работать на более новом JDK). Пустой список — успех.
+     */
+    static List<String> prepare(Map<String, String> sources, Rewrite rewrite, List<Path> classpath,
+                                Path src, Path classes) throws IOException {
         writeSources(sources, rewrite, src);
-        return compile(src, classes, classpath);
+        return compile(src, classes, classpath, RELEASE);
     }
 
     /** Пишет переписанную копию исходников в src (вместе с bp.rt.Seed, если он нужен). */
@@ -465,10 +479,12 @@ public final class Runner {
         // таймаут запуска: main / command; у инструментированной программы ×3 (§14а.6)
         ToLongFunction<Job> perRun = j -> (j.command() == null ? config.timeout() : config.commandTimeout()).toMillis()
                 * (probes.get(j.program()) >= 0 ? 3 : 1);
-        // общий таймаут контейнера: каждый запуск (со своим таймаутом) + запас на старт JVM/exec; по нему контейнер
-        // завершится и сам (sleep)
+        long traceReadMs = execSlackMs * 2; // docker exec cat файла Trace после запуска
+        // общий таймаут контейнера: каждый запуск (со своим таймаутом) + запас на старт JVM/exec + чтение Trace;
+        // по нему контейнер завершится и сам (sleep)
         long totalMs = jobs.stream().filter(j -> errors.get(j.program()).isEmpty())
-                .mapToLong(j -> perRun.applyAsLong(j) + execSlackMs).sum() + startTimeoutMs;
+                .mapToLong(j -> perRun.applyAsLong(j) + execSlackMs + (probes.get(j.program()) >= 0 ? traceReadMs : 0))
+                .sum() + startTimeoutMs;
         Files.createDirectories(jobsDir);
         for (int k = 0; k < jobs.size(); k++) {
             Job job = jobs.get(k);
@@ -536,7 +552,7 @@ public final class Runner {
                 if (probes.get(i) >= 0) {
                     // Trace пишет файл из shutdown-hook; /tmp чистится в начале следующего запуска
                     RunResult t = execute(List.of(docker, "exec", name, "cat", Instrumenter.TRACE_FILE), "",
-                            execSlackMs * 2, name);
+                            traceReadMs, name);
                     if (t.timedOut()) abortReason = SANDBOX_DEAD;
                     else if (t.exitCode() == 0) r = r.withHits(Instrumenter.parseHits(t.stdout(), probes.get(i)));
                 }

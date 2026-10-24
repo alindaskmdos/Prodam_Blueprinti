@@ -29,6 +29,7 @@ class RunnerJarTest {
             for (var e = in.getNextJarEntry(); e != null; e = in.getNextJarEntry()) entries.add(e.getName());
         }
         assertEquals(List.of("a/B.class", "a/Main.class"), entries); // без bp/rt/Seed: seed не применяется
+        assertTrue(entries.stream().noneMatch(e -> e.startsWith("__blueprints/")), "jar() не инструментируется");
 
         Path jar = Files.write(dir.resolve("p.jar"), r.jar());
         Process p = new ProcessBuilder(Path.of(System.getProperty("java.home"), "bin", "java").toString(), "-jar", jar.toString())

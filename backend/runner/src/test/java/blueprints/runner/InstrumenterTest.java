@@ -120,7 +120,65 @@ class InstrumenterTest {
     void traceSourceAndHits() {
         var r = one("class A { void f() { } }");
         assertTrue(r.sources().get("__blueprints/Trace.java").contains("new long[1]"));
-        assertArrayEquals(new long[] {5, 0, 7}, Instrumenter.parseHits("0 5\n2 7\n9 1\n", 3));
+        assertArrayEquals(new long[] {5, 0, 7}, Instrumenter.parseHits("0 5\n2 7\n9 1\nend\n", 3));
+        assertArrayEquals(new long[] {0, 0}, Instrumenter.parseHits("end\n", 2));
+        // обрезанный (нет end, число могло оборваться) или битый файл — null, не мусор
+        for (String bad : List.of("", "0 5\n2 7", "0 5\n2 7\n", "0 5\nen", "0 x\nend\n", "0 5 1\nend\n", "garbage\nend\n")) {
+            assertNull(Instrumenter.parseHits(bad, 3), bad);
+        }
+        String trace = r.sources().get("__blueprints/Trace.java");
+        assertTrue(trace.contains("ATOMIC_MOVE") && trace.contains(".tmp"), trace);
+    }
+
+    /** Вставка падает (здесь StackOverflowError на глубокой вложенности) — файл как есть, без нод; остальные — со вставками. */
+    @Test
+    void failingFileStaysUninstrumented() {
+        String deep = "class D { void f(boolean b) { " + "if (b) ".repeat(3000) + "g(); } void g() { } }";
+        var r = Instrumenter.instrument(Map.of("A.java", "class A { void f() { } }", "D.java", deep));
+        assertEquals(deep, r.sources().get("D.java"));
+        assertEquals(List.of("A.java"), r.probes().stream().map(Instrumenter.Probe::file).distinct().toList());
+        assertTrue(r.sources().get("A.java").contains(h(0)));
+    }
+
+    /** Инструментированная копия не компилируется (code too large), чистая — да: запуск без вставок, hits == null. */
+    @Test
+    void uncompilableInstrumentationFallsBackToCleanCopy(@TempDir Path tmp) {
+        Runner runner = dockerRunner(tmp);
+        var src = Map.of("Main.java", "public class Main { public static void main(String[] a) { int x = 0; "
+                + "x++; ".repeat(15000) + "System.out.print(x); } }");
+        var r = runner.run(src, null, "", Runner.Rewrite.TRACE);
+        assertTrue(r.compiled(), r.diagnostics().toString());
+        assertEquals("15000", r.stdout());
+        assertNull(r.hits());
+    }
+
+    /** Runtime.halt не запускает shutdown-hook — файла Trace нет, hits == null. */
+    @Test
+    void haltGivesNoHits(@TempDir Path tmp) {
+        Runner runner = dockerRunner(tmp);
+        var r = runner.run(Map.of("Main.java", "public class Main { public static void main(String[] a) { "
+                + "System.out.print(1); System.out.flush(); Runtime.getRuntime().halt(2); } }"), null, "", Runner.Rewrite.TRACE);
+        assertEquals("1", r.stdout());
+        assertEquals(2, r.exitCode());
+        assertNull(r.hits());
+    }
+
+    /** Таймаут ×3 — только у инструментированной программы. */
+    @Test
+    void tripleTimeoutOnlyWithTrace(@TempDir Path tmp) {
+        assumeTrue(dockerUp(), "docker недоступен");
+        var d = Runner.Config.defaults();
+        Runner runner = new Runner(new Runner.Config(tmp, d.image(), d.memory(), d.cpus(), Duration.ofSeconds(2)));
+        var src = Map.of("Main.java", "public class Main { public static void main(String[] a) throws Exception { "
+                + "Thread.sleep(3000); System.out.print(\"ok\"); } }");
+        var rs = runner.runBatch(List.of(new Runner.Program(src, "Main", Runner.Rewrite.RUN, List.of()),
+                new Runner.Program(src, "Main", Runner.Rewrite.TRACE, List.of())),
+                List.of(new Runner.Job(0, ""), new Runner.Job(1, "")), Runner.Rewrite.RUN);
+        assertTrue(rs.get(0).timedOut());
+        assertNull(rs.get(0).hits());
+        assertFalse(rs.get(1).timedOut(), rs.get(1).stderr());
+        assertEquals("ok", rs.get(1).stdout());
+        assertNotNull(rs.get(1).hits());
     }
 
     // --- корпус ---
