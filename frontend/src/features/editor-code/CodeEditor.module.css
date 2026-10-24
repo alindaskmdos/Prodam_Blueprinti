@@ -1,0 +1,133 @@
+/* Нижняя панель «Код Java» (docs/design/screens/Editor.dc.html), тост 409 (Kit.dc.html). */
+.root {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  background: var(--jb-panel);
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 12px;
+  border-bottom: 1px solid var(--jb-border);
+}
+
+.file {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 500 12px var(--jb-font-code);
+  color: var(--jb-text-secondary);
+}
+
+.status {
+  flex: 0 0 auto;
+  font-size: 12px;
+  padding-right: 8px;
+  color: var(--jb-text-secondary);
+  transition: color var(--jb-dur-hover);
+}
+
+.status[data-status='synced'] { color: #7ee2a0; }
+.status[data-status='pending'],
+.status[data-status='saving'] { color: var(--jb-accent); }
+.status[data-status='parse-error'],
+.status[data-status='error'] { color: var(--jb-severity-high); }
+
+.parseError,
+.error {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #a3aebd;
+  background: rgba(248, 113, 113, 0.08);
+  border-bottom: 1px solid rgba(248, 113, 113, 0.35);
+}
+
+.parseErrorTitle {
+  font-weight: 600;
+  color: var(--jb-severity-high);
+}
+
+.error { color: var(--jb-severity-high); }
+
+.editor {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 200px;
+}
+
+.placeholder {
+  padding: 12px;
+  font: 400 12.5px/20px var(--jb-font-code);
+  color: var(--jb-text-secondary);
+}
+
+.toast {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 10;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  max-width: min(380px, calc(100% - 32px));
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--jb-raised);
+  border: 1px solid var(--jb-border-strong);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+  animation: jb-toast 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.toastIcon {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--jb-severity-medium);
+  color: var(--jb-bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+}
+
+.toastBody {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.toastTitle { font-weight: 600; }
+
+.toastText {
+  font-size: 13px;
+  color: #a3aebd;
+}
+
+.toastClose {
+  margin-left: auto;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--jb-text-secondary);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.toastClose:hover { color: var(--jb-text); }
+
+@keyframes jb-toast {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: none; }
+}

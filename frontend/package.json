@@ -16,6 +16,8 @@
     "gen:api": "openapi-typescript ../contract/openapi.yaml -o src/features/api/generated/schema.ts --default-non-nullable false"
   },
   "dependencies": {
+    "@monaco-editor/react": "4.7.0",
+    "monaco-editor": "0.52.2",
     "openapi-fetch": "0.17.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
