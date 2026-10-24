@@ -35,7 +35,7 @@ test('загрузка папки: дерево проекта и анализ',
   for (const name of ['merge', 'dispatch', 'distinctIds']) {
     await expect(tree.getByText(name, { exact: true })).toBeVisible();
   }
-  expect(await versionOf(page)).toBeGreaterThanOrEqual(1);
+  await expect.poll(() => versionOf(page)).toBeGreaterThanOrEqual(1);
   await expect(issueCard(page, MERGE_ISSUE)).toBeVisible();
   expect(await page.getByTestId('issue').count()).toBeGreaterThan(3);
 });
@@ -53,7 +53,30 @@ test('правка ноды: код обновился, версия +1', async 
   const before = await versionOf(page);
   await editNode(page, page.getByTestId('node-var').filter({ hasText: 'orders.get(j)' }).first(), () => 'orders.get(j) /*e2e*/');
   await expect(monacoText(page)).toContainText('/*e2e*/');
-  expect(await versionOf(page)).toBe(before + 1);
+  await expect.poll(() => versionOf(page)).toBe(before + 1);
+});
+
+test('правка ноды не сдвигает холст (FE-29): transform viewport прежний', async ({ app: page }) => {
+  await openIssue(page, MERGE_ISSUE);
+  const viewport = page.locator('.react-flow__viewport').first();
+  // Дождаться, пока схема осядет после центрирования на проблеме.
+  let prev = '';
+  await expect
+    .poll(async () => {
+      const cur = (await viewport.getAttribute('style')) ?? '';
+      const settled = cur === prev;
+      prev = cur;
+      return settled;
+    }, { intervals: [500] })
+    .toBe(true);
+  const transformBefore = await viewport.evaluate((el) => (el as HTMLElement).style.transform);
+  expect(transformBefore).not.toBe('');
+  const before = await versionOf(page);
+  await editNode(page, page.getByTestId('node-var').filter({ hasText: 'orders.get(j)' }).first(), () => 'orders.get(j) /*vp*/');
+  await expect.poll(() => versionOf(page)).toBe(before + 1);
+  // Раскладка идёт асинхронно: даём ей время и проверяем, что viewport так и не сдвинулся.
+  await page.waitForTimeout(1500);
+  expect(await viewport.evaluate((el) => (el as HTMLElement).style.transform)).toBe(transformBefore);
 });
 
 test('неверный текст ноды: 422, нода красная, версия прежняя', async ({ app: page }) => {
@@ -74,7 +97,7 @@ test('фикс index-by-id: Quality Gate подтверждает исправл
   await issueCard(page, MERGE_ISSUE).getByRole('button', { name: /index-by-id/ }).click();
   await expect(page.getByTestId('fix-verdict')).toContainText('Исправление подтверждено', { timeout: SLOW });
   await page.getByRole('button', { name: 'Оставить и вернуться к схеме' }).click();
-  expect(await versionOf(page)).toBeGreaterThan(before);
+  await expect.poll(() => versionOf(page)).toBeGreaterThan(before);
 });
 
 test('запуск со STDIN из tests/basic.in: exit code 0', async ({ app: page }) => {
@@ -131,12 +154,22 @@ test('drag из палитры на стрелку: блок вставлен, �
   const before = await versionOf(page);
   const item = page.getByTestId('palette').locator('[data-kind="comment"]');
   // Схема отцентрирована на проблеме: берём стрелку, лежащую на экране правее палитры и левее миникарты.
-  const area = await page.getByTestId('method-canvas').first().boundingBox();
-  if (!area) throw new Error('холст не отрисован');
   const targets = page.locator('[data-testid^="drop-"]');
   await targets.first().waitFor({ state: 'attached' });
-  await page.waitForTimeout(1500); // дать схеме осесть после центрирования
-  let target = targets.first();
+  // Дать схеме осесть: ждём, пока boundingBox холста перестанет меняться.
+  const canvas = page.getByTestId('method-canvas').first();
+  let prevBox = '';
+  await expect
+    .poll(async () => {
+      const cur = JSON.stringify(await canvas.boundingBox());
+      const settled = cur === prevBox;
+      prevBox = cur;
+      return settled;
+    }, { intervals: [500] })
+    .toBe(true);
+  const area = await canvas.boundingBox();
+  if (!area) throw new Error('холст не отрисован');
+  let target: Locator | undefined;
   for (const t of await targets.all()) {
     const box = await t.boundingBox();
     if (
@@ -150,10 +183,11 @@ test('drag из палитры на стрелку: блок вставлен, �
       break;
     }
   }
+  if (!target) throw new Error('на холсте нет видимой стрелки для drop');
   await item.dragTo(target, { force: true });
   const field = page.getByTestId('node-editor').locator('textarea').last();
   await field.fill('e2e-palette');
   await field.press('Enter');
   await expect(monacoText(page)).toContainText('e2e-palette');
-  expect(await versionOf(page)).toBe(before + 1);
+  await expect.poll(() => versionOf(page)).toBe(before + 1);
 });

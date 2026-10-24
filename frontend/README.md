@@ -29,7 +29,6 @@ Production-сборка моки не включает (переменная н�
 | `lint` | ESLint (flat config, typescript-eslint, react-hooks) |
 | `test` | Vitest + jsdom + Testing Library, MSW node-сервер в `src/test/setup.ts` |
 | `gen:api` | типы из `../contract/openapi.yaml` → `src/features/api/generated/schema.ts` (коммитится) |
-
 | `e2e` | Playwright (`e2e/`), реальный бэкенд, без моков; в `npm test` не входит |
 
 Перед коммитом: `npm run typecheck && npm run lint && npm test`.
