@@ -1,9 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { PanelTabs } from '../features/layout';
 import { panels, panelsIn, type PanelDef } from './panels';
+import { resetAppState, useAppStore } from './store';
 
 describe('реестр вкладок panels.ts', () => {
+  afterEach(() => resetAppState());
+
   it('id уникальны, в каждой зоне есть вкладки', () => {
     expect(new Set(panels.map((p) => p.id)).size).toBe(panels.length);
     expect(panelsIn('right').map((p) => p.id)).toEqual(['analysis.problems', 'analysis.warnings', 'analysis.metrics']);
@@ -31,8 +34,11 @@ describe('реестр вкладок panels.ts', () => {
     expect(screen.queryByText('содержимое C')).not.toBeInTheDocument();
   });
 
-  it('заглушки реестра рендерятся', () => {
+  it('вкладки нижней зоны рендерятся: «Код Java» без выбранного метода — подсказка, заглушки — по клику', () => {
+    useAppStore.getState().openProject('p-1');
     render(<PanelTabs tabs={panelsIn('bottom')} aria-label="низ" />);
-    expect(screen.getByTestId('panel-stub')).toHaveTextContent('FE-04');
+    expect(screen.getByTestId('panel-stub')).toHaveTextContent('Выберите метод в дереве проекта');
+    fireEvent.click(screen.getByRole('tab', { name: 'Консоль' }));
+    expect(screen.getByTestId('panel-stub')).toHaveTextContent('FE-13');
   });
 });

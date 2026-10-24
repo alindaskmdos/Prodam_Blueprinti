@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect } from 'react';
 import { api, type ApiClient, type Schemas } from '../api';
 import type { ConflictInfo, FileSyncStatus } from './fileSync';
+import type { RevealLines } from './reveal';
 import { useFileSync } from './useFileSync';
 import styles from './CodeEditor.module.css';
 
@@ -21,6 +22,10 @@ export interface CodeEditorProps {
   onMutation?: (result: Schemas['MutationResult']) => void;
   onConflict?: (error: Schemas['Error']) => void;
   debounceMs?: number;
+  /** Подсветить строки и прокрутить к ним (клик по ноде, выбор проблемы, FE-05); null — снять подсветку. */
+  reveal?: RevealLines | null;
+  /** Пользователь поставил курсор на строку (мышь/клавиатура) — для подсветки ноды на холсте. */
+  onCursorLine?: (line: number) => void;
 }
 
 const STATUS_TEXT: Record<FileSyncStatus, string> = {
@@ -44,9 +49,29 @@ function conflictText(c: ConflictInfo): string {
   return `${versions}Состояние перезагружено.`;
 }
 
+/** Скопировать отложенные правки в буфер обмена (может быть недоступен — тогда молча ничего). */
+function copyText(text: string): void {
+  try {
+    void navigator.clipboard?.writeText(text).catch(() => undefined);
+  } catch {
+    // нет Clipboard API
+  }
+}
+
 /** Код Java файла в Monaco с синхронизацией: правка → 500 мс → PUT files. */
-export function CodeEditor({ client = api, projectId, path, version, onVersion, onMutation, onConflict, debounceMs }: CodeEditorProps) {
-  const { state, edit, dismissConflict } = useFileSync({
+export function CodeEditor({
+  client = api,
+  projectId,
+  path,
+  version,
+  onVersion,
+  onMutation,
+  onConflict,
+  debounceMs,
+  reveal = null,
+  onCursorLine,
+}: CodeEditorProps) {
+  const { state, edit, dismissConflict, takeTheirs, keepMine } = useFileSync({
     client,
     projectId,
     path,
@@ -56,7 +81,7 @@ export function CodeEditor({ client = api, projectId, path, version, onVersion, 
     onMutation,
     onConflict,
   });
-  const { status, loadedText, loadSeq, parseError, error, conflict } = state;
+  const { status, loadedText, loadSeq, parseError, error, conflict, stale } = state;
 
   useEffect(() => {
     if (!conflict) return;
@@ -87,6 +112,30 @@ export function CodeEditor({ client = api, projectId, path, version, onVersion, 
           </span>
         </div>
       )}
+      {stale && (
+        <div className={styles.stale} role="alert">
+          <span className={styles.staleTitle}>
+            {stale.reason === 'conflict'
+              ? 'Проект изменён — ваши правки не отправлены'
+              : 'Файл изменён (на схеме или фиксом). Ваши правки не отправлены'}
+          </span>
+          <span>
+            В редакторе новый текст, он только для чтения, пока вы не выберете. «Оставить мои» вернёт ваш текст и
+            перезапишет изменения.
+          </span>
+          <div className={styles.staleActions}>
+            <button type="button" onClick={takeTheirs}>
+              Взять новый текст
+            </button>
+            <button type="button" onClick={keepMine} disabled={status === 'loading'}>
+              Оставить мои
+            </button>
+            <button type="button" onClick={() => copyText(stale.text)}>
+              Скопировать
+            </button>
+          </div>
+        </div>
+      )}
       {error && status !== 'loading' && (
         <div className={styles.error} role="alert">
           {error}
@@ -102,6 +151,9 @@ export function CodeEditor({ client = api, projectId, path, version, onVersion, 
               loadSeq={loadSeq}
               parseError={parseError}
               onChange={edit}
+              readOnly={stale !== null}
+              reveal={reveal}
+              onCursorLine={onCursorLine}
             />
           </Suspense>
         ) : (

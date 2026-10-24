@@ -1,5 +1,8 @@
 import type { ComponentType } from 'react';
 import { stubPanel } from '../features/layout';
+import { MetricsTab, ProblemsTab, WarningsTab } from '../features/analysis-panel';
+import { TestsPanel } from '../features/tests-panel';
+import { SelectedMethodCode } from './methodViews';
 
 /** Зона экрана, где живёт вкладка: правая панель (анализ) или нижняя (код / консоль / тесты). */
 export type PanelArea = 'right' | 'bottom';
@@ -17,22 +20,12 @@ export interface PanelDef {
  * Фича подключается заменой `component` заглушки на свой компонент.
  */
 export const panels: readonly PanelDef[] = [
-  { id: 'analysis.problems', title: 'Проблемы', area: 'right', component: stubPanel('Проблемы — появятся в FE-11') },
-  {
-    id: 'analysis.warnings',
-    title: 'Предупреждения',
-    area: 'right',
-    component: stubPanel('Предупреждения — появятся в FE-11'),
-  },
-  { id: 'analysis.metrics', title: 'Метрики', area: 'right', component: stubPanel('Метрики — появятся в FE-11') },
-  { id: 'bottom.code', title: 'Код Java', area: 'bottom', component: stubPanel('Код метода — появится в FE-04') },
+  { id: 'analysis.problems', title: 'Проблемы', area: 'right', component: ProblemsTab },
+  { id: 'analysis.warnings', title: 'Предупреждения', area: 'right', component: WarningsTab },
+  { id: 'analysis.metrics', title: 'Метрики', area: 'right', component: MetricsTab },
+  { id: 'bottom.code', title: 'Код Java', area: 'bottom', component: SelectedMethodCode },
   { id: 'bottom.console', title: 'Консоль', area: 'bottom', component: stubPanel('Вывод запуска — появится в FE-13') },
-  {
-    id: 'bottom.tests',
-    title: 'Результат тестов',
-    area: 'bottom',
-    component: stubPanel('Результаты тестов — появятся в FE-12'),
-  },
+  { id: 'bottom.tests', title: 'Результат тестов', area: 'bottom', component: TestsPanel },
 ];
 
 export function panelsIn(area: PanelArea, list: readonly PanelDef[] = panels): PanelDef[] {

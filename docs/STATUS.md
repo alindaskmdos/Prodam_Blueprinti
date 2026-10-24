@@ -3,24 +3,28 @@
 > Пишет только оркестратор. Это «сохранение игры»: после /clear новая сессия начинает отсюда.
 > Обновлять полностью после каждых ~5 закрытых задач или крупного этапа.
 
-Обновлено: 2026-10-24
+Обновлено: 2026-10-24 (фронт — полное обновление)
 
 ## Backend
 
 **Готово:** BE-01…BE-21, BE-36…BE-41 — весь обязательный путь бэкенда (загрузка/экспорт zip и jar, ноды ↔ код, валидация, анализ + 6 детекторов, 3 фикса + Quality Gate, тесты IO/JUnit, run/verify, все эндпоинты контракта); CT-01 (+ правки BE-38 по решению человека).
-**В работе:** BE-43 (fixes, долги фиксов), BE-24 (analysis, мёртвый код) — исполнители в worktree.
-**Висящие ветки/worktree:** —. Локальный main впереди origin (BE-21, BE-39, BE-36, BE-41, BE-40, BE-20, BE-38 и др.) — нужен push. Папки старых worktree в .claude/worktrees не удаляются из-за длинных путей Windows, стирать вручную. На origin устаревшая ветка be-5 — `git push origin --delete be-5`.
+**В работе:** BE-43 (fixes, долги фиксов) — на verifier; BE-24 (analysis, мёртвый код) — доработка по решению человека.
+- FE-09 — палитра и drag на стрелку: ГОТОВ, verifier-проверки зелёные (306 тестов, build, без конфликтов с main, без трейлеров), коммит 88f441b в ветке worktree-agent-a34eab9338d69c95d. Осталось: reviewer → merge --squash. Подсветка самой стрелки при drag в браузере не проверена.
+**Висящие ветки/worktree:** FE-09, BE-43, BE-24. Локальный main впереди origin (BE-42 и docs) — нужен push. Папки старых worktree в .claude/worktrees не удаляются из-за длинных путей Windows, стирать вручную. На origin устаревшая ветка be-5 — `git push origin --delete be-5`.
 **Заблокировано:** —
 **Следующие шаги:** бэкенд обязательного пути закрыт — дальше по просьбе человека: долги из «Известных проблем» или задачи «Если успеем» (BE-24 мёртвый код — только analysis, без контракта; BE-32 CLI). В брифах исполнителям: работать от текущего main, не трогать docs/ и contract/, Docker запущен (тесты с Docker должны реально выполняться), сразу учитывать типичные дыры фиксов (алиасы, views, сторонние вызовы, null, == на обёртках, наследники/анонимные подклассы в src и tests).
 
 ## Frontend
 
-**Готово:** FE-01, FE-02, FE-04
-**В работе:** FE-03 — ветка `worktree-agent-aaf55bf265b376b80`, worktree `.claude/worktrees/agent-aaf55bf265b376b80`. Коммит e30a386 прошёл verifier (зелёный); reviewer дал замечания, исполнителю отправлены правки: (1) неизвестный kind → фолбэк как raw, blockText/estimateSize всегда строка, тест; (2) hex-цвета в toFlow.ts/MethodCanvas.tsx → var(--jb-*); (3) layout.ts:41 сброс кэша elkPromise при ошибке. Если сессия прервалась — проверить `git -C <worktree> status/log`: есть ли коммит с правками; нет → запустить исполнителя заново на ту же ветку с этим списком. Затем verifier + reviewer → merge --squash (lock-файл пересобрать `npm install`, проверить).
-**Висящие ветки/worktree:** только FE-03 (см. выше). Локальный main впереди origin: FE-02, фикстура file.order-service.json, FE-04 — нужен push.
-**Заблокировано:** —
-**Следующие шаги:** после FE-03 — интеграция: MethodCanvas в проп `canvas` у App (FE-02), CodeEditor в `bottom.code` в panels.ts, мок GET files по умолчанию из contract/fixtures/file.order-service.json (добавлена по разрешению человека 2026-10-24). Дальше FE-05, FE-06, FE-07, FE-11, FE-14. Агенты из `.claude/agents` подхватываются, только если сессия открыта из Prodam_Blueprinti/ (иначе general-purpose + путь к промпту роли).
-**Мелочи с ревью (на будущее):** mock PUT blocks по умолчанию нет; fixture<T>() — просто `as T`, нет сверки фикстур со схемой; store.version приходит только из GET tree, selectedMethodId не сверяется после перезагрузки; panels.ts findPanel — мёртвый код; фичи импортируют app/store (обратная зависимость); fileSync: после сетевой ошибки/5xx нет повтора PUT; FE-04: fileText из ответа PUT в редактор не подставляется (намеренно, курсор).
+**Готово:** FE-01, FE-02 (+ подключение холста и кода), FE-03, FE-04 (+ 2 исправления синхронизации), FE-07, FE-08, FE-11, FE-12, FE-13, FE-15, FE-05, FE-06. На моках работает путь: загрузка → дерево → схема метода (правка текста, «+», удаление, ↑↓) → код в Monaco ↔ схема по version → анализ → «Применить фикс» (Quality Gate) → «Запуск» / «Проверить поведение» → тесты. Обязательный путь фронта закрыт, кроме FE-09, FE-10, FE-14. main: 297 тестов, typecheck/lint/build зелёные; Monaco только в ленивых чанках (основной ~480 kB).
+**В работе** (исполнители в `.claude/worktrees/agent-*`, ветки `worktree-agent-*`, см. `git worktree list`; если сессия прервалась: есть коммит FE-xx в ветке → verifier + reviewer, нет → перезапустить исполнителя на ту же ветку):
+**Висящие ветки/worktree:** —. Локальный main впереди origin — нужен push.
+**Заблокировано / ждёт решения людей:**
+- FE-10 (формы классов/полей/методов): в контракте нет эндпоинтов структуры. Варианты: правка текста через PUT files / новые эндпоинты (бэк + contract) / отложить (рекомендация).
+- FE-14 (docker-compose): нужен Dockerfile бэка (зона бэкенда) и Docker-сокет хоста с одинаковым путём BLUEPRINTS_RUN_DIR.
+- contract/fixtures/analysis.merge.json: fixes = ["index-by-key"], бэк — `index-by-id`.
+**Следующие шаги:** после FE-13/FE-05 — FE-06 (сворачивание, мини-карта, комментарии), FE-09 (drag из палитры). Порядок в editor-nodes — по одной задаче (FE-05 → FE-06 → FE-09). Агенты из `.claude/agents` подхватываются, только если сессия открыта из Prodam_Blueprinti/ (иначе general-purpose + путь к промпту роли). Ветки исполнителей перед мержем проверяются verifier (своя копия, только фронт, если diff только frontend/) + reviewer; package-lock при конфликте — объединить package.json, `git checkout --ours` lock и `npm install`.
+**Мелочи с ревью (на будущее):** FE-06: состояние сворачивания по позиционному Block.id — после внешних правок (Monaco/фикс) может переехать на соседний контейнер; основной чанк ~514 kB (Vite предупреждает > 500) — можно MethodCanvas в React.lazy; FE-05: начальный fitView на ноду проблемы может показать всю схему, если MethodGraph перерисуется до измерения нод (проверить вручную на большом методе); FE-07 rebase: если ноды нет в новом дереве или версия выросла во время rebase — черновик теряется; fixture<T>() — просто `as T` (фикстуры сверены ajv вручную 2026-10-24, автотеста нет); store.version из GET tree «только если новее», selectedMethodId не сверяется после перезагрузки; panels.ts findPanel — мёртвый код; фичи импортируют app/store; fileSync: после сетевой ошибки/5xx нет повтора PUT; GET files с версией новее store не перезагружает дерево проекта; FE-08: confirm через window.confirm, отказ clipboard не показывается; FE-12: завершающий \n при шумных строках не виден в шапке diff.
 
 ## Известные проблемы
 
@@ -31,6 +35,7 @@
 - Windows: 2 теста RunnerTest (fakeDocker) пропускаются — нужен /bin/bash.
 - testing: TestResult/IoTestCase пока свои типы в `testing` — после BE-05 заменить на `model` адаптером.
 - testing/JUnit: причина compile_error («тесты» vs «программа») определяется по простому имени файла — при совпадении имён может быть неверной.
+- contract/fixtures/analysis.merge.json: у NestedLoopSameCollection fixes = ["index-by-key"], а бэк (BE-21) регистрирует `index-by-id` — фикстуру поправить (решение людей; схеме соответствует, id — строка). Все 12 фикстур валидны по схемам openapi.yaml (ajv, 2026-10-24).
 - Фронт: Vitest 3.2.7 — npm audit: уязвимости в dev-зависимостях (tinypool, @vitest/mocker); vitest 4 не ставится на npm 10.9.8 (edgesOut).
 - Фронт: у `passed` IO- и JUnit-теста (пропущенный @Disabled) `error` может быть непустым — это пояснение («оригинал не проходит этот тест — правка его исправила»), не ошибка.
 
@@ -80,5 +85,17 @@
 - BE-39: GET /tree через ProjectView.tree (complexity, issueCount); n у GET analysis → ProjectAnalysis.of(files, n) → Issues.of (ops при n проекта), Detector не менялся; дефолт совпадает с analysis.merge.json.
 - FE-02: каркас редактора (шапка, дерево проекта из GET tree, слот холста, панели с вкладками из panels.ts {id,title,area,component}, zustand store projectId/version/selectedMethodId, react-resizable-panels).
 - FE-04: CodeEditor (Monaco локально, ленивый чанк), fileSync: debounce 500 мс, полный текст + version, 409 → тост и перезагрузка, 422 → маркер, один запрос в полёте; мок PUT files по умолчанию.
+- FE-03: MethodCanvas/MethodGraph (GET blocks), blocksToGraph — чистая функция дерево → ноды/рёбра, ELK layered в воркере (bundled-фолбэк), все kind + фолбэк неизвестного как raw, стрелки не редактируются, цвета из tokens.css. 2 круга ревью.
+- FE-11: панель анализа (вкладки Проблемы/Предупреждения/Метрики в panels.ts, сортировка high→medium→low, confidence low = «возможно», оценка ≈ операций из opsBefore/opsAfter «при n = …» + «асимптотическая оценка», n → GET analysis?n, selectIssue в store). 2 круга ревью.
+- FE-15: экран загрузки (drag&drop, .zip/.jar, папка → multipart files+paths, шаги, LoadWarning с фолбэком неизвестного кода, ошибки по Error.code), экспорт .zip (includeSettings) / .jar (422 по code, 501 — заглушка бэка вне контракта), project.upload/export в commands.ts, App: без projectId — экран загрузки. 2 круга ревью.
+- FE-07: инлайн-правка полей ноды (textarea поверх подсвеченного pre, Enter/blur/Esc), PUT blocks полным деревом с version, 422 → красная нода с черновиком (Error.blockId), 409 → перезагрузка; внешняя смена version → перезагрузка дерева, открытый черновик — «Метод изменился» / «Применить к новому». 2 круга ревью.
 - BE-21: IndexByIdFix `index-by-id` (вложенный for i / for j=i+1 по одному списку с поиском по ключу → LinkedHashMap + putIfAbsent за один проход; ключ — геттер final-примитива с тем же типом, без наследников/анонимных подклассов T в src и tests, белый список коммутирующих эффектов тела). Demo OrderService.merge → Map<Integer, Order> byCustomer, QualityGate GREEN, Issue.fixes = [index-by-id]. 3 круга ревью.
 - BE-42: demo — Locale.ROOT в String.format (ReportService), toLowerCase (Tier), toUpperCase (CommandLine) в той же строке, номера строк не сдвинуты; demo 6/6 под en/ru_RU/tr_TR. Полный build с JAVA_TOOL_OPTIONS красный из-за строки «Picked up JAVA_TOOL_OPTIONS» в stderr дочерних java — не локаль.
+- FE-02 (подключение): MethodCanvas в слот canvas по selectedMethodId, CodeEditor во вкладке «Код» по файлу метода (useTreeStore.findMethodFile), общий onMutation (анализ из ответа + reloadProjectTree), мок GET files из file.order-service.json. 2 круга ревью (убран ремоунт холста по version).
+- FE-04 (исправление): внешняя version → GET files и новый текст (version меняется только вместе с текстом), PUT со старым текстом и новой version невозможен; неотправленные правки → плашка «Файл изменён» / «Взять новый текст» / «Оставить мои» / «Скопировать».
+- FE-12: панель тестов (IO и JUnit, PUT с version / DELETE ?version=, 409 — черновик сохраняется с «Повторить с моей правкой», 422 в форме; результаты verify/run: diff, noisyLines серым, точная привязка JUnit по имени/классу, неизвестный статус нейтрально; для FE-13 — useTestsStore.getState().showVerifyResult/showRunResult). Monaco — отдельная точка входа editor-code/monaco.ts (только из ленивых модулей). 3 круга ревью.
+- FE-08: «+» на стрелках и в пустых слотах → меню kind → шаблонный блок (id "", case берёт форму arrow соседей), удаление (Delete/✕, confirm для контейнера), ↑↓ внутри слота; чистые функции blockTree.ts, отправка полным деревом через blockSync; pending-вставка переносится на новое дерево; выделение сбрасывается при смене дерева. 2 круга ревью.
+- FE-04 (доработка): правки во время GET не теряются (тот же текст на сервере → PUT с новой version, иначе stale), при плашке редактор readOnly, 409 → stale «Проект изменён», «Оставить мои» после упавшего GET повторяет GET.
+- FE-05: store.highlight {source canvas|code|issue, blockId, span, seq}; клик по ноде → декорация и прокрутка в Monaco, курсор в Monaco → подсветка самого глубокого блока (blockAtLine), выбор проблемы → центрирование ноды + pulse и прокрутка к span; без циклов, reduced-motion.
+- FE-13: Quality Gate (features/fix: шаги только из ответа бэка, не детализированное — «сервер не детализировал шаги», reason дословно; applied → version/анализ/дерево; rejected → shake; 409/404), features/sandbox (run с выбором mainClass и stdin, verify, 422/503, повтор /health раз в 15 с), команды fix.apply/project.run/project.verify в commands.ts, результаты → панель тестов; стор тестов сбрасывается подпиской на projectId. 2 круга ревью.
+- FE-06: сворачивание контейнеров (вид на клиенте useEditorView, collapsed===true || глубина > 3, без PUT), свёрнутый — сводка и бейдж проблем; развернуть/свернуть всё; MiniMap; переключатель комментариев (только граф, PUT — полное дерево; ↑↓ пропускает скрытые); разворот пути для FE-05. 2 круга ревью.

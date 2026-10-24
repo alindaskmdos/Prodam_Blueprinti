@@ -10,14 +10,17 @@ import { CodeEditor } from './CodeEditor';
 // Monaco в jsdom не работает — подменяем представление textarea с тем же интерфейсом.
 vi.mock('./MonacoView', async () => {
   const { useEffect, useState } = await import('react');
-  function FakeMonaco({ text, loadSeq, parseError, onChange }: MonacoViewProps) {
+  function FakeMonaco({ text, loadSeq, parseError, onChange, readOnly, reveal, onCursorLine }: MonacoViewProps) {
     const [value, setValue] = useState(text);
     useEffect(() => setValue(text), [text, loadSeq]);
     return (
       <textarea
         aria-label="код"
         data-error-line={parseError?.line ?? ''}
+        data-reveal={reveal ? `${reveal.startLine}-${reveal.endLine}` : ''}
+        onSelect={(e) => onCursorLine?.(Number(e.currentTarget.dataset.cursorLine ?? '1'))}
         value={value}
+        readOnly={readOnly}
         onChange={(e) => {
           setValue(e.target.value);
           onChange(e.target.value);
@@ -71,6 +74,10 @@ describe('<CodeEditor>', () => {
     expect(toast.parentElement).toHaveTextContent('Ваша правка относилась к версии 2, сейчас 3. Состояние перезагружено.');
     await waitFor(() => expect(area).toHaveValue('class Main { /* с сервера */ }'));
     expect(onConflict).toHaveBeenCalledTimes(1);
+    // Черновик не потерян: плашка с тремя кнопками, редактор только для чтения.
+    expect(screen.getByText('Проект изменён — ваши правки не отправлены')).toBeInTheDocument();
+    expect(area).toHaveAttribute('readonly');
+    expect(screen.getByRole('button', { name: 'Оставить мои' })).toBeEnabled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }));
     expect(screen.queryByText('Проект изменён')).not.toBeInTheDocument();
@@ -96,5 +103,93 @@ describe('<CodeEditor>', () => {
     expect(screen.getByRole('status')).toHaveTextContent('синтаксическая ошибка');
     expect(area).toHaveAttribute('data-error-line', '1');
     expect(onVersion).not.toHaveBeenCalled();
+  });
+
+  it('внешняя version без правок → новый текст в редакторе, плашки нет', async () => {
+    serveFile('class Main {}', 1);
+    const { rerender } = render(<CodeEditor client={client} projectId="p-1" path={PATH} version={1} debounceMs={0} />);
+    const area = await screen.findByLabelText('код');
+    serveFile('class Main { /* нода */ }', 2);
+    rerender(<CodeEditor client={client} projectId="p-1" path={PATH} version={2} debounceMs={0} />);
+    await waitFor(() => expect(area).toHaveValue('class Main { /* нода */ }'));
+    expect(screen.queryByText(/Ваши правки не отправлены/)).not.toBeInTheDocument();
+  });
+
+  it('внешняя version при неотправленной правке → плашка; «Взять новый текст» и «Оставить мои»', async () => {
+    serveFile('class Main {}', 1);
+    const puts: { version: number; text: string }[] = [];
+    server.use(
+      http.put(`${API}/projects/:projectId/files`, async ({ request }) => {
+        const body = (await request.json()) as { version: number; text: string };
+        puts.push(body);
+        const version = body.version + 1;
+        return HttpResponse.json<Schemas['MutationResult']>({
+          version,
+          fileText: body.text,
+          tree: { version, classes: [] } as never,
+          analysis: { version } as never,
+        });
+      }),
+    );
+    const props = { client, projectId: 'p-1', path: PATH, debounceMs: 60_000 };
+    const { rerender } = render(<CodeEditor {...props} version={1} />);
+    const area = await screen.findByLabelText('код');
+    fireEvent.change(area, { target: { value: 'class Main { int mine; }' } });
+
+    serveFile('class Main { /* нода */ }', 2);
+    rerender(<CodeEditor {...props} version={2} />);
+    expect(await screen.findByText('Файл изменён (на схеме или фиксом). Ваши правки не отправлены')).toBeInTheDocument();
+    await waitFor(() => expect(area).toHaveValue('class Main { /* нода */ }'));
+    expect(puts).toHaveLength(0);
+    expect(area).toHaveAttribute('readonly');
+    expect(screen.getByText(/только для чтения, пока вы не выберете/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Оставить мои' }));
+    await waitFor(() => expect(area).toHaveValue('class Main { int mine; }'));
+    expect(area).not.toHaveAttribute('readonly');
+    await waitFor(() => expect(puts).toEqual([{ version: 2, text: 'class Main { int mine; }' }]));
+    expect(screen.queryByText(/Ваши правки не отправлены/)).not.toBeInTheDocument();
+
+    // Снова: правка, внешняя версия, теперь «Взять новый текст».
+    fireEvent.change(area, { target: { value: 'class Main { int again; }' } });
+    serveFile('class Main { /* фикс */ }', 4);
+    rerender(<CodeEditor {...props} version={4} />);
+    await screen.findByText(/Ваши правки не отправлены/);
+    await waitFor(() => expect(area).toHaveValue('class Main { /* фикс */ }'));
+    fireEvent.click(screen.getByRole('button', { name: 'Взять новый текст' }));
+    expect(screen.queryByText(/Ваши правки не отправлены/)).not.toBeInTheDocument();
+    expect(area).toHaveValue('class Main { /* фикс */ }');
+    expect(puts).toHaveLength(1);
+  });
+
+  it('плашка: «Скопировать» кладёт неотправленный текст в буфер обмена', async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    serveFile('class Main {}', 1);
+    const props = { client, projectId: 'p-1', path: PATH, debounceMs: 60_000 };
+    const { rerender } = render(<CodeEditor {...props} version={1} />);
+    const area = await screen.findByLabelText('код');
+    fireEvent.change(area, { target: { value: 'class Main { int mine; }' } });
+    serveFile('class Main { /* нода */ }', 2);
+    rerender(<CodeEditor {...props} version={2} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Скопировать' }));
+    expect(writeText).toHaveBeenCalledWith('class Main { int mine; }');
+  });
+
+  it('FE-05: reveal доходит до редактора, курсор пользователя → onCursorLine', async () => {
+    serveFile('class Main {\n  void f() {}\n}', 1);
+    const onCursorLine = vi.fn();
+    const { rerender } = render(
+      <CodeEditor client={client} projectId="p-1" path={PATH} reveal={{ startLine: 2, endLine: 2, seq: 1 }} onCursorLine={onCursorLine} />,
+    );
+    const area = await screen.findByLabelText('код');
+    expect(area).toHaveAttribute('data-reveal', '2-2');
+
+    area.dataset.cursorLine = '3';
+    fireEvent.select(area);
+    expect(onCursorLine).toHaveBeenCalledWith(3);
+
+    rerender(<CodeEditor client={client} projectId="p-1" path={PATH} reveal={null} onCursorLine={onCursorLine} />);
+    expect(screen.getByLabelText('код')).toHaveAttribute('data-reveal', '');
   });
 });

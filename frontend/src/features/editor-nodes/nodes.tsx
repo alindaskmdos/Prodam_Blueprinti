@@ -1,0 +1,251 @@
+import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
+import type { CSSProperties, ReactNode } from 'react';
+import { editableFields } from './blockEdit';
+import type { GraphNodeData } from './blocksToGraph';
+import { blocksLabel } from './collapse';
+import { useCollapse } from './collapseContext';
+import { useNodeEdit } from './editContext';
+import { JavaText } from './JavaText';
+import { kindMeta } from './kinds';
+import { NodeTextEditor } from './NodeTextEditor';
+import { NodeTools } from './structureUi';
+import styles from './MethodCanvas.module.css';
+
+type FlowNode = Node<GraphNodeData>;
+
+function Pins() {
+  return (
+    <>
+      <Handle type="target" position={Position.Top} isConnectable={false} className={styles.pin} />
+      <Handle type="source" position={Position.Bottom} isConnectable={false} className={styles.pin} />
+    </>
+  );
+}
+
+function kindColor(data: GraphNodeData): CSSProperties {
+  return { '--kind': kindMeta(data.kind).color } as CSSProperties;
+}
+
+function IssueBadge({ issues }: { issues: string[] }) {
+  if (issues.length === 0) return null;
+  return (
+    <span className={styles.issueBadge} title={issues.join(', ')}>
+      !
+    </span>
+  );
+}
+
+/**
+ * Шеврон сворачивания (FE-06) в заголовке контейнера: ▾ — развёрнут (свернуть), ▸ — свёрнут (развернуть).
+ * locked — внутри открыт редактор или красная нода: свернуть нельзя.
+ */
+function CollapseToggle({ data }: { data: GraphNodeData }) {
+  const api = useCollapse();
+  const c = data.collapse;
+  if (!c || !api) return null;
+  return (
+    <button
+      type="button"
+      className={`${styles.chevron} nodrag`}
+      aria-label={c.collapsed ? `Развернуть: ${data.title}` : `Свернуть: ${data.title}`}
+      aria-expanded={!c.collapsed}
+      title={c.locked ? 'Внутри идёт правка — свернуть нельзя' : c.collapsed ? 'Развернуть' : 'Свернуть'}
+      disabled={c.locked}
+      onClick={(ev) => {
+        ev.stopPropagation();
+        api.setCollapsed(c.key, !c.collapsed);
+      }}
+    >
+      {c.collapsed ? '▸' : '▾'}
+    </button>
+  );
+}
+
+/** Сводка свёрнутого контейнера: «N блоков». */
+function HiddenBadge({ data }: { data: GraphNodeData }) {
+  if (!data.collapse?.collapsed) return null;
+  return (
+    <span className={styles.badge} data-testid="collapsed-count">
+      {blocksLabel(data.collapse.hidden ?? 0)}
+    </span>
+  );
+}
+
+/** Правка текста ноды: состояние редактора для data.path (null — нода только для просмотра). */
+function useEditing(data: GraphNodeData) {
+  const edit = useNodeEdit();
+  if (!edit || !data.editable) return null;
+  return { edit, open: edit.editing === data.path };
+}
+
+/** Кнопка «править» в заголовке. */
+function EditButton({ data }: { data: GraphNodeData }) {
+  const e = useEditing(data);
+  if (!e || e.open) return null;
+  return (
+    <button
+      type="button"
+      className={`${styles.editBtn} nodrag`}
+      aria-label={`Править: ${data.title}`}
+      title="Править текст (или двойной клик)"
+      disabled={e.edit.saving}
+      onClick={(ev) => {
+        ev.stopPropagation();
+        e.edit.startEdit(data.path);
+      }}
+    >
+      ✎
+    </button>
+  );
+}
+
+/**
+ * Тело ноды: текст (двойной клик — правка), инлайн-редактор или — для красной ноды — сообщение об ошибке.
+ * view — как показывается текст без редактора.
+ */
+function EditableBody({ data, className, view }: { data: GraphNodeData; className: string; view: ReactNode }) {
+  const e = useEditing(data);
+  if (e?.open) {
+    return (
+      <NodeTextEditor
+        key={data.path}
+        specs={editableFields(data)}
+        initial={e.edit.draftFor(data.path)}
+        saving={e.edit.saving}
+        stale={e.edit.stale}
+        onApply={(draft) => e.edit.apply(data.path, draft)}
+        onRebase={(draft) => e.edit.rebase(data.path, draft)}
+        onCancel={e.edit.cancelEdit}
+      />
+    );
+  }
+  return (
+    <>
+      <pre
+        className={className}
+        title={data.text}
+        onDoubleClick={
+          e
+            ? (ev) => {
+                ev.stopPropagation();
+                e.edit.startEdit(data.path);
+              }
+            : undefined
+        }
+      >
+        {view}
+      </pre>
+      {data.error !== undefined && (
+        <div className={styles.nodeError} role="alert">
+          <span>{data.error} В код не попало.</span>
+          {e && (
+            <button type="button" className={`${styles.errorUndo} nodrag`} onClick={e.edit.discardInvalid}>
+              Отменить правку
+            </button>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+function stateClass(data: GraphNodeData): string {
+  return data.error !== undefined ? styles.invalid ?? '' : '';
+}
+
+/** Обычная нода и заголовок контейнера: цветной заголовок по kind, выражение моноширинным. */
+export function BlockNode({ data }: NodeProps<FlowNode>) {
+  const hasIssues = data.issues.length > 0;
+  return (
+    <div
+      className={`${styles.node} ${hasIssues ? styles.hasIssue : ''} ${stateClass(data)}`}
+      style={kindColor(data)}
+      data-kind={data.kind}
+      data-testid={`node-${data.kind}`}
+      data-invalid={data.error !== undefined || undefined}
+      data-collapsed={data.collapse?.collapsed || undefined}
+    >
+      <Pins />
+      <div className={`${styles.header} ${data.kind === 'method' ? styles.headerLight : ''}`}>
+        <span>
+          <CollapseToggle data={data} />
+          {data.error !== undefined ? `${data.title} · ошибка` : data.title}
+        </span>
+        {data.badge && <span className={styles.badge}>{data.badge}</span>}
+        <HiddenBadge data={data} />
+        <IssueBadge issues={data.issues} />
+        <EditButton data={data} />
+        <NodeTools data={data} />
+      </div>
+      <EditableBody data={data} className={styles.body ?? ''} view={<JavaText text={data.text} />} />
+    </div>
+  );
+}
+
+/** raw — неподдержанная конструкция: исходный текст как есть, пунктирная рамка. */
+export function RawNode({ data }: NodeProps<FlowNode>) {
+  return (
+    <div
+      className={`${styles.node} ${styles.raw} ${stateClass(data)}`}
+      data-kind={data.kind}
+      data-testid="node-raw"
+      data-invalid={data.error !== undefined || undefined}
+      data-collapsed={data.collapse?.collapsed || undefined}
+    >
+      <Pins />
+      <div className={`${styles.header} ${styles.rawHeader}`}>
+        <span>
+          <CollapseToggle data={data} />
+          {data.title}
+        </span>
+        <HiddenBadge data={data} />
+        <IssueBadge issues={data.issues} />
+        <EditButton data={data} />
+        <NodeTools data={data} />
+      </div>
+      <EditableBody data={data} className={`${styles.body} ${styles.rawBody}`} view={data.text} />
+    </div>
+  );
+}
+
+/** Комментарий — жёлтый стикер. */
+export function CommentNode({ data }: NodeProps<FlowNode>) {
+  return (
+    <div
+      className={`${styles.comment} ${stateClass(data)}`}
+      data-kind="comment"
+      data-testid="node-comment"
+      data-invalid={data.error !== undefined || undefined}
+    >
+      <Pins />
+      <span className={styles.commentTools}>
+        <EditButton data={data} />
+        <NodeTools data={data} />
+      </span>
+      <EditableBody data={data} className={styles.commentText ?? ''} view={data.text} />
+    </div>
+  );
+}
+
+/** Group-нода контейнера: рамка цвета kind, внутри заголовок и ветки. */
+export function ContainerNode({ data }: NodeProps<FlowNode>) {
+  return (
+    <div
+      className={`${styles.container} ${data.issues.length > 0 || data.error !== undefined ? styles.containerIssue : ''}`}
+      style={kindColor(data)}
+      data-kind={data.kind}
+      data-testid={`container-${data.kind}`}
+    >
+      <Pins />
+    </div>
+  );
+}
+
+/** Рамка ветки контейнера с несколькими ветками (then/else, try/catch/finally). */
+export function SlotNode({ data }: NodeProps<FlowNode>) {
+  return (
+    <div className={styles.slot} style={kindColor(data)} data-testid={`slot-${data.slotKey ?? ''}`}>
+      <Pins />
+    </div>
+  );
+}

@@ -1,0 +1,736 @@
+/* Схема метода — Graphite (docs/design/screens/Kit.dc.html, Editor.dc.html). */
+
+.canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  background-color: var(--jb-bg);
+  /* Провода и пины — вторичный цвет текста из tokens.css. */
+  --wire: var(--jb-text-secondary);
+}
+
+.status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--jb-text-secondary);
+  font-size: 13px;
+}
+
+.error {
+  composes: status;
+  color: var(--jb-severity-high);
+}
+
+/* Пины exec-проводов: видны как маленькие треугольники, не интерактивны. */
+.pin {
+  width: 8px !important;
+  height: 8px !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: var(--wire) !important;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  pointer-events: none;
+}
+
+.node {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  background: #141a22;
+  border: 1px solid var(--jb-border-strong);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  transition: box-shadow var(--jb-dur-hover), border-color var(--jb-dur-hover);
+  animation: jb-rise var(--jb-dur-rise) var(--jb-ease-out) both;
+}
+
+.node:hover {
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
+  border-color: #4a5568;
+}
+
+.hasIssue {
+  border-color: var(--jb-severity-high);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 9px 9px 0 0;
+  background: var(--kind);
+  color: var(--jb-bg);
+  font: 600 12px var(--jb-font-ui);
+  white-space: nowrap;
+}
+
+.headerLight {
+  color: #ffffff;
+}
+
+.badge {
+  margin-left: auto;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+  font: 600 11px var(--jb-font-code);
+}
+
+.issueBadge {
+  margin-left: auto;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--jb-severity-high);
+  color: var(--jb-bg);
+  font: 600 11px var(--jb-font-code);
+}
+
+.badge + .issueBadge,
+.badge + .badge {
+  margin-left: 0;
+}
+
+/* ── Сворачивание контейнеров (FE-06, Kit.dc.html «свёрнутый контейнер») ── */
+
+.chevron {
+  margin: 0 4px 0 -2px;
+  padding: 0 3px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: 700 11px var(--jb-font-ui);
+  line-height: 16px;
+  cursor: pointer;
+}
+
+.chevron:hover,
+.chevron:focus-visible {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.chevron:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Свёрнутый контейнер: рамка цвета kind, как у раскрытого. */
+.node[data-collapsed] {
+  border-color: color-mix(in srgb, var(--kind) 75%, #000);
+  cursor: pointer;
+}
+
+.node[data-collapsed].hasIssue {
+  border-color: var(--jb-severity-high);
+}
+
+/* Панель вида: «Комментарии», «Развернуть всё», «Свернуть всё». */
+.viewBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border: 1px solid var(--jb-border);
+  border-radius: 8px;
+  background: var(--jb-panel);
+  color: var(--jb-text-secondary);
+  font: 500 12px var(--jb-font-ui);
+}
+
+.viewBar label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.viewBar button {
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--jb-border-strong);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--jb-text);
+  font: 500 12px var(--jb-font-ui);
+  cursor: pointer;
+}
+
+.viewBar button:hover {
+  border-color: var(--jb-accent);
+}
+
+.minimap {
+  border: 1px solid var(--jb-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.body {
+  margin: 0;
+  padding: 8px 12px 10px;
+  font: 500 12.5px/18px var(--jb-font-code);
+  color: var(--jb-text);
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tok_keyword {
+  color: #c792ea;
+}
+
+.tok_string {
+  color: #a5e075;
+}
+
+.tok_number {
+  color: #f9a76c;
+}
+
+.tok_comment {
+  color: #7f8a99;
+  font-style: italic;
+}
+
+.raw {
+  border-style: dashed;
+  border-color: var(--jb-node-raw);
+  background: #10141a;
+}
+
+.rawHeader {
+  background: var(--jb-border-strong);
+  color: var(--jb-text);
+}
+
+.rawBody {
+  color: var(--jb-text-secondary);
+}
+
+.comment {
+  width: 100%;
+  height: 100%;
+  background: var(--jb-node-comment);
+  color: #3b2f07;
+  border-radius: 6px;
+  padding: 10px 14px;
+  transform: rotate(-1deg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  animation: jb-rise var(--jb-dur-rise) var(--jb-ease-out) both;
+}
+
+.commentText {
+  margin: 0;
+  font: 500 12.5px/18px var(--jb-font-code);
+  white-space: pre;
+  overflow: hidden;
+}
+
+.container {
+  width: 100%;
+  height: 100%;
+  border: 1.5px solid var(--kind);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--kind) 6%, transparent);
+}
+
+.containerIssue {
+  border-color: var(--jb-severity-high);
+  background: rgba(248, 113, 113, 0.07);
+}
+
+.slot {
+  width: 100%;
+  height: 100%;
+  border: 1px dashed color-mix(in srgb, var(--kind) 45%, transparent);
+  border-radius: 10px;
+}
+
+/* Подписи веток (да / нет) и провода. */
+.canvas :global(.react-flow__edge-text) {
+  fill: var(--jb-text-secondary);
+  font: 600 11px var(--jb-font-ui);
+}
+
+.canvas :global(.react-flow__edge-textbg) {
+  fill: var(--jb-bg);
+}
+
+.canvas :global(.react-flow__edge-path) {
+  stroke: var(--wire);
+  stroke-width: 2;
+}
+
+/* Наконечник стрелки: inline-стиль React Flow перебивается токеном. */
+.canvas :global(.react-flow__arrowhead polyline) {
+  stroke: var(--wire) !important;
+  fill: var(--wire) !important;
+}
+
+.canvas :global(.react-flow__node) {
+  cursor: default;
+}
+
+/* ── Правка текста в ноде (FE-07, Kit.dc.html «редактирование» / «невалидный текст») ── */
+
+.host {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.editBtn {
+  margin-left: auto;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.18);
+  color: inherit;
+  font: 600 11px var(--jb-font-ui);
+  line-height: 16px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--jb-dur-hover);
+}
+
+.badge + .editBtn,
+.issueBadge + .editBtn {
+  margin-left: 0;
+}
+
+.node:hover .editBtn,
+.comment:hover .editBtn,
+.editBtn:focus-visible {
+  opacity: 1;
+}
+
+/* ✎ и ↑ ↓ ✕ стикера — в правом верхнем углу. */
+.commentTools {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: inline-flex;
+  gap: 2px;
+}
+
+/* ── Структура (FE-08, Editor.dc.html «+» на стрелке): вставка, удаление, вверх/вниз ── */
+
+.wireLabel {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: all;
+}
+
+.wireText {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--jb-bg);
+  color: var(--jb-text-secondary);
+  font: 600 11px var(--jb-font-ui);
+}
+
+.plus {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--jb-accent);
+  color: var(--jb-bg);
+  font: 700 15px/22px var(--jb-font-ui);
+  text-align: center;
+  cursor: pointer;
+  pointer-events: all;
+  opacity: 0.35;
+  transform: scale(0.75);
+  transition: opacity var(--jb-dur-hover), transform var(--jb-dur-hover);
+}
+
+.plus:hover,
+.plus:focus-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.plus:disabled {
+  opacity: 0.15;
+  cursor: not-allowed;
+}
+
+.insertNode {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tools {
+  display: inline-flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--jb-dur-hover);
+}
+
+.header > span:first-child + .tools {
+  margin-left: auto;
+}
+
+.tools button {
+  padding: 0 4px;
+  border: 0;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.18);
+  color: inherit;
+  font: 600 11px var(--jb-font-ui);
+  line-height: 16px;
+  cursor: pointer;
+}
+
+.tools button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.node:hover .tools,
+.comment:hover .tools,
+.tools:focus-within,
+:global(.react-flow__node.selected) .tools {
+  opacity: 1;
+}
+
+:global(.react-flow__node.selected) > .node {
+  border-color: var(--jb-accent);
+}
+
+.insertMenu {
+  position: absolute;
+  z-index: 20;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--jb-border-strong);
+  background: var(--jb-panel);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
+}
+
+.insertMenu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--jb-text);
+  font: 500 13px var(--jb-font-ui);
+  text-align: left;
+  cursor: pointer;
+}
+
+.insertMenu button:hover,
+.insertMenu button:focus-visible {
+  background: var(--jb-raised);
+  outline: none;
+}
+
+.menuSwatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.comment {
+  position: relative;
+}
+
+.editor {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--jb-accent);
+  background: var(--jb-header);
+  cursor: text;
+}
+
+.editorField {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.editorLabel {
+  flex: 0 0 auto;
+  min-width: 34px;
+  color: var(--jb-text-secondary);
+  font: 500 10.5px var(--jb-font-ui);
+}
+
+/* Подсветка и textarea в одной ячейке grid: pre задаёт размер, прозрачная textarea поверх. */
+.javaInput {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.javaInputHl,
+.javaInputArea {
+  grid-area: 1 / 1;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font: 500 12.5px/18px var(--jb-font-code);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 4;
+}
+
+.javaInputHl {
+  color: var(--jb-text);
+  pointer-events: none;
+}
+
+.javaInputArea {
+  width: 100%;
+  height: 100%;
+  resize: none;
+  overflow: hidden;
+  outline: none;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--jb-accent);
+}
+
+.javaInputArea::selection {
+  background: rgba(91, 155, 255, 0.35);
+}
+
+.comment .javaInputHl {
+  color: #3b2f07;
+}
+
+.comment .editor {
+  background: #fff6cc;
+}
+
+.editorHint {
+  color: var(--jb-text-secondary);
+  font: 400 10.5px var(--jb-font-ui);
+}
+
+/* Метод изменился извне, пока открыт редактор. */
+.staleNote {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--jb-severity-medium);
+  font: 400 11px/15px var(--jb-font-ui);
+  white-space: normal;
+}
+
+.staleActions {
+  display: flex;
+  gap: 10px;
+}
+
+.staleActions button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--jb-accent);
+  font: 500 11px var(--jb-font-ui);
+  cursor: pointer;
+}
+
+/* Невалидный текст: нода красная, сообщение под текстом, в код не попало. */
+.invalid {
+  border-color: var(--jb-severity-high) !important;
+  background: #1e1316;
+}
+
+.invalid .header {
+  background: var(--jb-severity-high);
+}
+
+.invalid .body {
+  color: #ffc2bc;
+}
+
+.nodeError {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 0 12px 10px;
+  font: 400 12px/16px var(--jb-font-ui);
+  color: #ffb4ac;
+  white-space: normal;
+}
+
+.comment.invalid {
+  outline: 2px solid var(--jb-severity-high);
+}
+
+.comment .nodeError {
+  padding: 4px 0 0;
+  color: #9b1c1c;
+}
+
+.errorUndo {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--jb-accent);
+  font: 500 11px var(--jb-font-ui);
+  cursor: pointer;
+}
+
+.banner {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  z-index: 10;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: #1e1316;
+  border: 1px solid var(--jb-severity-high);
+  color: #ffb4ac;
+  font-size: 13px;
+}
+
+/* Тост 409 — как в editor-code (Kit.dc.html «Уведомления»). */
+.toast {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 10;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  max-width: min(380px, calc(100% - 32px));
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--jb-raised);
+  border: 1px solid var(--jb-border-strong);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+  color: var(--jb-text);
+  animation: jb-toast 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.toastIcon {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--jb-severity-medium);
+  color: var(--jb-bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+}
+
+.toastBody {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.toastTitle {
+  font-weight: 600;
+}
+
+.toastText {
+  font-size: 13px;
+  color: #a3aebd;
+}
+
+.toastClose {
+  margin-left: auto;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--jb-text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.toastClose:hover {
+  color: var(--jb-text);
+}
+
+@keyframes jb-toast {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Вставку не удалось перенести на новое дерево: текст блока не теряется. */
+.lostInsert {
+  composes: banner;
+  top: 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: min(520px, calc(100% - 32px));
+}
+
+.lostInsert pre {
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--jb-bg);
+  color: var(--jb-text);
+  font: 500 12.5px/18px var(--jb-font-code);
+  white-space: pre-wrap;
+}
+
+/* FE-05: нода блока под курсором Monaco / по клику — рамка акцентом. */
+:global(.react-flow__node).lineHighlight > .node,
+:global(.react-flow__node).lineHighlight > .comment {
+  border-color: var(--jb-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--jb-accent) 45%, transparent);
+}
+
+/* FE-05: нода выбранной проблемы пульсирует (jb-pulse, tokens.css); prefers-reduced-motion — без анимации. */
+:global(.react-flow__node).issuePulse {
+  border-radius: 10px;
+  animation: jb-pulse var(--jb-dur-pulse) ease-out infinite;
+}
+
+:global(.react-flow__node).issuePulse > .node {
+  border-color: var(--jb-severity-high);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :global(.react-flow__node).issuePulse {
+    animation: none;
+    box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.55);
+  }
+}

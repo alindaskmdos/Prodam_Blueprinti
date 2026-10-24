@@ -4,7 +4,7 @@ import { shortMethodName } from './methodName';
 import styles from './layout.module.css';
 
 interface CanvasSlotProps {
-  /** Холст схемы (FE-03). Без него — заглушка. */
+  /** Холст схемы (App: `SelectedMethodCanvas`). Без него — заглушка «Выберите метод…». */
   children?: ReactNode;
 }
 
@@ -28,7 +28,7 @@ export function CanvasSlot({ children }: CanvasSlotProps) {
       <div className={styles.canvas}>
         {children ?? (
           <div className={styles.stub} data-testid="canvas-stub">
-            {methodId ? `Схема ${shortMethodName(methodId)} — появится в FE-03` : 'Выберите метод в дереве проекта'}
+            {methodId ? `Схема ${shortMethodName(methodId)}` : 'Выберите метод в дереве проекта'}
           </div>
         )}
       </div>
