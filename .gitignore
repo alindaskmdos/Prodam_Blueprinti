@@ -1,5 +1,6 @@
-.claude/
-CLAUDE.md
+.claude/*
+!.claude/agents/
+!.claude/settings.json
 vs/
 vscode/
 .env

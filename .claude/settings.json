@@ -1,0 +1,27 @@
+{
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "permissions": {
+    "allow": [
+        "Bash(git merge origin/main:*)",
+        "Bash(git push)",
+        "Bash(git fetch:*)"
+    ],
+    "deny": [
+      "Bash(git reset --hard *)",
+      "Bash(git rebase *)"
+    ],
+    "ask": [
+      "Edit(contract/**)",
+      "Write(contract/**)",
+      "Edit(docs/TZ.md)",
+      "Write(docs/TZ.md)"
+    ]
+  },
+  "env": {
+    "CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS": "5",
+    "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH": "1"
+  }
+}
