@@ -34,7 +34,7 @@
 - [x] BE-17 Детекторы LongMethod / DeepNesting | analysis | BE-12 | §8.3
 - [x] BE-18 Quality Gate: применить → компиляция → все тесты → откат | fixes | BE-10, BE-11 | §9
 - [x] BE-19 Фикс StringBuilder | fixes | BE-16, BE-18 | §9
-- [ ] BE-20 Фикс contains → LinkedHashSet | fixes | BE-14, BE-18 | §9
+- [x] BE-20 Фикс contains → LinkedHashSet | fixes | BE-14, BE-18 | §9
 - [ ] BE-21 Фикс «индекс по id» | fixes | BE-13, BE-18 | §9
 
 ## Frontend

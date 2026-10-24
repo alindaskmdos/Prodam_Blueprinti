@@ -7,9 +7,9 @@
 
 ## Backend
 
-**Готово:** BE-01, BE-02, BE-03, BE-04, BE-05, BE-06, BE-08, BE-09, BE-10, BE-11, BE-12, BE-13, BE-14, BE-15, BE-16, BE-17, BE-07, BE-18, BE-37, BE-19, BE-38; CT-01 (+ arrow-switch в Block, `<init>~N`)
-**В работе:** BE-20 (fixes, ждёт решения после 3 красных ревью)
-**Висящие ветки/worktree:** —. Локальный main впереди origin (BE-12..BE-19, BE-37, BE-38, BE-07 + merge BE-06) — нужен push. Папки старых worktree в .claude/worktrees не удаляются из-за длинных путей Windows, стирать вручную. На origin висит устаревшая ветка be-5 (остатки отменённого merge BE-09) — удалить: `git push origin --delete be-5`.
+**Готово:** BE-01, BE-02, BE-03, BE-04, BE-05, BE-06, BE-08, BE-09, BE-10, BE-11, BE-12, BE-13, BE-14, BE-15, BE-16, BE-17, BE-07, BE-18, BE-37, BE-19, BE-38, BE-20; CT-01 (+ arrow-switch в Block, `<init>~N`)
+**В работе:** BE-40 (app), BE-41 (samples/demo)
+**Висящие ветки/worktree:** —. Локальный main впереди origin (BE-12..BE-20, BE-37, BE-38, BE-07 + merge BE-06) — нужен push. Папки старых worktree в .claude/worktrees не удаляются из-за длинных путей Windows, стирать вручную. На origin висит устаревшая ветка be-5 (остатки отменённого merge BE-09) — удалить: `git push origin --delete be-5`.
 **Заблокировано:** —
 **Следующие шаги:** детекторы MVP закрыты (в брифах: не вливать main в ветку, не трогать docs/; Node.equals у JavaParser по содержимому — ключевать узлы по идентичности); app должен отдавать Analysis.metrics из MethodAnalysis.lines()/maxNesting(); BE-19/20/21 (фиксы, нужен BE-18; BE-19 берёт переменные через публичный StringConcatInLoop.concats); app ещё не отдаёт анализ (подстановка blockId по диапазону строк — decisions.md); BE-18 Quality Gate — после BE-10 ✓ и BE-11 ✓, доступна (текст «нет тестов» — по decisions.md); BE-18 Quality Gate — доступна. Фронту: перегенерировать TS-типы (UNPARSED_FILE в LoadWarning.code; BE-38 — version у PUT/DELETE tests, 422/503 у run/verify).
 
@@ -39,8 +39,8 @@
 - fixes/QualityGate: Refactoring получает саму карту currentFiles (не unmodifiable); StandardJavaFileManager не закрывается; без системного компилятора (JRE) — NPE.
 - app: ProjectView строится заново на каждый запрос (без кэша); GET /tree без complexity/issueCount, параметр n у analysis игнорируется (n=10000, тест ContractConformanceTest ждёт 10000 при n=500) — BE-39.
 - fixes/StringBuilderFix: `s += foo()` с foo(): char[] молча меняет вывод (только тест вывода поймает); комментарий внутри `s += /*c*/ x` теряется при замене; Issue.fixes пока пуст — BE-40.
-- contract/openapi.yaml:137 — description с запятой без кавычек в flow-маппинге (лишний ключ в schema version у PUT blocks); ждёт решения человека.
 - app/verify: если все tests/*.json битые, проверка main пропускается (io=false).
+- fixes/LinkedHashSetFix: только своя локальная из `new ArrayList/LinkedList` или без сторонних вызовов в цикле; элемент String/обёртка; неявный код в цикле (toString, iterator() пользовательского Iterable) не учитывается; тип аргумента по имени в методе. В demo до BE-41 неприменим.
 - blocks/NodeValidator: исходный текст с \u разрешён в любом не-comment поле — можно перенести в ноду другого kind (крайний случай).
 
 ## Журнал (одна строка на закрытую задачу)
@@ -68,3 +68,4 @@
 - BE-37: GET blocks (ProjectView.method), GET files (FileText), GET analysis (ProjectView.analysis); 404 NOT_FOUND; ContractConformanceTest — SpringBootTest на демо по HTTP.
 - BE-19: StringBuilderFix `string-builder` (переменные из StringConcatInLoop.concats; sSb до цикла, append, s = sSb.toString() после; только локальная не-null String, без меток и try между объявлением и циклом), RefactoringRegistry.defaults()/byId(); target = id Issue. Demo через QualityGate, вывод сверен локальной java (Docker-теста нет: fixes не зависит от runner).
 - BE-38: TestsController (GET/PUT/DELETE tests, имя по шаблону, version обязателен, 409; одноимённые .json/.java видны оба), RunController (run/verify; 422 AMBIGUOUS_MAIN/INVALID_REQUEST — у verify только при IO-тестах; 503 SandboxUnavailable на ошибку Runner), ProjectStore.original — эталон для verify, .in/.out → mode manual. Контракт правлен по решению человека. Полный build с Docker зелёный (впервые выполнены Docker-тесты runner/testing/app; 2 пропуска fakeDocker).
+- BE-20: LinkedHashSetFix `linked-hash-set` (находка LinearSearchInLoop; `Set<T> xsSet = xs == null ? null : new LinkedHashSet<>(xs)` перед ближайшим циклом, только contains; отказ при изменении/алиасах/views списка, сторонних вызовах для не-new, неподходящем типе аргумента). FixText — общие текстовые хелперы. 4 круга ревью.

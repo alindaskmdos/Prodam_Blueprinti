@@ -134,7 +134,7 @@ paths:
               type: object
               required: [version, root]
               properties:
-                version: { type: integer, description: Версия проекта, с которой работал фронт }
+                version: { type: integer, description: "Версия проекта, с которой работал фронт" }
                 root: { $ref: "#/components/schemas/Block" }
       responses:
         "200": { $ref: "#/components/responses/Mutation" }
