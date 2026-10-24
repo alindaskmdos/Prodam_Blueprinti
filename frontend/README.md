@@ -29,8 +29,22 @@ Production-сборка моки не включает (переменная н�
 | `lint` | ESLint (flat config, typescript-eslint, react-hooks) |
 | `test` | Vitest + jsdom + Testing Library, MSW node-сервер в `src/test/setup.ts` |
 | `gen:api` | типы из `../contract/openapi.yaml` → `src/features/api/generated/schema.ts` (коммитится) |
+| `e2e` | Playwright (`e2e/`), реальный бэкенд, без моков; в `npm test` не входит |
 
 Перед коммитом: `npm run typecheck && npm run lint && npm test`.
+
+## e2e (Playwright)
+
+`e2e/` — весь путь пользователя в Chromium на **реальном бэкенде, без моков**. Каждый тест грузит `samples/demo`; pageerror и HTTP 5xx от `/api` валят тест.
+
+```bash
+cd backend && ./gradlew :app:bootRun                       # :8080, нужен Docker
+cd frontend && VITE_USE_MOCKS=false npx vite --port 5173   # фронт без моков
+npx playwright install chromium                            # один раз
+npm run e2e                                                # E2E_BASE_URL=http://host:port — другой адрес фронта
+```
+
+Адрес — `E2E_BASE_URL` (по умолчанию `http://localhost:5173`; для docker compose — адрес фронтенда). Один воркер, таймауты до 90 с на verify / Quality Gate.
 
 ## Структура
 
