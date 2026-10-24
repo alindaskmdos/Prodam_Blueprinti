@@ -1,0 +1,19 @@
+== equality
+127 == 127 -> true
+1000 == 1000 -> false
+bolt 127 matches: true
+nut 1000 matches: false
+nut 1000 matchesFixed: true
+bolt reserved (expected true): false
+nut is five: false
+levels: NORMAL HIGH LOW
+== ignored
+Invoice for [  ACME Corp  ]
+Invoice for [ACME Corp]
+total=100.00 (expected 120.00)
+due=2026-01-15 (expected 2026-02-14)
+[WIDGET, GADGET]
+- widget
+- gadget
+(2 items)
+SKU-7 sku-7

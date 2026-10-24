@@ -1,0 +1,34 @@
+== all
+port=8080
+retries=3
+workers=[9001, 9002]
+WARN bad timeout '1m', using 30
+timeout=30
+maxConnections=250
+ERROR maxConnections must be a number: lots
+customer of '4' = unknown
+city of carol = ''
+WARN bad quantity in 5;bob;x;1
+quantity of '5;bob;x;1' = 0
+import alice from BERLIN avg=150
+import carol from  avg=50
+skip row: zero quantity in 3;bob;0;10
+skip row: short row: 4
+imported 2 of 4
+Invoice for [  ACME Corp  ]
+Invoice for [ACME Corp]
+total=100.00 (expected 120.00)
+due=2026-01-15 (expected 2026-02-14)
+[WIDGET, GADGET]
+- widget
+- gadget
+(2 items)
+SKU-7 sku-7
+127 == 127 -> true
+1000 == 1000 -> false
+bolt 127 matches: true
+nut 1000 matches: false
+nut 1000 matchesFixed: true
+bolt reserved (expected true): false
+nut is five: false
+levels: NORMAL HIGH LOW

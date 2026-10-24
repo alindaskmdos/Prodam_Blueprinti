@@ -1,0 +1,20 @@
+== catch-bug
+customer of '4' = unknown
+city of carol = ''
+WARN bad quantity in 5;bob;x;1
+quantity of '5;bob;x;1' = 0
+import alice from BERLIN avg=150
+import carol from  avg=50
+skip row: zero quantity in 3;bob;0;10
+skip row: short row: 4
+imported 2 of 4
+== empty-catch
+port=8080
+retries=3
+workers=[9001, 9002]
+WARN bad timeout '1m', using 30
+timeout=30
+maxConnections=250
+ERROR maxConnections must be a number: lots
+== nope
+unknown example: nope
