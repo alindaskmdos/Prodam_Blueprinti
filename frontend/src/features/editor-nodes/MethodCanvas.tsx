@@ -30,6 +30,7 @@ import { collapsedPaths, containerEntries, keysInSlot, lockedPaths, revealKeys }
 import { CollapseContext, type CollapseApi } from './collapseContext';
 import { NodeEditContext, type NodeEditApi } from './editContext';
 import { FOCUS_ZOOM, flowNodeOfBlock, useFocusCenter, type FocusRequest } from './focus';
+import { computeInitialView, graphBounds, type InitialView } from './initialView';
 import { layoutGraph } from './layout';
 import { edgeTypes, nodeTypes } from './nodeTypes';
 import { kindMeta } from './kinds';
@@ -281,11 +282,25 @@ export function MethodGraph({
   // Первый показ схемы с ещё не показанной целью — начальный fitView сразу на ноду (иначе он перебил бы центрирование).
   const initialFit =
     focusNodeId !== null && focusDone.current !== focusSeq ? { nodes: [{ id: focusNodeId }], maxZoom: FOCUS_ZOOM } : undefined;
+  // Начальный вид (FE-34): решение принимается один раз на метод при первой готовой раскладке и не меняется
+  // от правок. Цель-проблема (FE-05) приоритетнее; слишком высокая схема — верх в читаемом масштабе.
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const initialViewRef = useRef<{ methodId: string; view: InitialView } | null>(null);
+  if (layout.status === 'ready' && initialViewRef.current?.methodId !== view.methodId) {
+    const el = canvasRef.current;
+    const size = el ? { width: el.clientWidth, height: el.clientHeight } : null;
+    initialViewRef.current = {
+      methodId: view.methodId,
+      view: initialFit ? { mode: 'fit' } : computeInitialView(graphBounds(layout.flow.nodes), size),
+    };
+  }
+  const startView = initialViewRef.current?.methodId === view.methodId ? initialViewRef.current.view : null;
+  const topViewport = startView?.mode === 'top' ? startView.viewport : null;
 
   return (
     <NodeEditContext.Provider value={guardedEdit ?? null}>
     <CollapseContext.Provider value={collapseApi}>
-    <div className={styles.canvas} data-testid="method-canvas">
+    <div ref={canvasRef} className={styles.canvas} data-testid="method-canvas">
       {layout.status === 'pending' && <div className={styles.status}>Раскладка схемы…</div>}
       {layout.status === 'error' && (
         <div role="alert" className={styles.error}>
@@ -321,7 +336,8 @@ export function MethodGraph({
           deleteKeyCode={null}
           zoomOnDoubleClick={false}
           colorMode="dark"
-          fitView
+          fitView={topViewport === null}
+          {...(topViewport ? { defaultViewport: topViewport } : {})}
           {...(initialFit ? { fitViewOptions: initialFit } : {})}
           minZoom={0.1}
           proOptions={{ hideAttribution: true }}
