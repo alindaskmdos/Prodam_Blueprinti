@@ -14,7 +14,7 @@
       "message": "Вложенный цикл по orders: O(n·n)",
       "recommendation": "Построить индекс customerId → первый заказ (LinkedHashMap)",
       "complexity": { "before": "O(n·n)", "after": "O(n)", "opsBefore": 100000000, "opsAfter": 10000 },
-      "fixes": ["index-by-key"]
+      "fixes": ["index-by-id"]
     },
     {
       "id": "ISSUE-2",

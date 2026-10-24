@@ -23,7 +23,7 @@ describe('parseUnifiedDiff', () => {
 describe('verdictOf / gateSteps', () => {
   it('applied + green → подтверждено, все шаги ок', () => {
     expect(verdictOf(fixtures.fixApplied)).toEqual({ kind: 'confirmed' });
-    const steps = gateSteps(fixtures.fixApplied, 'index-by-key');
+    const steps = gateSteps(fixtures.fixApplied, 'index-by-id');
     expect(steps.map((s) => s.status)).toEqual(['ok', 'ok', 'ok', 'skip']);
     expect(steps[0]?.detail).toBe('OrderService.java');
     expect(steps[2]?.detail).toBe('2 из 2');

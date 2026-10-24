@@ -43,7 +43,7 @@ describe('панель анализа', () => {
     expect(screen.getByText('высокая')).toBeInTheDocument();
     expect(screen.getByText(high.rule)).toBeInTheDocument();
     expect(screen.getByText('OrderService.merge:44')).toBeInTheDocument();
-    expect(screen.getByText('index-by-key')).toBeInTheDocument();
+    expect(screen.getByText('index-by-id')).toBeInTheDocument();
     const ops = screen.getByTestId('ops');
     expect(ops).toHaveTextContent('≈10⁸ → ≈10⁴ операций при n = 10 000');
     expect(screen.getByTestId('ops-estimate')).toHaveTextContent('асимптотическая оценка, не замер');
