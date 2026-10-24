@@ -49,6 +49,7 @@ public final class ProjectAnalysis {
     private final CallGraph callGraph;
     private final long n;
     private final List<SourceFile> files;
+    private final Map<String, List<String>> sourceLines = new LinkedHashMap<>();
 
     private ProjectAnalysis(List<SourceFile> files, long n) {
         this.n = n;
@@ -61,6 +62,7 @@ public final class ProjectAnalysis {
                 continue;
             }
             units.add(r.getResult().get());
+            sourceLines.put(f.path(), List.of(f.text().replace("\r\n", "\n").replace('\r', '\n').split("\n", -1)));
             for (TypeDeclaration<?> t : r.getResult().get().getTypes()) index(t, f);
         }
         Map<String, Set<String>> edges = new LinkedHashMap<>();
@@ -173,6 +175,11 @@ public final class ProjectAnalysis {
             return t.decl().getFieldByName(field).map(f -> !f.isStatic()).orElse(false);
         }
         return false;
+    }
+
+    /** Строки исходного текста разобранного файла (индекс 0 — строка 1) или пустой список. */
+    List<String> sourceLines(String path) {
+        return sourceLines.getOrDefault(path, List.of());
     }
 
     /** Значения строковых литералов проекта (рефлексия: {@code getDeclaredMethod("m")}). */
