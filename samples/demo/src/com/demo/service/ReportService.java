@@ -77,7 +77,7 @@ public class ReportService {
                 live.add(o);
             }
         }
-        report += "avg qty:  " + String.format("%.2f", Stats.average(live, Order::totalQty)) + "\n";
+        report += "avg qty:  " + String.format(java.util.Locale.ROOT, "%.2f", Stats.average(live, Order::totalQty)) + "\n";
         report += "max qty:  " + Stats.max(live, Order::totalQty) + "\n";
         report += "=== END ===\n";
         return report;

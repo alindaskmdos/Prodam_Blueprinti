@@ -32,7 +32,7 @@ public enum Tier {
     }
 
     public static Tier parse(String s) {
-        switch (s.toLowerCase()) {
+        switch (s.toLowerCase(java.util.Locale.ROOT)) {
             case "gold":
                 return GOLD;
             case "silver":

@@ -32,7 +32,7 @@ public class CommandLine {
                 parts.add(line.substring(start, i));
             }
         }
-        String verb = parts.remove(0).toUpperCase();
+        String verb = parts.remove(0).toUpperCase(java.util.Locale.ROOT);
         return new CommandLine(verb, parts);
     }
 
