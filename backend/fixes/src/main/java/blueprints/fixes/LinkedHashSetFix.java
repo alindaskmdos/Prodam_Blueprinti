@@ -63,6 +63,7 @@ public final class LinkedHashSetFix implements Refactoring {
     // ponytail: только типы JDK с согласованными equals/hashCode; классы/record'ы проекта — когда появится проверка hashCode
     private static final Set<String> ELEMENTS = Set.of("String", "Integer", "Long", "Short", "Byte", "Character",
             "Boolean", "Double", "Float");
+    private static final Set<String> JDK_NAMES = Set.of("List", "ArrayList", "LinkedList", "Set", "LinkedHashSet");
     private static final Set<String> PRIMITIVES = Set.of("int", "long", "short", "byte", "char", "boolean", "double", "float");
     // всё, что у ArrayList/LinkedList (List, SequencedCollection, Deque) даёт объект, через который меняется список
     private static final Set<String> VIEWS = Set.of("subList", "reversed", "iterator", "listIterator", "descendingIterator",
@@ -113,7 +114,9 @@ public final class LinkedHashSetFix implements Refactoring {
         String xs = scope.getNameAsString();
         Type type = declaredType(m, loop, xs);
         String element = element(type);
-        if (element == null) return null;
+        // имена JDK, на которые опирается фикс, не заняты своим типом проекта (src и tests/)
+        Set<String> own = projectTypes(files).keySet();
+        if (element == null || own.contains(element) || own.stream().anyMatch(JDK_NAMES::contains)) return null;
         // в цикле список — только получатель contains
         List<NameExpr> inLoop = loop.findAll(NameExpr.class, n -> n.getNameAsString().equals(xs));
         for (NameExpr n : inLoop) {

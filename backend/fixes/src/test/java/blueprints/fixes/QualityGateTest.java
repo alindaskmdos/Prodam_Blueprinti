@@ -7,10 +7,17 @@ import blueprints.testing.TestContext;
 import blueprints.testing.TestResult;
 import blueprints.testing.TestStatus;
 import blueprints.testing.VerifyResult;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.tools.JavaCompiler;
+import javax.tools.StandardJavaFileManager;
+import javax.tools.ToolProvider;
 import org.junit.jupiter.api.Test;
 
 /** Quality Gate: настоящая компиляция, вердикт проверки поведения подменён (без Docker). */
@@ -138,5 +145,73 @@ class QualityGateTest {
         assertFalse(r.applied());
         assertEquals("исправление не подтверждено: ошибка фикса boom: сломался", r.reason());
         assertTrue(calls.isEmpty());
+    }
+
+    /** Фикс, который пытается записать в карту проекта: отказ, вход не меняется. */
+    @Test
+    void fixGetsReadOnlyFiles() {
+        Map<String, String> files = new LinkedHashMap<>(project);
+        Refactoring sneaky = new Refactoring() {
+            public String id() {
+                return "sneaky";
+            }
+
+            public boolean canApply(Map<String, String> f, String target) {
+                return true;
+            }
+
+            public Map<String, String> apply(Map<String, String> f, String target) {
+                f.put(target, FIXED);
+                return Map.of(target, FIXED);
+            }
+        };
+        QualityGate.Result r = gate(VerifyResult.Status.GREEN, List.of()).apply(files, files, null, sneaky, MAIN);
+        assertFalse(r.applied());
+        assertTrue(r.reason().startsWith("исправление не подтверждено: ошибка фикса sneaky"), r.reason());
+        assertEquals(Map.of(MAIN, ORIGINAL), files);
+        assertTrue(calls.isEmpty());
+    }
+
+    @Test
+    void noSystemCompilerRejectsWithReason() {
+        QualityGate.Result r = new QualityGate(ctx -> {
+            calls.add(ctx);
+            return new VerifyResult(VerifyResult.Status.GREEN, List.of(), List.of());
+        }, () -> null).apply(project, project, null, new Replace(FIXED), MAIN);
+        assertFalse(r.applied());
+        assertEquals("исправление не подтверждено: " + QualityGate.NO_COMPILER, r.reason());
+        assertNull(r.verify());
+        assertTrue(calls.isEmpty());
+    }
+
+    /** Файловый менеджер javac закрывается — и при успехе, и при ошибке компиляции. */
+    @Test
+    void fileManagerIsClosed() {
+        JavaCompiler real = ToolProvider.getSystemJavaCompiler();
+        AtomicInteger opened = new AtomicInteger(), closed = new AtomicInteger();
+        JavaCompiler counting = (JavaCompiler) Proxy.newProxyInstance(getClass().getClassLoader(),
+                new Class<?>[] {JavaCompiler.class}, (p, method, args) -> {
+                    Object res = invoke(real, method, args);
+                    if (!method.getName().equals("getStandardFileManager")) return res;
+                    opened.incrementAndGet();
+                    return Proxy.newProxyInstance(getClass().getClassLoader(), new Class<?>[] {StandardJavaFileManager.class},
+                            (p2, m2, a2) -> {
+                                if (m2.getName().equals("close")) closed.incrementAndGet();
+                                return invoke(res, m2, a2);
+                            });
+                });
+        QualityGate g = new QualityGate(ctx -> new VerifyResult(VerifyResult.Status.GREEN, List.of(), List.of()), () -> counting);
+        assertTrue(g.apply(project, project, null, new Replace(FIXED), MAIN).applied());
+        assertFalse(g.apply(project, project, null, new Replace("class Main { int x = ; }"), MAIN).applied());
+        assertEquals(2, opened.get());
+        assertEquals(2, closed.get());
+    }
+
+    private static Object invoke(Object target, Method m, Object[] args) throws Throwable {
+        try {
+            return m.invoke(target, args);
+        } catch (InvocationTargetException e) {
+            throw e.getCause();
+        }
     }
 }

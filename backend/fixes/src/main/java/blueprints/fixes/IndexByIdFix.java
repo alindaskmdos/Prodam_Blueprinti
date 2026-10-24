@@ -6,8 +6,6 @@ import blueprints.analysis.MethodAnalysis;
 import blueprints.analysis.NestedLoopSameCollection;
 import blueprints.analysis.ProjectAnalysis;
 import blueprints.source.SourceFile;
-import com.github.javaparser.JavaParser;
-import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
@@ -131,22 +129,10 @@ public final class IndexByIdFix implements Refactoring {
                 f -> f.getBegin().filter(b -> b.line == line && b.column == col).isPresent()).orElse(null);
         if (inner == null) return null;
         try {
-            return new Shape(m, inner, types(files)).rewrite(files.get(m.file()));
+            return new Shape(m, inner, projectTypes(files)).rewrite(files.get(m.file()));
         } catch (Reject e) {
             return null;
         }
-    }
-
-    /** Простое имя → объявления типов всех .java проекта, включая tests/ (наследники, анонимные подклассы, свои List). */
-    private static Map<String, List<TypeDeclaration<?>>> types(Map<String, String> files) {
-        JavaParser parser = new JavaParser(new ParserConfiguration().setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21));
-        Map<String, List<TypeDeclaration<?>>> out = new LinkedHashMap<>();
-        for (var f : files.entrySet()) {
-            if (!f.getKey().endsWith(".java")) continue;
-            parser.parse(f.getValue()).getResult().ifPresent(cu -> cu.findAll(TypeDeclaration.class)
-                    .forEach(td -> out.computeIfAbsent(td.getNameAsString(), k -> new ArrayList<>()).add(td)));
-        }
-        return out;
     }
 
     /** Отказ разбора шаблона: canApply = false. */

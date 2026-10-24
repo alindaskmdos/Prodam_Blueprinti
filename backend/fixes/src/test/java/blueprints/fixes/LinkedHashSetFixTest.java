@@ -165,6 +165,26 @@ class LinkedHashSetFixTest {
         assertFalse(fix.canApply(files, only(files)));
     }
 
+    /** Свой тип проекта с именем List/ArrayList/LinkedList/Set/LinkedHashSet или элемента (в src или tests/) — не JDK. */
+    @Test
+    void ownTypeNamedLikeJdkIsRejected() {
+        String body = "int r(int[] a) { List<Integer> xs = new ArrayList<>(); xs.add(1); int n = 0;\n for (int v : a) if (xs.contains(v)) n++; return n; }\n";
+        Map<String, String> plain = project("import java.util.List;\n", body);
+        String id = only(plain);
+        assertTrue(fix.canApply(plain, id));
+        for (String own : List.of("src/p/ArrayList.java", "tests/p/ArrayList.java")) {
+            Map<String, String> files = new LinkedHashMap<>(plain);
+            files.put(own, "package p;\npublic class ArrayList<T> extends java.util.ArrayList<T> {\n"
+                    + "    @Override public boolean contains(Object o) { return false; }\n}\n");
+            assertFalse(fix.canApply(files, id), own);
+        }
+        for (String own : List.of("class Set {}", "class LinkedHashSet {}", "class Holder { class List {} }", "class Integer {}")) {
+            Map<String, String> files = new LinkedHashMap<>(plain);
+            files.put("tests/p/Own.java", "package p;\n" + own + "\n");
+            assertFalse(fix.canApply(files, id), own);
+        }
+    }
+
     @Test
     void badTargetsAreRejected() {
         Map<String, String> files = project("void j(List<Integer> xs, int[] a) {\n for (int v : a) xs.contains(v);\n}\n");

@@ -169,6 +169,78 @@ class StringBuilderFixTest {
         }
     }
 
+    /** String + char[] = "[C@…", а append(char[]) — символы: тип слагаемого, который может быть char[], — отказ. */
+    @Test
+    void possibleCharArrayIsRejected() {
+        String helpers = "char[] chars() { return new char[] {'a'}; } <T> T id(T t) { return t; } char[][] grid;\n";
+        List<String> bodies = List.of(
+                "String a(List<String> xs) { String s = \"\"; for (String x : xs) s += chars(); return s; }",
+                "String b(List<String> xs) { String s = \"\"; for (String x : xs) s += x.toCharArray(); return s; }",
+                "String c(List<String> xs) { String s = \"\"; for (String x : xs) s = s + 1 + x.toCharArray(); return s; }",
+                "String d(List<char[]> xs) { String s = \"\"; for (int i = 0; i < xs.size(); i++) s += xs.get(i); return s; }",
+                "String e(List<String> xs, char[] cs) { String s = \"\"; for (String x : xs) s += id(cs); return s; }",
+                "String g(List<String> xs, char[] cs) { String s = \"\"; for (String x : xs) s += java.util.Objects.requireNonNull(cs); return s; }",
+                "String h(List<String> xs, char[] cs) { String s = \"\"; for (String x : xs) s += (x.isEmpty() ? cs : cs); return s; }",
+                "String i(List<String> xs) { String s = \"\"; for (String x : xs) s += grid[0]; return s; }",
+                "String j(List<String> xs) { String s = \"\"; for (String x : xs) s += (char[]) null; return s; }",
+                "String k(List<String> xs) { String s = \"\"; for (String x : xs) s += this.grid; return s; }",
+                "String l(List<String> xs) { String s = \"\"; for (String x : xs) s += unknown(x); return s; }",
+                "String m(List<String> xs) { String s = \"\"; xs.forEach(x -> {}); for (var x : xs.toArray()) s += x; return s; }");
+        for (String body : bodies) {
+            // цикл на своей строке: отказ только из-за типа слагаемого
+            Map<String, String> files = project(helpers + body.replace(" for (", "\n for (") + "\n");
+            String id = only(files);
+            assertFalse(fix.canApply(files, id), body);
+            if (!body.startsWith("String m")) {
+                Map<String, String> control = project(helpers + body.replace(" for (", "\n for (").replaceAll("s (\\+)?= .*?; return", "s += \"x\"; return") + "\n");
+                assertTrue(fix.canApply(control, only(control)), body);
+            }
+        }
+    }
+
+    @Test
+    void knownNonArrayValuesAreAccepted() {
+        String helpers = "int n() { return 1; } enum E { X } E e() { return E.X; }\n";
+        List<String> bodies = List.of(
+                "String a(List<String> xs) { String s = \"\"; for (String x : xs) s += n() + e().name(); return s; }",
+                "String b(List<String> xs) { String s = \"\"; for (String x : xs) s += e(); return s; }",
+                "String c(List<String> xs) { String s = \"\"; for (String x : xs) s += String.valueOf(x.toCharArray()); return s; }",
+                "String d(List<String> xs) { String s = \"\"; for (int i = 0; i < xs.size(); i++) s += xs.get(i).trim(); return s; }",
+                "String g(List<String> xs, char[] cs) { String s = \"\"; for (String x : xs) s += (Object) cs; return s; }",
+                "String h(List<String> xs) { String s = \"\"; for (String x : xs) s += (x.isEmpty() ? 'c' : x); return s; }");
+        for (String body : bodies) {
+            // цикл — на своей строке
+            Map<String, String> files = project(helpers + body.replace(" for (", "\n for (") + "\n");
+            String id = only(files);
+            assertTrue(fix.canApply(files, id), body);
+        }
+    }
+
+    /** Комментарий перед слагаемым переносится в аргумент append; в другом месте присваивания — отказ (иначе пропал бы). */
+    @Test
+    void commentsInsideAssignmentAreKept() {
+        Map<String, String> files = project("""
+                    String c(List<String> xs) {
+                        String s = "", t = "";
+                        for (String x : xs) {
+                            s += /*c*/ x;
+                            t = t + /* a */ x + // b
+                                1;
+                        }
+                        return s + t;
+                    }
+                """);
+        String out = fix.apply(files, only(files)).get(FILE);
+        assertTrue(out.contains("sSb.append(/*c*/ x);"), out);
+        assertTrue(out.contains("tSb.append(/* a */ x).append(// b\n                1);"), out);
+        for (String lost : List.of("s /*c*/ += x;", "s = /*c*/ s + x;", "s = s /*c*/ + x;")) {
+            Map<String, String> bad = project("String d(List<String> xs) { String s = \"\";\n for (String x : xs) " + lost + " return s; }\n");
+            assertFalse(fix.canApply(bad, only(bad)), lost);
+            Map<String, String> control = project("String d(List<String> xs) { String s = \"\";\n for (String x : xs) s += x; return s; }\n");
+            assertTrue(fix.canApply(control, only(control)));
+        }
+    }
+
     @Test
     void badTargetsAreRejected() {
         Map<String, String> files = project("String j(List<String> xs) {\n String s = \"\";\n for (String x : xs) s += x;\n return s;\n}\n");

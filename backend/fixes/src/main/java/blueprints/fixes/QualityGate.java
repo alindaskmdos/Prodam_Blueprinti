@@ -18,6 +18,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticCollector;
@@ -59,11 +60,20 @@ public final class QualityGate {
         }
     }
 
+    public static final String NO_COMPILER = "нет системного компилятора Java (запущено на JRE, нужен JDK)";
+
     private final Function<TestContext, VerifyResult> verifier;
+    private final Supplier<JavaCompiler> compiler;
 
     /** {@code verifier} — обычно {@code behaviorVerifier::verify} ({@link BehaviorVerifier#verify}). */
     public QualityGate(Function<TestContext, VerifyResult> verifier) {
+        this(verifier, ToolProvider::getSystemJavaCompiler);
+    }
+
+    /** {@code compiler} возвращает null — компилятора нет (JRE): фикс отклоняется с {@link #NO_COMPILER}. */
+    QualityGate(Function<TestContext, VerifyResult> verifier, Supplier<JavaCompiler> compiler) {
         this.verifier = verifier;
+        this.compiler = compiler;
     }
 
     /**
@@ -73,16 +83,20 @@ public final class QualityGate {
     public Result apply(Map<String, String> originalFiles, Map<String, String> currentFiles, String mainClass,
                         Refactoring fix, String target) {
         Map<String, String> changed;
+        // фикс получает только чтение: правка карты проекта в обход Quality Gate — исключение фикса
+        Map<String, String> view = Collections.unmodifiableMap(currentFiles);
         try {
-            if (!fix.canApply(currentFiles, target)) return Result.rejected("фикс неприменим к " + target, null);
-            changed = fix.apply(currentFiles, target);
+            if (!fix.canApply(view, target)) return Result.rejected("фикс неприменим к " + target, null);
+            changed = fix.apply(view, target);
         } catch (RuntimeException e) {
             return Result.rejected("ошибка фикса " + fix.id() + ": " + e.getMessage(), null);
         }
         Map<String, String> patched = new LinkedHashMap<>(currentFiles);
         patched.putAll(changed);
 
-        List<String> errors = compile(TestContext.javaSources(patched));
+        JavaCompiler jc = compiler.get();
+        if (jc == null) return Result.rejected(NO_COMPILER, null);
+        List<String> errors = compile(jc, TestContext.javaSources(patched));
         if (!errors.isEmpty()) return Result.rejected("код не компилируется после фикса: " + errors.get(0), null);
 
         VerifyResult v = verifier.apply(new TestContext(originalFiles, patched, mainClass));
@@ -107,9 +121,8 @@ public final class QualityGate {
     }
 
     /** Компиляция исходников программы в процессе ({@code -proc:none}: код при компиляции не исполняется). Пусто — ок. */
-    static List<String> compile(Map<String, String> sources) {
+    static List<String> compile(JavaCompiler jc, Map<String, String> sources) {
         if (sources.isEmpty()) return List.of();
-        JavaCompiler jc = ToolProvider.getSystemJavaCompiler();
         List<JavaFileObject> units = new ArrayList<>();
         sources.forEach((path, text) -> units.add(new SimpleJavaFileObject(
                 URI.create("string:///" + path.replace(' ', '_')), JavaFileObject.Kind.SOURCE) {
@@ -120,9 +133,8 @@ public final class QualityGate {
         }));
         DiagnosticCollector<JavaFileObject> diag = new DiagnosticCollector<>();
         Path out = null;
-        try {
+        try (var fm = jc.getStandardFileManager(diag, null, StandardCharsets.UTF_8)) {
             out = Files.createTempDirectory("bp-gate");
-            var fm = jc.getStandardFileManager(diag, null, StandardCharsets.UTF_8);
             boolean ok = jc.getTask(null, fm, diag, List.of("-proc:none", "-nowarn", "-d", out.toString()),
                     null, units).call();
             if (ok) return List.of();

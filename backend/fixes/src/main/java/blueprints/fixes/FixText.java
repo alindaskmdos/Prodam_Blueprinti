@@ -1,6 +1,8 @@
 package blueprints.fixes;
 
 import blueprints.source.SourceFile;
+import com.github.javaparser.JavaParser;
+import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.Position;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.ImportDeclaration;
@@ -9,6 +11,7 @@ import com.github.javaparser.ast.body.TypeDeclaration;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -41,6 +44,18 @@ final class FixText {
             Matcher pk = PACKAGE.matcher(text);
             out.add(new SourceFile(path, pk.find() ? pk.group(1) : "", text.getBytes(StandardCharsets.UTF_8)));
         });
+        return out;
+    }
+
+    /** Простое имя → объявления типов всех .java проекта, включая tests/ (наследники, анонимные подклассы, свои List). */
+    static Map<String, List<TypeDeclaration<?>>> projectTypes(Map<String, String> files) {
+        JavaParser parser = new JavaParser(new ParserConfiguration().setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21));
+        Map<String, List<TypeDeclaration<?>>> out = new LinkedHashMap<>();
+        for (var f : files.entrySet()) {
+            if (!f.getKey().endsWith(".java")) continue;
+            parser.parse(f.getValue()).getResult().ifPresent(cu -> cu.findAll(TypeDeclaration.class)
+                    .forEach(td -> out.computeIfAbsent(td.getNameAsString(), k -> new ArrayList<>()).add(td)));
+        }
         return out;
     }
 
