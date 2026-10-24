@@ -202,3 +202,278 @@
 .canvas :global(.react-flow__node) {
   cursor: default;
 }
+
+/* ── Правка текста в ноде (FE-07, Kit.dc.html «редактирование» / «невалидный текст») ── */
+
+.host {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.editBtn {
+  margin-left: auto;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.18);
+  color: inherit;
+  font: 600 11px var(--jb-font-ui);
+  line-height: 16px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--jb-dur-hover);
+}
+
+.badge + .editBtn,
+.issueBadge + .editBtn {
+  margin-left: 0;
+}
+
+.node:hover .editBtn,
+.comment:hover .editBtn,
+.editBtn:focus-visible {
+  opacity: 1;
+}
+
+.comment .editBtn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+
+.comment {
+  position: relative;
+}
+
+.editor {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--jb-accent);
+  background: var(--jb-header);
+  cursor: text;
+}
+
+.editorField {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.editorLabel {
+  flex: 0 0 auto;
+  min-width: 34px;
+  color: var(--jb-text-secondary);
+  font: 500 10.5px var(--jb-font-ui);
+}
+
+/* Подсветка и textarea в одной ячейке grid: pre задаёт размер, прозрачная textarea поверх. */
+.javaInput {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.javaInputHl,
+.javaInputArea {
+  grid-area: 1 / 1;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font: 500 12.5px/18px var(--jb-font-code);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 4;
+}
+
+.javaInputHl {
+  color: var(--jb-text);
+  pointer-events: none;
+}
+
+.javaInputArea {
+  width: 100%;
+  height: 100%;
+  resize: none;
+  overflow: hidden;
+  outline: none;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--jb-accent);
+}
+
+.javaInputArea::selection {
+  background: rgba(91, 155, 255, 0.35);
+}
+
+.comment .javaInputHl {
+  color: #3b2f07;
+}
+
+.comment .editor {
+  background: #fff6cc;
+}
+
+.editorHint {
+  color: var(--jb-text-secondary);
+  font: 400 10.5px var(--jb-font-ui);
+}
+
+/* Метод изменился извне, пока открыт редактор. */
+.staleNote {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--jb-severity-medium);
+  font: 400 11px/15px var(--jb-font-ui);
+  white-space: normal;
+}
+
+.staleActions {
+  display: flex;
+  gap: 10px;
+}
+
+.staleActions button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--jb-accent);
+  font: 500 11px var(--jb-font-ui);
+  cursor: pointer;
+}
+
+/* Невалидный текст: нода красная, сообщение под текстом, в код не попало. */
+.invalid {
+  border-color: var(--jb-severity-high) !important;
+  background: #1e1316;
+}
+
+.invalid .header {
+  background: var(--jb-severity-high);
+}
+
+.invalid .body {
+  color: #ffc2bc;
+}
+
+.nodeError {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 0 12px 10px;
+  font: 400 12px/16px var(--jb-font-ui);
+  color: #ffb4ac;
+  white-space: normal;
+}
+
+.comment.invalid {
+  outline: 2px solid var(--jb-severity-high);
+}
+
+.comment .nodeError {
+  padding: 4px 0 0;
+  color: #9b1c1c;
+}
+
+.errorUndo {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--jb-accent);
+  font: 500 11px var(--jb-font-ui);
+  cursor: pointer;
+}
+
+.banner {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  z-index: 10;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: #1e1316;
+  border: 1px solid var(--jb-severity-high);
+  color: #ffb4ac;
+  font-size: 13px;
+}
+
+/* Тост 409 — как в editor-code (Kit.dc.html «Уведомления»). */
+.toast {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 10;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  max-width: min(380px, calc(100% - 32px));
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--jb-raised);
+  border: 1px solid var(--jb-border-strong);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+  color: var(--jb-text);
+  animation: jb-toast 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.toastIcon {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--jb-severity-medium);
+  color: var(--jb-bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+}
+
+.toastBody {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.toastTitle {
+  font-weight: 600;
+}
+
+.toastText {
+  font-size: 13px;
+  color: #a3aebd;
+}
+
+.toastClose {
+  margin-left: auto;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--jb-text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.toastClose:hover {
+  color: var(--jb-text);
+}
+
+@keyframes jb-toast {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

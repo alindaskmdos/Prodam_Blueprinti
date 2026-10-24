@@ -1,3 +1,4 @@
+import { editableFields } from './blockEdit';
 import { blockText } from './blockText';
 import { isContainer, isKnownKind, kindMeta, orderedSlots, type Block, type BlockKind, type SlotSpec } from './kinds';
 
@@ -21,6 +22,14 @@ export interface GraphNodeData {
   badge?: string;
   /** Ключ слота — только у slot. */
   slotKey?: string;
+  /** Путь блока в дереве (`root/body/1/then/0`, см. blockEdit.ts) — адрес для правки. */
+  path: string;
+  /** Поля блока (для инлайн-редактора). */
+  fields: Record<string, string>;
+  /** Можно ли править текст ноды (FE-07). У slot и group-ноды контейнера — нет. */
+  editable: boolean;
+  /** Ошибка текста ноды (422 PARSE_ERROR): нода красная, правка не применена. */
+  error?: string;
 }
 
 export interface GraphNode {
@@ -90,6 +99,17 @@ function leafType(kind: BlockKind): GraphNodeType {
 export interface ToGraphOptions {
   /** Бейдж на ноде метода (MethodView.complexity). */
   methodBadge?: string;
+  /** Ошибки текста по пути блока: такие ноды красные, с сообщением. */
+  errors?: Record<string, string>;
+}
+
+// Строка сообщения об ошибке под текстом ноды (Inter 12px).
+const ERROR_CHAR_W = 6.6;
+const ERROR_LINE_H = 16;
+
+function withErrorSize(size: { width: number; height: number }, error: string): { width: number; height: number } {
+  const perLine = Math.max(1, Math.floor((size.width - 24) / ERROR_CHAR_W));
+  return { width: size.width, height: size.height + Math.ceil(error.length / perLine) * ERROR_LINE_H + 10 };
 }
 
 /**
@@ -121,31 +141,59 @@ export function blocksToGraph(root: Block, options: ToGraphOptions = {}): Graph 
     });
   };
 
-  const dataOf = (block: Block, id: string): GraphNodeData => ({
-    kind: block.kind,
-    blockId: block.id || id,
-    title: kindMeta(block.kind).title,
-    text: blockText(block),
-    issues: block.issues ?? [],
-  });
+  const errors = options.errors ?? {};
 
-  const pushLeaf = (block: Block, id: string, parentId: string | undefined, type: GraphNodeType, badge?: string) => {
-    const data = dataOf(block, id);
+  const dataOf = (block: Block, id: string, path: string): GraphNodeData => {
+    const error = errors[path];
+    return {
+      kind: block.kind,
+      blockId: block.id || id,
+      title: kindMeta(block.kind).title,
+      text: blockText(block),
+      issues: block.issues ?? [],
+      path,
+      fields: block.fields ?? {},
+      editable: block.kind !== 'method' && editableFields(block).length > 0,
+      ...(error !== undefined ? { error } : {}),
+    };
+  };
+
+  const pushLeaf = (
+    block: Block,
+    id: string,
+    path: string,
+    parentId: string | undefined,
+    type: GraphNodeType,
+    badge?: string,
+  ) => {
+    const data = dataOf(block, id, path);
     if (badge) data.badge = badge;
-    nodes.push({ id, type, ...(parentId ? { parentId } : {}), data, ...estimateSize(type, data.title, data.text) });
+    const size = estimateSize(type, data.title, data.text);
+    nodes.push({
+      id,
+      type,
+      ...(parentId ? { parentId } : {}),
+      data,
+      ...(data.error !== undefined ? withErrorSize(size, data.error) : size),
+    });
   };
 
   /** Добавляет блок; возвращает id ноды, к которой подводятся/от которой выходят стрелки. */
   const visit = (block: Block, path: string, parentId: string | undefined): string => {
     const id = uniqueId(block, path);
     if (!isContainer(block)) {
-      pushLeaf(block, id, parentId, leafType(block.kind));
+      pushLeaf(block, id, path, parentId, leafType(block.kind));
       return id;
     }
 
-    nodes.push({ id, type: 'container', ...(parentId ? { parentId } : {}), data: dataOf(block, id) });
+    nodes.push({
+      id,
+      type: 'container',
+      ...(parentId ? { parentId } : {}),
+      data: { ...dataOf(block, id, path), editable: false },
+    });
     const headId = `${id}${HEAD_SUFFIX}`;
-    pushLeaf(block, headId, id, isKnownKind(block.kind) ? 'block' : 'raw');
+    pushLeaf(block, headId, path, id, isKnownKind(block.kind) ? 'block' : 'raw');
 
     const slots = orderedSlots(block);
     const only = slots[0];
@@ -158,7 +206,15 @@ export function blocksToGraph(root: Block, options: ToGraphOptions = {}): Graph 
           id: slotId,
           type: 'slot',
           parentId: id,
-          data: { ...dataOf(block, id), title: spec.label ?? spec.key, text: '', issues: [], slotKey: spec.key },
+          data: {
+            ...dataOf(block, id, path),
+            title: spec.label ?? spec.key,
+            text: '',
+            issues: [],
+            slotKey: spec.key,
+            editable: false,
+            error: undefined,
+          },
         });
         addEdge(headId, slotId, id, spec.label);
         layoutSlot({ ...spec, label: undefined }, items, `${path}/${spec.key}`, slotId, undefined);
@@ -186,7 +242,7 @@ export function blocksToGraph(root: Block, options: ToGraphOptions = {}): Graph 
 
   if (root.kind === 'method') {
     const rootId = uniqueId(root, 'root');
-    pushLeaf(root, rootId, undefined, 'block', options.methodBadge);
+    pushLeaf(root, rootId, 'root', undefined, 'block', options.methodBadge);
     let prev = rootId;
     (root.slots?.body ?? []).forEach((item, i) => {
       const itemId = visit(item, `root/body/${i}`, undefined);

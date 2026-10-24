@@ -7,6 +7,29 @@ const API = '*/api';
 
 type Health = paths['/health']['get']['responses']['200']['content']['application/json'];
 type PutFileBody = paths['/projects/{projectId}/files']['put']['requestBody']['content']['application/json'];
+type PutBlocksBody =
+  paths['/projects/{projectId}/methods/{methodId}/blocks']['put']['requestBody']['content']['application/json'];
+
+/** id первого блока присланного дерева, поля которого отличаются от фикстуры (или которого в ней нет). */
+function firstChangedBlockId(root: Schemas['Block']): string {
+  const original = new Map<string, string>();
+  const index = (b: Schemas['Block']) => {
+    original.set(b.id, JSON.stringify(b.fields));
+    Object.values(b.slots).forEach((items) => items.forEach(index));
+  };
+  index(fixtures.methodViewMerge.root);
+  const find = (b: Schemas['Block']): string | undefined => {
+    if (original.get(b.id) !== JSON.stringify(b.fields)) return b.id;
+    for (const items of Object.values(b.slots)) {
+      for (const item of items) {
+        const id = find(item);
+        if (id) return id;
+      }
+    }
+    return undefined;
+  };
+  return find(root) ?? root.id;
+}
 
 /** Обработчики по умолчанию: «счастливый путь» на фикстурах contract/fixtures. */
 export const handlers = [
@@ -36,6 +59,17 @@ export const handlers = [
   http.get(`${API}/projects/:projectId/tests/:name`, () => HttpResponse.json(fixtures.testJunit)),
   http.post(`${API}/projects/:projectId/run`, () => HttpResponse.json(fixtures.runOk)),
   http.post(`${API}/projects/:projectId/verify`, () => HttpResponse.json(fixtures.verifyGreen)),
+  // Для MutationResult фикстуры нет — собираем из фикстур: версия +1, method — присланное дерево.
+  http.put(`${API}/projects/:projectId/methods/:methodId/blocks`, async ({ request, params }) => {
+    const body = (await request.json()) as PutBlocksBody;
+    return HttpResponse.json<Schemas['MutationResult']>({
+      version: body.version + 1,
+      fileText: fixtures.fileOrderService.text,
+      method: { ...fixtures.methodViewMerge, methodId: String(params.methodId), root: body.root },
+      tree: fixtures.tree,
+      analysis: fixtures.analysisMerge,
+    });
+  }),
   // Для MutationResult фикстуры нет — собираем из tree/analysis; версия +1, fileText = присланный текст.
   // GET files по умолчанию нет: в фикстурах нет текста файлов.
   http.put(`${API}/projects/:projectId/files`, async ({ request }) => {
@@ -62,6 +96,18 @@ export const scenarios = {
   analysisNotFound: http.get(`${API}/projects/:projectId/analysis`, () =>
     HttpResponse.json<Schemas['Error']>({ code: 'NOT_FOUND', message: 'Проект не найден' }, { status: 404 }),
   ),
+  /** 422 PARSE_ERROR на первую изменённую относительно фикстуры ноду (blockId — её id). */
+  parseErrorOnBlocks: http.put(`${API}/projects/:projectId/methods/:methodId/blocks`, async ({ request }) => {
+    const body = (await request.json()) as PutBlocksBody;
+    return HttpResponse.json<Schemas['Error']>(
+      {
+        code: 'PARSE_ERROR',
+        message: 'Синтаксическая ошибка: лишний «==».',
+        blockId: firstChangedBlockId(body.root),
+      },
+      { status: 422 },
+    );
+  }),
   conflictOnFile: http.put(`${API}/projects/:projectId/files`, () =>
     HttpResponse.json(fixtures.errorConflict, { status: 409 }),
   ),

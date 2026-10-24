@@ -13,3 +13,19 @@ export { toFlow } from './toFlow';
 export { blockText } from './blockText';
 export { highlightJava, type Token, type TokenType } from './highlightJava';
 export { ALL_KINDS, KIND_META, type Block, type BlockKind } from './kinds';
+export {
+  EDITABLE_FIELDS,
+  blockAt,
+  editableFields,
+  findPathById,
+  withFields,
+  type BlockPath,
+  type FieldSpec,
+} from './blockEdit';
+export {
+  BlockSync,
+  type BlockSyncOptions,
+  type BlockSyncState,
+  type BlockSyncStatus,
+  type InvalidEdit,
+} from './blockSync';

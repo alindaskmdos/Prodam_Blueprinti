@@ -1,8 +1,11 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
+import { editableFields } from './blockEdit';
 import type { GraphNodeData } from './blocksToGraph';
-import { highlightJava } from './highlightJava';
+import { useNodeEdit } from './editContext';
+import { JavaText } from './JavaText';
 import { kindMeta } from './kinds';
+import { NodeTextEditor } from './NodeTextEditor';
 import styles from './MethodCanvas.module.css';
 
 type FlowNode = Node<GraphNodeData>;
@@ -12,20 +15,6 @@ function Pins() {
     <>
       <Handle type="target" position={Position.Top} isConnectable={false} className={styles.pin} />
       <Handle type="source" position={Position.Bottom} isConnectable={false} className={styles.pin} />
-    </>
-  );
-}
-
-function JavaText({ text }: { text: string }) {
-  return (
-    <>
-      {highlightJava(text).map((t, i) =>
-        t.type === 'plain' ? t.text : (
-          <span key={i} className={styles[`tok_${t.type}`]}>
-            {t.text}
-          </span>
-        ),
-      )}
     </>
   );
 }
@@ -43,25 +32,107 @@ function IssueBadge({ issues }: { issues: string[] }) {
   );
 }
 
+/** Правка текста ноды: состояние редактора для data.path (null — нода только для просмотра). */
+function useEditing(data: GraphNodeData) {
+  const edit = useNodeEdit();
+  if (!edit || !data.editable) return null;
+  return { edit, open: edit.editing === data.path };
+}
+
+/** Кнопка «править» в заголовке. */
+function EditButton({ data }: { data: GraphNodeData }) {
+  const e = useEditing(data);
+  if (!e || e.open) return null;
+  return (
+    <button
+      type="button"
+      className={`${styles.editBtn} nodrag`}
+      aria-label={`Править: ${data.title}`}
+      title="Править текст (или двойной клик)"
+      disabled={e.edit.saving}
+      onClick={(ev) => {
+        ev.stopPropagation();
+        e.edit.startEdit(data.path);
+      }}
+    >
+      ✎
+    </button>
+  );
+}
+
+/**
+ * Тело ноды: текст (двойной клик — правка), инлайн-редактор или — для красной ноды — сообщение об ошибке.
+ * view — как показывается текст без редактора.
+ */
+function EditableBody({ data, className, view }: { data: GraphNodeData; className: string; view: ReactNode }) {
+  const e = useEditing(data);
+  if (e?.open) {
+    return (
+      <NodeTextEditor
+        key={data.path}
+        specs={editableFields(data)}
+        initial={e.edit.draftFor(data.path)}
+        saving={e.edit.saving}
+        stale={e.edit.stale}
+        onApply={(draft) => e.edit.apply(data.path, draft)}
+        onRebase={(draft) => e.edit.rebase(data.path, draft)}
+        onCancel={e.edit.cancelEdit}
+      />
+    );
+  }
+  return (
+    <>
+      <pre
+        className={className}
+        title={data.text}
+        onDoubleClick={
+          e
+            ? (ev) => {
+                ev.stopPropagation();
+                e.edit.startEdit(data.path);
+              }
+            : undefined
+        }
+      >
+        {view}
+      </pre>
+      {data.error !== undefined && (
+        <div className={styles.nodeError} role="alert">
+          <span>{data.error} В код не попало.</span>
+          {e && (
+            <button type="button" className={`${styles.errorUndo} nodrag`} onClick={e.edit.discardInvalid}>
+              Отменить правку
+            </button>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+function stateClass(data: GraphNodeData): string {
+  return data.error !== undefined ? styles.invalid ?? '' : '';
+}
+
 /** Обычная нода и заголовок контейнера: цветной заголовок по kind, выражение моноширинным. */
 export function BlockNode({ data }: NodeProps<FlowNode>) {
   const hasIssues = data.issues.length > 0;
   return (
     <div
-      className={`${styles.node} ${hasIssues ? styles.hasIssue : ''}`}
+      className={`${styles.node} ${hasIssues ? styles.hasIssue : ''} ${stateClass(data)}`}
       style={kindColor(data)}
       data-kind={data.kind}
       data-testid={`node-${data.kind}`}
+      data-invalid={data.error !== undefined || undefined}
     >
       <Pins />
       <div className={`${styles.header} ${data.kind === 'method' ? styles.headerLight : ''}`}>
-        <span>{data.title}</span>
+        <span>{data.error !== undefined ? `${data.title} · ошибка` : data.title}</span>
         {data.badge && <span className={styles.badge}>{data.badge}</span>}
         <IssueBadge issues={data.issues} />
+        <EditButton data={data} />
       </div>
-      <pre className={styles.body} title={data.text}>
-        <JavaText text={data.text} />
-      </pre>
+      <EditableBody data={data} className={styles.body ?? ''} view={<JavaText text={data.text} />} />
     </div>
   );
 }
@@ -69,13 +140,19 @@ export function BlockNode({ data }: NodeProps<FlowNode>) {
 /** raw — неподдержанная конструкция: исходный текст как есть, пунктирная рамка. */
 export function RawNode({ data }: NodeProps<FlowNode>) {
   return (
-    <div className={`${styles.node} ${styles.raw}`} data-kind={data.kind} data-testid="node-raw">
+    <div
+      className={`${styles.node} ${styles.raw} ${stateClass(data)}`}
+      data-kind={data.kind}
+      data-testid="node-raw"
+      data-invalid={data.error !== undefined || undefined}
+    >
       <Pins />
       <div className={`${styles.header} ${styles.rawHeader}`}>
         <span>{data.title}</span>
         <IssueBadge issues={data.issues} />
+        <EditButton data={data} />
       </div>
-      <pre className={`${styles.body} ${styles.rawBody}`}>{data.text}</pre>
+      <EditableBody data={data} className={`${styles.body} ${styles.rawBody}`} view={data.text} />
     </div>
   );
 }
@@ -83,9 +160,15 @@ export function RawNode({ data }: NodeProps<FlowNode>) {
 /** Комментарий — жёлтый стикер. */
 export function CommentNode({ data }: NodeProps<FlowNode>) {
   return (
-    <div className={styles.comment} data-kind="comment" data-testid="node-comment">
+    <div
+      className={`${styles.comment} ${stateClass(data)}`}
+      data-kind="comment"
+      data-testid="node-comment"
+      data-invalid={data.error !== undefined || undefined}
+    >
       <Pins />
-      <pre className={styles.commentText}>{data.text}</pre>
+      <EditButton data={data} />
+      <EditableBody data={data} className={styles.commentText ?? ''} view={data.text} />
     </div>
   );
 }
@@ -94,7 +177,7 @@ export function CommentNode({ data }: NodeProps<FlowNode>) {
 export function ContainerNode({ data }: NodeProps<FlowNode>) {
   return (
     <div
-      className={`${styles.container} ${data.issues.length > 0 ? styles.containerIssue : ''}`}
+      className={`${styles.container} ${data.issues.length > 0 || data.error !== undefined ? styles.containerIssue : ''}`}
       style={kindColor(data)}
       data-kind={data.kind}
       data-testid={`container-${data.kind}`}
