@@ -7,10 +7,10 @@
 
 ## Backend
 
-**Готово:** BE-01…BE-21, BE-24, BE-27, BE-32, BE-36…BE-44 — весь обязательный путь бэкенда (загрузка/экспорт zip и jar, ноды ↔ код, валидация, анализ + 6 детекторов, 3 фикса + Quality Gate, тесты IO/JUnit, run/verify, все эндпоинты контракта); CT-01 (+ правки BE-38 по решению человека).
-**В работе:** BE-45 (runner: --release 21, надёжность инструментации) — исполнитель в worktree.
+**Готово:** BE-01…BE-21, BE-24, BE-27, BE-32, BE-36…BE-45 — весь обязательный путь бэкенда (загрузка/экспорт zip и jar, ноды ↔ код, валидация, анализ + 6 детекторов, 3 фикса + Quality Gate, тесты IO/JUnit, run/verify, все эндпоинты контракта); CT-01 (+ правки BE-38 по решению человека).
+**В работе:** —
 - FE-09 — палитра и drag на стрелку: ГОТОВ, verifier-проверки зелёные (306 тестов, build, без конфликтов с main, без трейлеров), коммит 88f441b в ветке worktree-agent-a34eab9338d69c95d. Осталось: reviewer → merge --squash. Подсветка самой стрелки при drag в браузере не проверена.
-**Висящие ветки/worktree:** FE-09, BE-45. Папки старых worktree в .claude/worktrees не удаляются из-за длинных путей Windows, стирать вручную. На origin устаревшая ветка be-5 — `git push origin --delete be-5`.
+**Висящие ветки/worktree:** FE-09. Папки старых worktree в .claude/worktrees не удаляются из-за длинных путей Windows, стирать вручную. На origin устаревшая ветка be-5 — `git push origin --delete be-5`.
 **Заблокировано:** —
 **Следующие шаги:** бэкенд обязательного пути закрыт — дальше по просьбе человека: долги из «Известных проблем» или задачи «Если успеем» (дальше нужен контракт CT-02/CT-03 для BE-22, 23, 25, 26, 28, 29). В брифах исполнителям: работать от текущего main, не трогать docs/ и contract/, Docker запущен (тесты с Docker должны реально выполняться), сразу учитывать типичные дыры фиксов (алиасы, views, сторонние вызовы, null, == на обёртках, наследники/анонимные подклассы в src и tests).
 
@@ -35,7 +35,7 @@
 - Windows: 2 теста RunnerTest (fakeDocker) пропускаются — нужен /bin/bash.
 - testing: TestResult/IoTestCase пока свои типы в `testing` — после BE-05 заменить на `model` адаптером.
 - analysis/DeadCode: поля и классы не проверяются (Issue без метода — нет blockId); вызовы из tests/*.java не учитываются (app передаёт только project.files()); правило «код после return/throw» на компилируемом коде не срабатывает (javac отклоняет) — только после правки нод.
-- runner: Runner.run компилирует без `--release 21` — на JDK 22 IO-тесты demo приходят original_fails (verify/app/cli) → BE-45.
+- runner/Instrumenter: JavaParser переиспользуется после StackOverflowError в одном файле (тест не проверяет следующий файл); некомпилируемая инструментированная копия → откат всей программы на чистую, а не одного файла.
 - fixes/QualityGate: битые tests/*.json не учитываются (в verify уже warning + incomplete).
 - testing/JUnit: причина compile_error («тесты» vs «программа») определяется по простому имени файла — при совпадении имён может быть неверной.
 - Фронт: UploadScreen.test «папка (webkitdirectory) уходит multipart-запросом» падает на main (Content-Type text/plain вместо multipart) — до правки фикстуры, задача фронту.
@@ -107,3 +107,4 @@
 - BE-44: PUT files/blocks — повторный ProjectLoader.load (пакет, предупреждения, mainClasses), 422 DUPLICATE_FQN / LIMIT_EXCEEDED (решение человека), заглушка корня только при общей верхней папке; verify — warning на битый tests/*.json, green → incomplete; javaJar — waitFor + destroyForcibly. 2 круга ревью.
 - BE-27: Instrumenter — `__blueprints.Trace.hit(id)` перед каждой нодой как в AstToBlocks (метод, оператор, case, catch; не внутрь raw/лямбд/анонимных/switch-выражений), в той же строке; конструктор — после super()/this(); Rewrite.TRACE, RunResult.hits (long[] по id, null без файла), probes (file, methodId, path без comment, line, col); таймаут ×3; jar не инструментируется. Для BE-28: path составного оператора, ставшего raw в AstToBlocks, нет в дереве — пропускать; индексы cases/catches в AstToBlocks с comment, в probes без.
 - BE-32: модуль cli (picocli, без Spring, cli → runner по решению человека): `analyze <папка|zip|jar> [--fail-on O(n^2)] [--format json|text]`, `verify <проект>`; коды 0 ок / 1 нарушение / 2 аргументы / 3 загрузка, ввод-вывод / 4 песочница / 5 внутренняя; `:cli:installDist`. JSON analyze — Analysis без version, Issue без blockId, fixes пустые; --fail-on «не меньше», n·m как n². 2 круга ревью.
+- BE-45: runner — prepare (run/runBatch/command-job) с `--release 21` (class major 65); Instrumenter: сбой вставок в файле (включая StackOverflowError на глубокой вложенности) → файл без вставок, ноды убраны из probes; некомпилируемая копия → чистая, hits null, без ×3; trace — tmp + ATOMIC_MOVE + маркер `end`, битый → null; docker exec cat в totalMs.

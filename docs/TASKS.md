@@ -39,7 +39,7 @@
 - [x] BE-42 samples/demo: `String.format` с `Locale.ROOT` (ReportService:80 и др.) — IO-тесты demo и StringBuilderFixTest зелёные под ru_RU | samples/demo | BE-41 | §13
 - [x] BE-43 Долги fixes: List/ArrayList/LinkedList по простому имени в LinkedHashSetFix (как в IndexByIdFix), StringBuilderFix — отказ на `char[]` и сохранение комментария, QualityGate — закрыть StandardJavaFileManager, без системного компилятора отказ вместо NPE, Refactoring получает unmodifiable карту | fixes | BE-18…BE-21 | §9
 - [x] BE-44 Долги app: PUT files пересчитывает предупреждения загрузки/mainClasses/дубликаты FQN; verify не пропускает main при битых tests/*.json; ProjectsApiTest.javaJar ждёт/убивает процесс java | app | BE-07, BE-38, BE-36 | §11, §12
-- [ ] BE-45 runner: `--release 21` в Runner.run (на JDK 22 demo приходит original_fails); Instrumenter — при отказе вставки/некомпилируемой копии файл без вставок, атомарная запись trace-файла, `docker exec cat` в общем бюджете времени; тесты на jar без инструментации и halt → hits null | runner | BE-27 | §11а, §14а.6
+- [x] BE-45 runner: `--release 21` в Runner.run (на JDK 22 demo приходит original_fails); Instrumenter — при отказе вставки/некомпилируемой копии файл без вставок, атомарная запись trace-файла, `docker exec cat` в общем бюджете времени; тесты на jar без инструментации и halt → hits null | runner | BE-27 | §11а, §14а.6
 
 ## Frontend
 
