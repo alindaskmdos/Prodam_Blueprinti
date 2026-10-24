@@ -82,7 +82,9 @@ export default function MonacoView({
       if (suppress.current || e.source === 'api' || e.source === 'model') return;
       onCursorRef.current?.(e.position.lineNumber);
     });
-    applyReveal(true);
+    // Прокрутка на первом кадре: сразу при монтировании контейнер ещё без размеров и reveal мог бы не сработать.
+    applyReveal(false);
+    requestAnimationFrame(() => applyReveal(true));
   };
 
   // Перезагрузка (после 409 или смены файла) — подменить содержимое без события правки.

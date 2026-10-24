@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { http, HttpResponse } from 'msw';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { delay, http, HttpResponse } from 'msw';
 import treeJson from '@contract/fixtures/tree.json';
 import fileJson from '@contract/fixtures/file.order-service.json';
 import { createApiClient } from '../features/api';
@@ -15,12 +15,19 @@ import { resetAppState, useAppStore } from './store';
 // Monaco в jsdom не работает — подменяем представление textarea (как в CodeEditor.test.tsx).
 vi.mock('../features/editor-code/MonacoView', async () => {
   const { useEffect, useState } = await import('react');
-  function FakeMonaco({ text, loadSeq, onChange }: MonacoViewProps) {
+  function FakeMonaco({ text, loadSeq, onChange, reveal }: MonacoViewProps) {
     const [value, setValue] = useState(text);
     useEffect(() => setValue(text), [text, loadSeq]);
+    // Сколько раз пришла новая подсветка с прокруткой (смена seq/диапазона) — для проверки «без повторных прокруток».
+    const [reveals, setReveals] = useState(0);
+    useEffect(() => {
+      if (reveal) setReveals((n) => n + 1);
+    }, [reveal?.seq, reveal?.startLine, reveal?.endLine]); // eslint-disable-line react-hooks/exhaustive-deps
     return (
       <textarea
         aria-label="код"
+        data-reveal={reveal ? `${reveal.startLine}-${reveal.endLine}` : ''}
+        data-reveals={reveals}
         value={value}
         onChange={(e) => {
           setValue(e.target.value);
@@ -131,6 +138,96 @@ describe('App — каркас редактора на MSW', () => {
     expect(screen.getByRole('region', { name: `Код ${fileJson.path}` })).toBeInTheDocument();
   });
 
+  it('выбор метода → код прокручивается к span метода; правка не прокручивает заново (FE-35)', async () => {
+    render(<App client={client} projectId="p-1" />);
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(merge.name) }));
+    const area = await screen.findByLabelText('код');
+    const span = fixtures.methodViewMerge.root.span;
+    await waitFor(() => expect(area).toHaveAttribute('data-reveal', `${span?.startLine}-${span?.endLine}`));
+    expect(area).toHaveAttribute('data-reveals', '1');
+
+    fireEvent.change(area, { target: { value: `${fileJson.text}\n// правка` } });
+    await waitFor(() => expect(useAppStore.getState().version).toBe(treeJson.version + 1), { timeout: 3000 });
+    await screen.findByText(new RegExp(`версия ${treeJson.version + 1}`));
+    // Правка сдвигает строки: подсветка по старым строкам снимается, прокрутки нет.
+    expect(area).toHaveAttribute('data-reveal', '');
+    expect(area).toHaveAttribute('data-reveals', '1');
+  });
+
+  it('span пришёл раньше текста файла → прокрутка применяется, когда редактор открылся (FE-35)', async () => {
+    server.use(
+      http.get(`${API}/projects/:projectId/files`, async () => {
+        await delay(300);
+        return HttpResponse.json(fileJson);
+      }),
+    );
+    render(<App client={client} projectId="p-1" />);
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(merge.name) }));
+    const area = await screen.findByLabelText('код');
+    const span = fixtures.methodViewMerge.root.span;
+    await waitFor(() => expect(area).toHaveAttribute('data-reveal', `${span?.startLine}-${span?.endLine}`));
+    expect(area).toHaveAttribute('data-reveals', '1');
+  });
+
+  it('повторный клик по уже выбранному методу снова прокручивает к его началу (FE-35)', async () => {
+    render(<App client={client} projectId="p-1" />);
+    const button = await screen.findByRole('button', { name: new RegExp(merge.name) });
+    fireEvent.click(button);
+    const area = await screen.findByLabelText('код');
+    await waitFor(() => expect(area).toHaveAttribute('data-reveals', '1'));
+    fireEvent.click(button);
+    await waitFor(() => expect(area).toHaveAttribute('data-reveals', '2'));
+  });
+
+  it('поздний span после выбора проблемы не применяется и не прыгает при снятии выбора (FE-35)', async () => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((r) => (release = r));
+    let answered = false;
+    server.use(
+      http.get(`${API}/projects/:projectId/methods/:methodId/blocks`, async () => {
+        await gate;
+        answered = true;
+        return HttpResponse.json(fixtures.methodViewMerge);
+      }),
+    );
+    render(<App client={client} projectId="p-1" />);
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(merge.name) }));
+    const area = await screen.findByLabelText('код');
+    act(() => useAppStore.getState().selectIssue({ issueId: 'ISSUE-1', methodId: merge.id, blockId: 'b' }));
+    release();
+    await waitFor(() => expect(answered).toBe(true));
+    await act(async () => {
+      await delay(50); // ответ GET blocks доходит до хука
+    });
+    const before = area.getAttribute('data-reveals');
+    act(() => useAppStore.getState().selectIssue(null));
+    // Снятие проблемы убирает подсветку; к началу метода код не прыгает.
+    expect(area).toHaveAttribute('data-reveal', '');
+    expect(area).toHaveAttribute('data-reveals', before ?? '');
+  });
+
+  it('у метода нет span в данных бэка → код не прокручивается и не подсвечивается (FE-35)', async () => {
+    let answered = 0;
+    server.use(
+      http.get(`${API}/projects/:projectId/methods/:methodId/blocks`, () => {
+        answered++;
+        return HttpResponse.json({
+          ...fixtures.methodViewMerge,
+          root: { ...fixtures.methodViewMerge.root, span: undefined },
+        });
+      }),
+    );
+    render(<App client={client} projectId="p-1" />);
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(merge.name) }));
+    const area = await screen.findByLabelText('код');
+    await waitFor(() => expect(answered).toBeGreaterThanOrEqual(2)); // холст + span метода
+    await act(async () => {
+      await delay(0);
+    });
+    expect(area).toHaveAttribute('data-reveal', '');
+    expect(area).toHaveAttribute('data-reveals', '0');
+  });
+
   it('правка кода → PUT files, версия растёт, дерево, холст и анализ перезагружаются', async () => {
     const calls = { tree: 0, analysis: 0, blocks: 0 };
     server.use(
@@ -151,7 +248,8 @@ describe('App — каркас редактора на MSW', () => {
     fireEvent.click(await screen.findByRole('button', { name: new RegExp(merge.name) }));
     const area = await screen.findByLabelText('код');
     await waitFor(() => expect(calls.analysis).toBeGreaterThan(0));
-    await waitFor(() => expect(calls.blocks).toBe(1));
+    // GET blocks: холст + span метода для прокрутки кода (FE-35).
+    await waitFor(() => expect(calls.blocks).toBe(2));
     expect(calls.tree).toBe(1);
     const analysisBefore = calls.analysis;
 
@@ -159,7 +257,7 @@ describe('App — каркас редактора на MSW', () => {
     await waitFor(() => expect(useAppStore.getState().version).toBe(treeJson.version + 1), { timeout: 3000 });
     expect(await screen.findByText(new RegExp(`версия ${treeJson.version + 1}`))).toBeInTheDocument();
     await waitFor(() => expect(calls.tree).toBe(2));
-    await waitFor(() => expect(calls.blocks).toBe(2));
+    await waitFor(() => expect(calls.blocks).toBe(3));
     await waitFor(() => expect(calls.analysis).toBeGreaterThan(analysisBefore));
     // Ответ tree.json со старой версией не откатывает версию назад.
     expect(useAppStore.getState().version).toBe(treeJson.version + 1);
@@ -205,7 +303,8 @@ describe('App — каркас редактора на MSW', () => {
     await screen.findByTestId('node-method', {}, { timeout: 10_000 });
     const node = screen.getAllByTestId('node-var').find((n) => n.textContent?.includes('a = orders.get(i)'));
     if (!node) throw new Error('нет ноды var a');
-    expect(calls.blocks).toBe(1);
+    // 2 = холст + span метода для прокрутки кода (FE-35); после правки ноды лишних GET нет.
+    expect(calls.blocks).toBe(2);
     expect(calls.tree).toBe(1);
 
     fireEvent.doubleClick(within(node).getByText((_, el) => el?.tagName === 'PRE'));
@@ -220,6 +319,6 @@ describe('App — каркас редактора на MSW', () => {
       await screen.findByText((_, el) => el?.tagName === 'PRE' && el.textContent === 'Order a = new Order()'),
     ).toBeInTheDocument();
     expect(calls.putBlocks).toBe(1);
-    expect(calls.blocks).toBe(1);
+    expect(calls.blocks).toBe(2);
   }, 15_000);
 });

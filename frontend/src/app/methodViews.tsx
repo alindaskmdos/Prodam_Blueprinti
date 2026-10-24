@@ -1,11 +1,15 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api, type ApiClient, type Schemas } from '../features/api';
 import { useAnalysisStore } from '../features/analysis-panel';
-import { CodeEditor, revealFor } from '../features/editor-code';
+import { CodeEditor, revealFor, revealForMethod } from '../features/editor-code';
 import { MethodCanvas } from '../features/editor-nodes';
 import { PanelStub } from '../features/layout';
 import { findMethodFile, reloadProjectTree, useTreeStore } from '../features/project-tree';
-import { useAppStore } from './store';
+import { useAppStore, type LineSpan } from './store';
+import { useMethodSpan } from './useMethodSpan';
+
+/** Счётчик событий прокрутки к методу (FE-35): новый выбор — новый seq. */
+let methodRevealSeq = 0;
 
 interface Props {
   client?: ApiClient;
@@ -59,7 +63,43 @@ export function SelectedMethodCode({ client = api }: Props) {
   const highlight = useAppStore((s) => s.highlight);
   const issueId = useAppStore((s) => s.selectedIssueId);
   const issueSpan = useAnalysisStore((s) => (issueId ? s.analysis?.issues.find((i) => i.id === issueId)?.span : null) ?? null);
-  const reveal = useMemo(() => (path ? revealFor(highlight, path, issueSpan) : null), [highlight, path, issueSpan]);
+  // FE-35: выбор метода прокручивает к span метода (из GET blocks). Одноразово: подсветка, выставленная после
+  // выбора метода (клик по ноде, курсор, проблема), и любая правка (версия) гасят его; поздний ответ GET blocks
+  // после такой подсветки не применяется. Повторный клик по методу (selectSeq) прокручивает снова.
+  const selectSeq = useAppStore((s) => s.methodSelectSeq);
+  const loadedSpan = useMethodSpan(client, projectId, methodId, selectSeq);
+  const [methodReveal, setMethodReveal] = useState<{
+    methodId: string;
+    span: LineSpan | null;
+    seq: number;
+    version: number | null;
+  } | null>(null);
+  useEffect(() => {
+    const { highlight: current, version: currentVersion } = useAppStore.getState();
+    if (loadedSpan && !current) {
+      setMethodReveal({
+        methodId: loadedSpan.methodId,
+        span: loadedSpan.span,
+        seq: ++methodRevealSeq,
+        version: currentVersion,
+      });
+    } else setMethodReveal(null);
+  }, [loadedSpan]);
+  useEffect(() => {
+    if (highlight) setMethodReveal(null);
+  }, [highlight]);
+  const methodRevealLines = useMemo(
+    () =>
+      path && methodReveal && methodReveal.methodId === methodId && methodReveal.version === version
+        ? revealForMethod(methodReveal.span, path, methodReveal.seq)
+        : null,
+    [methodReveal, methodId, path, version],
+  );
+  const highlightReveal = useMemo(
+    () => (path ? revealFor(highlight, path, issueSpan) : null),
+    [highlight, path, issueSpan],
+  );
+  const reveal = highlight ? highlightReveal : methodRevealLines;
   const onCursorLine = useCallback(
     (line: number) => {
       if (path) useAppStore.getState().setHighlight({ source: 'code', span: { file: path, startLine: line, endLine: line } });

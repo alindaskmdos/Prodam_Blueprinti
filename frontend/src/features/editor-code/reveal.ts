@@ -33,3 +33,12 @@ export function revealFor(
   if (!span || span.file !== path) return null;
   return { startLine: span.startLine, endLine: span.endLine, seq: highlight.seq };
 }
+
+/**
+ * Подсветка метода при его выборе (FE-35): весь span метода (`MethodView.root.span`) в файле `path`.
+ * Нет span или он в другом файле — null (без придуманных фолбэков).
+ */
+export function revealForMethod(span: FileLines | null | undefined, path: string, seq: number): RevealLines | null {
+  if (!span || span.file !== path) return null;
+  return { startLine: span.startLine, endLine: span.endLine, seq };
+}
