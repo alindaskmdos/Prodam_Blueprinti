@@ -38,6 +38,8 @@ export interface AppState {
   version: number | null;
   /** id метода/конструктора из дерева (MethodNode.id), тело которого открыто на холсте. */
   selectedMethodId: string | null;
+  /** Растёт на каждый вызов selectMethod, в т.ч. по уже выбранному методу: повторный клик снова прокручивает код (FE-35). */
+  methodSelectSeq: number;
   /** Issue.id выбранной в панели анализа проблемы. */
   selectedIssueId: string | null;
   /** Issue.blockId выбранной проблемы — нода, которую холст должен показать (FE-05). */
@@ -63,6 +65,7 @@ const initial = {
   projectId: null,
   version: null,
   selectedMethodId: null,
+  methodSelectSeq: 0,
   selectedIssueId: null,
   selectedBlockId: null,
   highlight: null,
@@ -87,7 +90,13 @@ export const useAppStore = create<AppState>()((set, get) => ({
   },
   setVersion: (version) => set({ version }),
   selectMethod: (selectedMethodId) =>
-    set({ selectedMethodId, selectedIssueId: null, selectedBlockId: null, highlight: null }),
+    set((s) => ({
+      selectedMethodId,
+      methodSelectSeq: s.methodSelectSeq + 1,
+      selectedIssueId: null,
+      selectedBlockId: null,
+      highlight: null,
+    })),
   showPanel: (area, panelId) => set((s) => ({ activePanels: { ...s.activePanels, [area]: panelId } })),
   selectIssue: (selection) => {
     if (!selection) {

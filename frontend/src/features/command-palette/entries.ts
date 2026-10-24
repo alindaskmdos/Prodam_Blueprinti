@@ -33,7 +33,9 @@ export interface PaletteEntry {
   hint?: string;
   shortcut?: string;
   disabled?: boolean;
-  /** Слова для нечёткого поиска помимо заголовка. */
+  /** Имена для поиска (точное/префикс/подстрока; «Класс.метод» и «метод» — оба). Остальное — описание. */
+  names: string[];
+  /** Слова описания: поиск по подстроке, слабее имени. */
   keywords: string[];
   run: () => void;
 }
@@ -78,6 +80,7 @@ function commandEntries(commands: readonly PaletteCommand[]): PaletteEntry[] {
       hint: c.group,
       shortcut: c.shortcut,
       disabled: c.isEnabled ? !c.isEnabled() : false,
+      names: [c.title],
       keywords: [c.id, ...(c.group ? [c.group] : [])],
       run: () => void c.run(),
     }));
@@ -97,6 +100,7 @@ function treeEntries(tree: Tree): PaletteEntry[] {
             group: 'Классы',
             title: cls.name,
             hint: file.path,
+            names: [cls.name],
             keywords: [cls.kind, pkg.name],
             run: () => selectMethod(open),
           });
@@ -108,7 +112,8 @@ function treeEntries(tree: Tree): PaletteEntry[] {
             group: 'Поля',
             title: `${cls.name}.${f.name}`,
             hint: f.type,
-            keywords: [f.name, f.type],
+            names: [f.name, `${cls.name}.${f.name}`],
+            keywords: [f.type],
             run: () => selectMethod(open),
           });
         }
@@ -118,6 +123,7 @@ function treeEntries(tree: Tree): PaletteEntry[] {
             group: 'Методы',
             title: `${cls.name}.${m.name}`,
             hint: m.signature,
+            names: [m.name, `${cls.name}.${m.name}`],
             keywords: [m.signature, m.id],
             run: () => selectMethod(m.id),
           });
@@ -145,6 +151,7 @@ function issueEntries(
       group: 'Проблемы',
       title: issue.message,
       hint: line,
+      names: [],
       keywords: [issue.rule, issue.severity, issue.span.file],
       // Как клик по карточке проблемы (FE-05): метод, нода на схеме, строка в коде.
       run: () => selectIssue({ issueId: issue.id, methodId: issue.methodId, blockId: issue.blockId }),
@@ -156,7 +163,8 @@ function issueEntries(
         title: `Применить фикс «${fixId}»: ${issue.message}`,
         hint: line,
         disabled: fixDisabled,
-        keywords: [issue.rule, fixId],
+        names: [fixId],
+        keywords: [issue.rule, issue.message],
         run: () => runCommand('fix.apply', { issueId: issue.id, fixId }),
       });
     }
@@ -177,6 +185,7 @@ function blockEntries(root: Block): PaletteEntry[] {
       group: 'Ноды',
       title: text,
       hint: kind,
+      names: [],
       keywords: kind ? [kind] : [],
       // Как клик по ноде (FE-05): подсветка на холсте и строк в редакторе кода.
       run: () => setHighlight({ source: 'canvas', blockId: block.id, span }),
