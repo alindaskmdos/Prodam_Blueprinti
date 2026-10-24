@@ -6,6 +6,7 @@ import { useNodeEdit } from './editContext';
 import { JavaText } from './JavaText';
 import { kindMeta } from './kinds';
 import { NodeTextEditor } from './NodeTextEditor';
+import { NodeTools } from './structureUi';
 import styles from './MethodCanvas.module.css';
 
 type FlowNode = Node<GraphNodeData>;
@@ -131,6 +132,7 @@ export function BlockNode({ data }: NodeProps<FlowNode>) {
         {data.badge && <span className={styles.badge}>{data.badge}</span>}
         <IssueBadge issues={data.issues} />
         <EditButton data={data} />
+        <NodeTools data={data} />
       </div>
       <EditableBody data={data} className={styles.body ?? ''} view={<JavaText text={data.text} />} />
     </div>
@@ -151,6 +153,7 @@ export function RawNode({ data }: NodeProps<FlowNode>) {
         <span>{data.title}</span>
         <IssueBadge issues={data.issues} />
         <EditButton data={data} />
+        <NodeTools data={data} />
       </div>
       <EditableBody data={data} className={`${styles.body} ${styles.rawBody}`} view={data.text} />
     </div>
@@ -167,7 +170,10 @@ export function CommentNode({ data }: NodeProps<FlowNode>) {
       data-invalid={data.error !== undefined || undefined}
     >
       <Pins />
-      <EditButton data={data} />
+      <span className={styles.commentTools}>
+        <EditButton data={data} />
+        <NodeTools data={data} />
+      </span>
       <EditableBody data={data} className={styles.commentText ?? ''} view={data.text} />
     </div>
   );

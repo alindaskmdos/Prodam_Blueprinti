@@ -23,7 +23,19 @@ export {
   type FieldSpec,
 } from './blockEdit';
 export {
+  canMove,
+  insertBlock,
+  insertOptions,
+  moveBlock,
+  removeBlock,
+  templateBlock,
+  type InsertOption,
+  type InsertPoint,
+} from './blockTree';
+export {
   BlockSync,
+  currentRoot,
+  type PendingInsert,
   type BlockSyncOptions,
   type BlockSyncState,
   type BlockSyncStatus,

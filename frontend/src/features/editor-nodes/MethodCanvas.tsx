@@ -1,14 +1,16 @@
 import { Background, BackgroundVariant, Controls, ReactFlow, type Edge, type Node } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../../app/store';
 import { api, type ApiClient, type Schemas } from '../api';
-import { withFields } from './blockEdit';
-import type { ConflictInfo, InvalidEdit } from './blockSync';
+import { blockAt, withFields, type BlockPath } from './blockEdit';
+import { currentRoot, type ConflictInfo, type InvalidEdit } from './blockSync';
+import { canMove, insertOptions, nestedCount, type InsertOption, type InsertPoint } from './blockTree';
 import { blocksToGraph, type GraphNodeData } from './blocksToGraph';
 import { NodeEditContext, type NodeEditApi } from './editContext';
 import { layoutGraph } from './layout';
-import { nodeTypes } from './nodeTypes';
+import { edgeTypes, nodeTypes } from './nodeTypes';
+import { InsertMenu } from './structureUi';
 import { toFlow } from './toFlow';
 import { useBlockSync } from './useBlockSync';
 import styles from './MethodCanvas.module.css';
@@ -30,12 +32,53 @@ export interface MethodGraphProps {
   edit?: NodeEditApi;
 }
 
-/** Схема метода: дерево блоков → ELK → React Flow. С `edit` — тексты нод правятся (FE-07). */
+/** Клавиша пришла из поля ввода (инлайн-редактор, Monaco) — не команда схемы. */
+function fromTextInput(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
+}
+
+/**
+ * Схема метода: дерево блоков → ELK → React Flow. С `edit` — тексты нод правятся (FE-07), «+» на стрелках,
+ * удаление и вверх/вниз (FE-08): Delete / Alt+↑ / Alt+↓ на выделенной ноде.
+ */
 export function MethodGraph({ view, errors, edit }: MethodGraphProps) {
+  const insertable = edit !== undefined;
   const graph = useMemo(
-    () => blocksToGraph(view.root, { methodBadge: view.complexity, ...(errors ? { errors } : {}) }),
-    [view, errors],
+    () => blocksToGraph(view.root, { methodBadge: view.complexity, insertable, ...(errors ? { errors } : {}) }),
+    [view, errors, insertable],
   );
+  // Выделение своё: ноды React Flow контролируемые (без onNodesChange), selected проставляется при рендере.
+  // Выделение привязано к дереву, на котором сделано: любая смена дерева (↑↓✕, вставка, 409, правка извне)
+  // его сбрасывает — иначе путь указал бы на другой блок и Delete удалил бы не тот.
+  const [rawSelection, setRawSelection] = useState<{ id: string; path: BlockPath; root: Schemas['Block'] } | null>(null);
+  const selection = rawSelection && rawSelection.root === view.root ? rawSelection : null;
+  const setSelection = (s: { id: string; path: BlockPath } | null) =>
+    setRawSelection(s ? { ...s, root: view.root } : null);
+  const selected = selection?.path ?? null;
+  const editRef = useRef(edit);
+  editRef.current = edit;
+
+  useEffect(() => {
+    if (!insertable || selected === null || selected === 'root') return;
+    const onKey = (e: KeyboardEvent) => {
+      const api = editRef.current;
+      if (!api || fromTextInput(e.target) || e.defaultPrevented) return;
+      if (e.key === 'Delete') {
+        e.preventDefault();
+        api.remove(selected);
+        setSelection(null);
+      } else if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+        const delta = e.key === 'ArrowUp' ? -1 : 1;
+        if (!api.canMove(selected, delta)) return;
+        e.preventDefault();
+        api.move(selected, delta);
+        setSelection(null);
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setSelection пересоздаётся на каждый рендер
+  }, [insertable, selected]);
   const [state, setState] = useState<{ graph: typeof graph; layout: LayoutState }>({
     graph,
     layout: { status: 'pending' },
@@ -57,6 +100,11 @@ export function MethodGraph({ view, errors, edit }: MethodGraphProps) {
 
   // Раскладка от предыдущего метода не показывается, пока не готова новая.
   const layout: LayoutState = state.graph === graph ? state.layout : { status: 'pending' };
+  const flowNodes = layout.status === 'ready' ? layout.flow.nodes : null;
+  const nodes = useMemo(
+    () => flowNodes?.map((n) => (n.id === selection?.id ? { ...n, selected: true } : n)) ?? [],
+    [flowNodes, selection],
+  );
 
   return (
     <NodeEditContext.Provider value={edit ?? null}>
@@ -70,9 +118,14 @@ export function MethodGraph({ view, errors, edit }: MethodGraphProps) {
       {layout.status === 'ready' && (
         <ReactFlow
           key={view.methodId}
-          nodes={layout.flow.nodes}
+          nodes={nodes}
           edges={layout.flow.edges}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          onNodeClick={(_, n) =>
+            setSelection(n.selectable === false || n.data.path === 'root' ? null : { id: n.id, path: n.data.path })
+          }
+          onPaneClick={() => setSelection(null)}
           nodesDraggable={false}
           nodesConnectable={false}
           edgesFocusable={false}
@@ -132,6 +185,13 @@ function invalidView(view: Schemas['MethodView'], invalid: InvalidEdit | null) {
   return { shown: { ...view, root: withFields(view.root, invalid.path, invalid.draft) }, errors };
 }
 
+interface MenuState {
+  point: InsertPoint;
+  options: InsertOption[];
+  x: number;
+  y: number;
+}
+
 /**
  * Загружает дерево блоков метода (GET blocks), показывает схему и даёт править текст нод:
  * двойной клик / ✎ → инлайн-редактор → Enter/blur → PUT blocks с полным деревом.
@@ -148,9 +208,18 @@ export function MethodCanvas({ projectId, methodId, client = api, version, onVer
     onMutation,
     onConflict,
   });
-  const { view, invalid, editing, status, error, conflict, stale } = state;
+  const { view, invalid, editing, status, error, conflict, stale, pending, lostInsert } = state;
+  const hostRef = useRef<HTMLDivElement>(null);
+  const [menu, setMenu] = useState<MenuState | null>(null);
+  const closeMenu = useCallback(() => setMenu(null), []);
 
-  const { shown, errors } = useMemo(() => (view ? invalidView(view, invalid) : { shown: null, errors: undefined }), [view, invalid]);
+  // Показывается дерево с неотправленной вставкой (FE-08), если она есть.
+  const { shown, errors } = useMemo(() => {
+    if (!view) return { shown: null, errors: undefined };
+    const root = currentRoot({ view, pending }) ?? view.root;
+    return invalidView(root === view.root ? view : { ...view, root }, invalid);
+  }, [view, pending, invalid]);
+  const root = shown?.root ?? null;
 
   const edit = useMemo<NodeEditApi>(
     () => ({
@@ -163,8 +232,27 @@ export function MethodCanvas({ projectId, methodId, client = api, version, onVer
       rebase: (path, draft) => void sync.rebase(path, draft),
       cancelEdit: () => sync.cancelEdit(),
       discardInvalid: () => sync.discardInvalid(),
+      structure: pending === null && !stale,
+      requestInsert: (point, anchor) => {
+        const owner = root && blockAt(root, point.parent);
+        const host = hostRef.current?.getBoundingClientRect();
+        if (!owner || !host) return;
+        const options = insertOptions(owner, point.slot);
+        if (options.length === 0) return;
+        const r = anchor.getBoundingClientRect();
+        setMenu({ point, options, x: r.left - host.left + r.width / 2, y: r.bottom - host.top + 6 });
+      },
+      remove: (path) => {
+        const block = root && blockAt(root, path);
+        if (!block) return;
+        const n = nestedCount(block);
+        if (n > 0 && !window.confirm(`Удалить блок вместе с содержимым (вложенных блоков: ${n})?`)) return;
+        void sync.remove(path);
+      },
+      move: (path, delta) => void sync.move(path, delta),
+      canMove: (path, delta) => (root ? canMove(root, path, delta) : false),
     }),
-    [sync, editing, status, stale],
+    [sync, editing, status, stale, pending, root],
   );
 
   useEffect(() => {
@@ -176,7 +264,7 @@ export function MethodCanvas({ projectId, methodId, client = api, version, onVer
   }, [sync, conflict?.seq]);
 
   return (
-    <div className={styles.host}>
+    <div className={styles.host} ref={hostRef}>
       {shown ? (
         <MethodGraph view={shown} errors={errors} edit={edit} />
       ) : (
@@ -194,6 +282,32 @@ export function MethodCanvas({ projectId, methodId, client = api, version, onVer
         <div role="alert" className={styles.banner}>
           Правка не сохранена: {error}
         </div>
+      )}
+      {lostInsert && (
+        <div role="alert" className={styles.lostInsert}>
+          <span>Метод изменился, и места для нового блока больше нет — блок не вставлен. Ваш текст:</span>
+          <pre>{lostInsert.text}</pre>
+          <span className={styles.staleActions}>
+            <button type="button" onClick={() => void navigator.clipboard?.writeText(lostInsert.text)}>
+              Скопировать
+            </button>
+            <button type="button" onClick={() => sync.dismissLostInsert()}>
+              Закрыть
+            </button>
+          </span>
+        </div>
+      )}
+      {menu && (
+        <InsertMenu
+          options={menu.options}
+          x={menu.x}
+          y={menu.y}
+          onClose={closeMenu}
+          onPick={(o) => {
+            setMenu(null);
+            void sync.insert(menu.point, o.kind);
+          }}
+        />
       )}
       {conflict && (
         <div className={styles.toast} role="alert" key={conflict.seq}>

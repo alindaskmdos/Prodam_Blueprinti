@@ -25,7 +25,7 @@ function firstChangedBlockId(root: Schemas['Block']): string {
     for (const items of Object.values(b.slots)) {
       for (const item of items) {
         const id = find(item);
-        if (id) return id;
+        if (id !== undefined) return id; // у новой ноды id пустой
       }
     }
     return undefined;

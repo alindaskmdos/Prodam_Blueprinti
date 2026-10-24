@@ -316,3 +316,189 @@ describe('BlockSync — внешняя смена версии (правка к�
     expect(sync.getState().invalid).toMatchObject({ path: VAR_PATH, draft: { init: 'bad ==' } });
   });
 });
+
+describe('BlockSync — структура (FE-08)', () => {
+  afterEach(() => server.events.removeAllListeners());
+  const FOR_BODY = { parent: 'root/body/1', slot: 'body' };
+
+  it('вставка: нода локально с редактором, без запроса; Enter → PUT полного дерева с новым блоком без id', async () => {
+    const bodies = recordPuts();
+    const sync = await loaded();
+    const before = rootOf(sync);
+    expect(await sync.insert({ ...FOR_BODY, index: 1 }, 'expr')).toBe(true);
+
+    let s = sync.getState();
+    expect(bodies).toHaveLength(0);
+    expect(s.editing).toBe('root/body/1/body/1');
+    expect(s.pending?.path).toBe('root/body/1/body/1');
+    expect(rootOf(sync)).toBe(before); // сервер не тронут
+    expect(sync.draftFor('root/body/1/body/1')).toEqual({ text: '' });
+    expect(sync.structureOpen()).toBe(false);
+
+    await sync.apply('root/body/1/body/1', { text: 'log(a)' });
+    expect(bodies).toHaveLength(1);
+    const sent = must(bodies[0]).root;
+    expect(blockAt(sent, 'root/body/1/body/1')).toEqual({ id: '', kind: 'expr', fields: { text: 'log(a)' }, slots: {} });
+    expect(blockAt(sent, 'root/body/1/body/2')?.kind).toBe('if');
+    s = sync.getState();
+    expect(s).toMatchObject({ status: 'ready', version: 6, pending: null, editing: null });
+    expect(blockAt(rootOf(sync), 'root/body/1/body/1')?.fields.text).toBe('log(a)');
+  });
+
+  it('Esc в редакторе новой ноды — вставка отменяется без запроса', async () => {
+    const bodies = recordPuts();
+    const sync = await loaded();
+    await sync.insert({ parent: 'root', slot: 'body', index: 0 }, 'var');
+    sync.cancelEdit();
+    expect(sync.getState()).toMatchObject({ pending: null, editing: null, invalid: null });
+    expect(bodies).toHaveLength(0);
+  });
+
+  it('break/try — сразу PUT; try с шаблонным catch', async () => {
+    const bodies = recordPuts();
+    const sync = await loaded();
+    await sync.insert({ parent: 'root', slot: 'body', index: 2 }, 'try');
+    expect(bodies).toHaveLength(1);
+    const t = blockAt(must(bodies[0]).root, 'root/body/2');
+    expect(t?.kind).toBe('try');
+    expect(t?.slots.catches?.[0]?.fields).toEqual({ type: 'Exception', var: 'e' });
+    expect(sync.getState().pending).toBeNull();
+  });
+
+  it('422 на новую ноду → красная, введённый текст остаётся; повторная правка отправляет его; «Отменить» убирает вставку', async () => {
+    server.use(
+      http.put(BLOCKS, () => HttpResponse.json({ code: 'PARSE_ERROR', message: 'пустое выражение', blockId: '' }, { status: 422 })),
+    );
+    const sync = await loaded();
+    await sync.insert({ ...FOR_BODY, index: 0 }, 'expr');
+    await sync.apply('root/body/1/body/0', { text: 'foo(' });
+
+    let s = sync.getState();
+    expect(s.version).toBe(5);
+    expect(s.pending?.path).toBe('root/body/1/body/0');
+    expect(s.invalid).toMatchObject({ path: 'root/body/1/body/0', errorPath: 'root/body/1/body/0', message: 'пустое выражение' });
+    expect(blockAt(must(s.pending).root, 'root/body/1/body/0')?.fields.text).toBe('foo(');
+
+    sync.startEdit('root/body/1/body/0');
+    expect(sync.draftFor('root/body/1/body/0')).toEqual({ text: 'foo(' });
+    sync.cancelEdit();
+    s = sync.getState();
+    expect(s.pending).toBeNull();
+    expect(s.invalid).toBeNull();
+
+    await sync.insert({ ...FOR_BODY, index: 0 }, 'expr');
+    await sync.apply('root/body/1/body/0', { text: '' });
+    sync.discardInvalid();
+    expect(sync.getState()).toMatchObject({ pending: null, invalid: null });
+    expect(blockAt(rootOf(sync), 'root/body/1/body/0')?.kind).toBe('var');
+  });
+
+  it('удаление листа и контейнера → PUT без блока', async () => {
+    const bodies = recordPuts();
+    const sync = await loaded();
+    await sync.remove('root/body/1/body/1/then/0');
+    expect(blockAt(must(bodies[0]).root, 'root/body/1/body/1')?.slots.then).toEqual([]);
+    await sync.remove('root/body/1');
+    expect(must(bodies[1]).root.slots.body?.map((x) => x.kind)).toEqual(['var', 'return']);
+    expect(must(bodies[1]).version).toBe(6);
+    expect(sync.getState().version).toBe(7);
+    // Корень не удаляется.
+    await sync.remove('root');
+    expect(bodies).toHaveLength(2);
+  });
+
+  it('вверх/вниз внутри слота; на границе — без запроса', async () => {
+    const bodies = recordPuts();
+    const sync = await loaded();
+    await sync.move('root/body/1/body/0', -1);
+    await sync.move('root/body/2', 1);
+    expect(bodies).toHaveLength(0);
+    await sync.move('root/body/1/body/0', 1);
+    expect(must(bodies[0]).root.slots.body?.[1]?.slots.body?.map((x) => x.kind)).toEqual(['if', 'var', 'for']);
+  });
+
+  it('422 на удаление → откат: дерево и версия прежние, сообщение', async () => {
+    server.use(http.put(BLOCKS, () => HttpResponse.json({ code: 'PARSE_ERROR', message: 'нельзя' }, { status: 422 })));
+    const sync = await loaded();
+    const root = rootOf(sync);
+    await sync.remove('root/body/0');
+    expect(sync.getState()).toMatchObject({ status: 'ready', version: 5, error: 'операция не применена: нельзя', pending: null });
+    expect(rootOf(sync)).toBe(root);
+  });
+
+  it('409 на структурную операцию → конфликт и перезагрузка', async () => {
+    server.use(scenarios.conflictOnBlocks);
+    const sync = await loaded();
+    await sync.move('root/body/0', 1);
+    await sync.idle();
+    expect(sync.getState().conflict).not.toBeNull();
+    expect(sync.getState().status).toBe('ready');
+  });
+
+  it('версия сменилась извне при открытом редакторе новой ноды → «Применить к новому» переносит вставку и отправляет текст', async () => {
+    const bodies = recordPuts();
+    const sync = await loaded();
+    await sync.insert({ ...FOR_BODY, index: 1 }, 'expr');
+    sync.adoptVersion(9);
+    expect(sync.getState().stale).toBe(true);
+    await sync.rebase('root/body/1/body/1', { text: 'kept()' });
+    await sync.idle();
+    expect(bodies).toHaveLength(1);
+    expect(must(bodies[0]).version).toBe(9);
+    expect(blockAt(must(bodies[0]).root, 'root/body/1/body/1')?.fields.text).toBe('kept()');
+    expect(sync.getState()).toMatchObject({ pending: null, error: null, lostInsert: null });
+  });
+
+  it('красная новая нода + внешняя версия → вставка на новом дереве с текстом; родителя нет → текст в lostInsert', async () => {
+    server.use(http.put(BLOCKS, () => HttpResponse.json({ code: 'PARSE_ERROR', message: 'плохо', blockId: '' }, { status: 422 })));
+    const sync = await loaded();
+    await sync.insert({ ...FOR_BODY, index: 0 }, 'expr');
+    await sync.apply('root/body/1/body/0', { text: 'foo(' });
+    sync.adoptVersion(9);
+    await sync.idle();
+    let s = sync.getState();
+    expect(s.pending?.path).toBe('root/body/1/body/0');
+    expect(s.invalid).toMatchObject({ path: 'root/body/1/body/0', draft: { text: 'foo(' }, message: 'плохо' });
+
+    // Новое дерево без цикла for — места для вставки нет.
+    const view = fixtures.methodViewMerge;
+    const without = { ...view, root: { ...view.root, slots: { body: (view.root.slots.body ?? []).filter((x) => x.kind !== 'for') } } };
+    server.use(http.get(BLOCKS, () => HttpResponse.json(without)));
+    sync.adoptVersion(10);
+    await sync.idle();
+    s = sync.getState();
+    expect(s.pending).toBeNull();
+    expect(s.invalid).toBeNull();
+    expect(s.lostInsert).toEqual({ text: 'foo(' });
+    sync.dismissLostInsert();
+    expect(sync.getState().lostInsert).toBeNull();
+  });
+
+  it('Esc в редакторе новой ноды при stale — вставка отменена без сообщения', async () => {
+    const sync = await loaded();
+    await sync.insert({ ...FOR_BODY, index: 0 }, 'expr');
+    sync.adoptVersion(9);
+    sync.cancelEdit();
+    await sync.idle();
+    expect(sync.getState()).toMatchObject({ status: 'ready', pending: null, error: null, lostInsert: null, version: 9 });
+  });
+
+  it('удаление по пути, поставленное во время перестановки, не трогает другой блок', async () => {
+    const bodies = recordPuts();
+    const sync = await loaded();
+    const moving = sync.move('root/body/0', 1);
+    const removing = sync.remove('root/body/0');
+    await Promise.all([moving, removing]);
+    expect(bodies).toHaveLength(1);
+    expect(rootOf(sync).slots.body?.map((x) => x.kind)).toEqual(['for', 'var', 'return']);
+  });
+
+  it('пока есть неотправленная вставка — другие структурные операции не выполняются', async () => {
+    const bodies = recordPuts();
+    const sync = await loaded();
+    await sync.insert({ parent: 'root', slot: 'body', index: 0 }, 'expr');
+    await sync.remove('root/body/1');
+    expect(await sync.insert({ parent: 'root', slot: 'body', index: 0 }, 'expr')).toBe(false);
+    expect(bodies).toHaveLength(0);
+  });
+});

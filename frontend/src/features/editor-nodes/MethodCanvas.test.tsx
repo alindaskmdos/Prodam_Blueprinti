@@ -1,10 +1,10 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetAppState, useAppStore } from '../../app/store';
 import { scenarios } from '../../mocks/handlers';
 import { server } from '../../mocks/server';
-import { createApiClient } from '../api';
+import { createApiClient, type Schemas } from '../api';
 import { MethodCanvas } from './index';
 import styles from './MethodCanvas.module.css';
 
@@ -162,4 +162,166 @@ describe('MethodCanvas — правка текста в ноде (FE-07)', () =>
     await waitFor(() => expect(useAppStore.getState().version).toBe(13));
     expect(sent[0]?.version).toBe(12);
   }, 15_000);
+});
+
+describe('MethodCanvas — вставка, удаление, вверх/вниз (FE-08)', () => {
+  beforeEach(() => {
+    resetAppState();
+    useAppStore.getState().openProject('p-1', 7);
+  });
+  afterEach(() => {
+    server.events.removeAllListeners();
+    vi.restoreAllMocks();
+  });
+
+  function bodies(): { version: number; root: Schemas['Block'] }[] {
+    const got: { version: number; root: Schemas['Block'] }[] = [];
+    server.events.on('request:start', ({ request }) => {
+      if (request.method === 'PUT') void request.clone().json().then((b) => got.push(b as never));
+    });
+    return got;
+  }
+
+  const plus = (point: string) => {
+    const btn = document.querySelector(`[data-insert="${point}"]`);
+    if (!(btn instanceof HTMLElement)) throw new Error(`нет «+» ${point}`);
+    return btn;
+  };
+
+  it('«+» в конце метода → меню kind → нода с редактором → Enter → PUT с новым блоком', async () => {
+    const sent = bodies();
+    render(<MethodCanvas projectId="p-1" methodId={methodId} client={client} />);
+    await screen.findByTestId('node-method', {}, { timeout: 10_000 });
+
+    fireEvent.click(plus('root/body/3'));
+    const menu = screen.getByRole('menu', { name: 'Вставить блок' });
+    expect(within(menu).queryByText('case')).not.toBeInTheDocument();
+    fireEvent.click(within(menu).getByRole('menuitem', { name: /Вызов метода/ }));
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+
+    const editor = await screen.findByTestId('node-editor', {}, { timeout: 10_000 });
+    const field = within(editor).getByLabelText('выражение');
+    expect(field).toHaveFocus();
+    expect(sent).toHaveLength(0);
+    fireEvent.change(field, { target: { value: 'log(merged)' } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+
+    await waitFor(() => expect(useAppStore.getState().version).toBe(8));
+    expect(sent[0]?.root.slots.body?.[3]).toEqual({ id: '', kind: 'expr', fields: { text: 'log(merged)' }, slots: {} });
+    expect(await screen.findByText((_, el) => el?.tagName === 'PRE' && el.textContent === 'log(merged)')).toBeInTheDocument();
+  }, 20_000);
+
+  it('Esc в меню закрывает его; Esc в редакторе новой ноды убирает её', async () => {
+    const sent = bodies();
+    render(<MethodCanvas projectId="p-1" methodId={methodId} client={client} />);
+    await screen.findByTestId('node-method', {}, { timeout: 10_000 });
+    const exprs = screen.getAllByTestId('node-expr').length;
+
+    fireEvent.click(plus('root/body/3'));
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+
+    fireEvent.click(plus('root/body/3'));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Вызов метода/ }));
+    const field = within(await screen.findByTestId('node-editor', {}, { timeout: 10_000 })).getByLabelText('выражение');
+    fireEvent.keyDown(field, { key: 'Escape' });
+    await waitFor(() => expect(screen.getAllByTestId('node-expr')).toHaveLength(exprs), { timeout: 10_000 });
+    expect(sent).toHaveLength(0);
+  }, 20_000);
+
+  it('422 на новую ноду → красная, текст остаётся', async () => {
+    server.use(scenarios.parseErrorOnBlocks);
+    render(<MethodCanvas projectId="p-1" methodId={methodId} client={client} />);
+    await screen.findByTestId('node-method', {}, { timeout: 10_000 });
+    fireEvent.click(plus('root/body/3'));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Вызов метода/ }));
+    const field = within(await screen.findByTestId('node-editor', {}, { timeout: 10_000 })).getByLabelText('выражение');
+    fireEvent.change(field, { target: { value: 'foo(' } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+
+    const alert = await screen.findByText(/В код не попало/, {}, { timeout: 10_000 });
+    const red = alert.closest('[data-testid="node-expr"]') as HTMLElement;
+    expect(red).toHaveAttribute('data-invalid', 'true');
+    expect(red).toHaveTextContent('foo(');
+    expect(useAppStore.getState().version).toBe(7);
+  }, 20_000);
+
+  it('✕ на листе — удаление сразу; на контейнере — с подтверждением; отказ — без запроса', async () => {
+    const sent = bodies();
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    render(<MethodCanvas projectId="p-1" methodId={methodId} client={client} />);
+    await screen.findByTestId('node-method', {}, { timeout: 10_000 });
+    expect(screen.queryByRole('button', { name: 'Удалить: Метод' })).not.toBeInTheDocument();
+
+    const forHead = screen.getAllByTestId('node-for')[0] as HTMLElement;
+    fireEvent.click(within(forHead).getByRole('button', { name: /Удалить/ }));
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(sent).toHaveLength(0);
+
+    fireEvent.click(within(screen.getByTestId('node-return')).getByRole('button', { name: /Удалить/ }));
+    await waitFor(() => expect(useAppStore.getState().version).toBe(8));
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(sent[0]?.root.slots.body?.map((x) => x.kind)).toEqual(['var', 'for']);
+    await waitFor(() => expect(screen.queryByTestId('node-return')).not.toBeInTheDocument());
+  }, 20_000);
+
+  it('Delete на выделенной ноде — удаление; в поле ввода — нет', async () => {
+    const sent = bodies();
+    render(<MethodCanvas projectId="p-1" methodId={methodId} client={client} />);
+    await screen.findByTestId('node-method', {}, { timeout: 10_000 });
+    const ret = screen.getByTestId('node-return');
+    fireEvent.click(ret.closest('.react-flow__node') as HTMLElement);
+    await waitFor(() => expect(ret.closest('.react-flow__node')).toHaveClass('selected'));
+    const input = document.createElement('textarea');
+    document.body.append(input);
+    fireEvent.keyDown(input, { key: 'Delete' });
+    input.remove();
+    expect(sent).toHaveLength(0);
+
+    fireEvent.keyDown(document.body, { key: 'Delete' });
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]?.root.slots.body?.map((x) => x.kind)).toEqual(['var', 'for']);
+  }, 20_000);
+
+  it('выделение → перестановка кнопкой → Delete не удаляет чужой блок (выделение сброшено)', async () => {
+    const sent = bodies();
+    render(<MethodCanvas projectId="p-1" methodId={methodId} client={client} />);
+    await screen.findByTestId('node-method', {}, { timeout: 10_000 });
+    const firstVar = screen.getAllByTestId('node-var').find((n) => n.textContent?.includes('merged = 0')) as HTMLElement;
+    fireEvent.click(firstVar.closest('.react-flow__node') as HTMLElement);
+    await waitFor(() => expect(firstVar.closest('.react-flow__node')).toHaveClass('selected'));
+
+    fireEvent.click(within(firstVar).getByRole('button', { name: /Ниже/ }));
+    await waitFor(() => expect(useAppStore.getState().version).toBe(8));
+    await waitFor(() => expect(document.querySelector('.react-flow__node.selected')).toBeNull(), { timeout: 10_000 });
+    fireEvent.keyDown(document.body, { key: 'Delete' });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(sent).toHaveLength(1);
+  }, 20_000);
+
+  it('↑ на первом в слоте недоступна; ↓ → PUT с переставленными блоками', async () => {
+    const sent = bodies();
+    render(<MethodCanvas projectId="p-1" methodId={methodId} client={client} />);
+    await screen.findByTestId('node-method', {}, { timeout: 10_000 });
+    const firstVar = screen.getAllByTestId('node-var').find((n) => n.textContent?.includes('merged = 0')) as HTMLElement;
+    expect(within(firstVar).getByRole('button', { name: /Выше/ })).toBeDisabled();
+    expect(within(screen.getByTestId('node-return')).getByRole('button', { name: /Ниже/ })).toBeDisabled();
+
+    fireEvent.click(within(firstVar).getByRole('button', { name: /Ниже/ }));
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]?.root.slots.body?.map((x) => x.kind)).toEqual(['for', 'var', 'return']);
+  }, 20_000);
+
+  it('422 на перестановку → откат с сообщением', async () => {
+    server.use(
+      http.put('*/api/projects/:projectId/methods/:methodId/blocks', () =>
+        HttpResponse.json({ code: 'PARSE_ERROR', message: 'нельзя переставить' }, { status: 422 }),
+      ),
+    );
+    render(<MethodCanvas projectId="p-1" methodId={methodId} client={client} />);
+    await screen.findByTestId('node-method', {}, { timeout: 10_000 });
+    fireEvent.click(within(screen.getByTestId('node-return')).getByRole('button', { name: /Выше/ }));
+    expect(await screen.findByText(/операция не применена: нельзя переставить/)).toBeInTheDocument();
+    expect(useAppStore.getState().version).toBe(7);
+  }, 20_000);
 });

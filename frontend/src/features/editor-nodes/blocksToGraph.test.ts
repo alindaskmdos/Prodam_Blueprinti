@@ -205,3 +205,56 @@ describe('blocksToGraph', () => {
     expect(node(gm, 'com.demo.service.OrderService.merge~0/body/1/body/2').data.issues).toEqual(['ISSUE-1']);
   });
 });
+
+describe('blocksToGraph — места вставки (FE-08)', () => {
+  const root = b('method', { signature: 'void m()' }, {
+    body: [
+      b('expr', { text: 'a()' }),
+      b('if', { cond: 'ok' }, { then: [b('expr', { text: 'x()' })] }),
+      b('while', { cond: 'go' }, { body: [] }),
+    ],
+  });
+  const ids = (root.slots.body ?? []).map((x) => x.id);
+  const [aId, ifId, whileId] = ids as [string, string, string];
+  const g = blocksToGraph(root, { insertable: true });
+  const inserts = g.nodes.filter((n) => n.type === 'insert');
+
+  it('без insertable — ни «+», ни нод вставки', () => {
+    const plain = blocksToGraph(root);
+    expect(plain.nodes.some((n) => n.type === 'insert')).toBe(false);
+    expect(plain.edges.some((e) => e.insert)).toBe(false);
+  });
+
+  it('«+» на стрелках между соседями и от заголовка — индекс вставки в слоте', () => {
+    expect(g.edges.find((e) => e.source === root.id && e.target === aId)?.insert).toEqual({ parent: 'root', slot: 'body', index: 0 });
+    expect(g.edges.find((e) => e.source === aId && e.target === ifId)?.insert).toEqual({ parent: 'root', slot: 'body', index: 1 });
+    const thenEdge = g.edges.find((e) => e.source === `${ifId}${HEAD_SUFFIX}` && e.label === 'да');
+    expect(thenEdge?.insert).toEqual({ parent: 'root/body/1', slot: 'then', index: 0 });
+  });
+
+  it('«+» в конце слота и в пустом слоте (else, пустое тело)', () => {
+    const points = inserts.map((n) => n.data.insert);
+    expect(points).toContainEqual({ parent: 'root', slot: 'body', index: 3 });
+    expect(points).toContainEqual({ parent: 'root/body/1', slot: 'then', index: 1 });
+    expect(points).toContainEqual({ parent: 'root/body/1', slot: 'else', index: 0 });
+    expect(points).toContainEqual({ parent: 'root/body/2', slot: 'body', index: 0 });
+    // Пустой else — от заголовка if с подписью «нет».
+    const elseNode = inserts.find((n) => n.data.insert?.slot === 'else');
+    expect(elseNode?.parentId).toBe(ifId);
+    expect(g.edges.find((e) => e.target === elseNode?.id)).toMatchObject({ source: `${ifId}${HEAD_SUFFIX}`, label: 'нет' });
+    expect(inserts.find((n) => n.data.insert?.parent === 'root/body/2')?.parentId).toBe(whileId);
+    // На стрелке к ноде «+» своего «+» нет — не дублируется.
+    for (const n of inserts) expect(g.edges.find((e) => e.target === n.id)?.insert).toBeUndefined();
+  });
+
+  it('в switch.cases и try.catches — «+» для новых веток; в неизвестный kind — нет', () => {
+    const all = blocksToGraph(allKindsMethod(), { insertable: true });
+    const slots = all.nodes.filter((n) => n.type === 'insert').map((n) => n.data.insert?.slot);
+    expect(slots).toContain('cases');
+    expect(slots).toContain('catches');
+    expect(slots).toContain('finally');
+    const odd = { ...b('raw'), kind: 'labeled', slots: { body: [b('expr', { text: 'x()' })] } } as unknown as Block;
+    const gu = blocksToGraph(b('method', {}, { body: [odd] }), { insertable: true });
+    expect(gu.nodes.filter((n) => n.type === 'insert').map((n) => n.data.insert?.parent)).toEqual(['root']);
+  });
+});

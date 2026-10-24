@@ -1,5 +1,7 @@
 import type { ApiClient, Schemas } from '../api';
 import { blockAt, draftOf, editableFields, findPathById, mergeFields, sameFields, withFields, type BlockPath } from './blockEdit';
+import { blockText } from './blockText';
+import { editsOnInsert, insertBlock, moveBlock, parentOf, removeBlock, sameShape, templateFor, type InsertPoint } from './blockTree';
 
 export type BlockSyncStatus =
   /** GET blocks в процессе (первая загрузка или перезагрузка после 409). */
@@ -21,6 +23,17 @@ export interface InvalidEdit {
   errorPath: BlockPath;
   blockId?: string;
   message: string;
+}
+
+/**
+ * Вставленный блок, ещё не принятый сервером (FE-08): локальное дерево с новой нодой.
+ * Пока он есть, схема показывает это дерево; Enter в редакторе новой ноды отправляет его целиком,
+ * Esc / «Отменить правку» — убирает вставку. 422 — нода красная, введённый текст остаётся в дереве.
+ */
+export interface PendingInsert {
+  root: Schemas['Block'];
+  /** Путь новой ноды в root. */
+  path: BlockPath;
 }
 
 export interface ConflictInfo {
@@ -48,6 +61,28 @@ export interface BlockSyncState {
    * Применять черновик к старому дереву нельзя (затрёт чужую правку) — только rebase (к новому дереву) или отмена.
    */
   stale: boolean;
+  /** Неотправленная (или отклонённая 422) вставка блока. */
+  pending: PendingInsert | null;
+  /**
+   * Вставку не удалось перенести на новое дерево (родителя больше нет): введённый текст, чтобы его не потерять
+   * (показывается с кнопкой «Скопировать»).
+   */
+  lostInsert: { text: string } | null;
+}
+
+/** Вставка, переносимая на перезагруженное дерево: родитель по id, слот, индекс и сам блок с текстом. */
+interface CarriedInsert {
+  parentId: string;
+  parentIsRoot: boolean;
+  slot: string;
+  index: number;
+  block: Schemas['Block'];
+  message?: string;
+}
+
+/** Дерево, которое показывается и правится: с неотправленной вставкой, иначе с сервера. */
+export function currentRoot(state: Pick<BlockSyncState, 'view' | 'pending'>): Schemas['Block'] | null {
+  return state.pending?.root ?? state.view?.root ?? null;
 }
 
 export interface BlockSyncOptions {
@@ -95,6 +130,8 @@ export class BlockSync {
       error: null,
       conflict: null,
       stale: false,
+      pending: null,
+      lostInsert: null,
     };
   }
 
@@ -112,10 +149,12 @@ export class BlockSync {
    */
   load(refreshVersion = false, keepInvalid = false): Promise<void> {
     const gen = ++this.generation;
-    const before = { view: this.state.view, invalid: keepInvalid ? this.state.invalid : null };
+    // Неотправленная вставка переносится на новое дерево по id родителя (текст не теряется).
+    const carry = this.carryInsert();
+    const before = { view: this.state.view, invalid: keepInvalid && !carry ? this.state.invalid : null };
     if (refreshVersion) this.externalVersion = null; // после 409 прав сервер
     const target = this.externalVersion;
-    this.set({ status: 'loading', editing: null, invalid: before.invalid, error: null, stale: false });
+    this.set({ status: 'loading', editing: null, invalid: before.invalid, error: null, stale: false, pending: null });
     const { client, projectId, methodId } = this.options;
     const needVersion = refreshVersion || (this.state.version === null && target === null);
     const blocks = client.GET('/projects/{projectId}/methods/{methodId}/blocks', {
@@ -134,6 +173,7 @@ export class BlockSync {
         if (target !== null) this.takeVersion(target, false);
         const invalid = before.invalid && before.view ? remapInvalid(before.invalid, before.view.root, b.data.root) : null;
         this.set({ status: 'ready', view: b.data, invalid });
+        if (carry) this.restoreInsert(carry, b.data.root);
         // Пока шёл запрос, версия могла вырасти ещё раз — догоняем.
         this.reconcile();
       })
@@ -148,16 +188,18 @@ export class BlockSync {
 
   /** Открыть инлайн-редактор ноды (двойной клик / кнопка). */
   startEdit(path: BlockPath): void {
-    const block = this.state.view && blockAt(this.state.view.root, path);
+    const root = currentRoot(this.state);
+    const block = root && blockAt(root, path);
     if (this.state.status !== 'ready' || !block || editableFields(block).length === 0) return;
     this.set({ editing: path, error: null });
   }
 
   /** Значения полей для редактора: черновик красной ноды или текст с сервера. */
   draftFor(path: BlockPath): Record<string, string> {
-    const { invalid, view } = this.state;
+    const { invalid } = this.state;
     if (invalid && invalid.path === path) return { ...invalid.draft };
-    const block = view && blockAt(view.root, path);
+    const root = currentRoot(this.state);
+    const block = root && blockAt(root, path);
     return block ? draftOf(block) : {};
   }
 
@@ -166,8 +208,14 @@ export class BlockSync {
    * Если метод изменился извне (stale) — черновик отбрасывается и дерево перезагружается.
    */
   cancelEdit(): void {
-    const { editing, invalid, status, stale } = this.state;
+    const { editing, invalid, status, stale, pending } = this.state;
     if (editing === null || status === 'saving') return;
+    if (pending && pending.path === editing) {
+      // Esc в редакторе новой ноды — вставка отменяется.
+      this.set({ editing: null, pending: null, invalid: null });
+      if (stale) void this.load(false, true);
+      return;
+    }
     const rest = invalid && invalid.path === editing ? null : invalid;
     if (stale) {
       this.set({ invalid: rest });
@@ -184,6 +232,17 @@ export class BlockSync {
   async rebase(path: BlockPath, draft: Record<string, string>): Promise<void> {
     const { stale, editing, view, status } = this.state;
     if (!stale || editing !== path || !view || status !== 'ready') return;
+    const { pending } = this.state;
+    if (pending) {
+      // Черновик новой ноды — в дерево вставки, вставка переносится на новое дерево и отправляется.
+      this.set({ pending: { ...pending, root: withFields(pending.root, pending.path, draft) } });
+      await this.load(false, true);
+      const moved = this.state.pending;
+      if (this.state.status !== 'ready' || !moved) return;
+      this.set({ editing: moved.path });
+      await this.apply(moved.path, draft);
+      return;
+    }
     const old = blockAt(view.root, path);
     await this.load(false, true);
     const fresh = this.state.view;
@@ -197,9 +256,56 @@ export class BlockSync {
     await this.apply(freshPath, draft);
   }
 
+  /** Закрыть сообщение о непереносимой вставке. */
+  dismissLostInsert(): void {
+    if (this.state.lostInsert) this.set({ lostInsert: null });
+  }
+
+  /** Неотправленная вставка для переноса на перезагруженное дерево: родитель по id, слот, индекс. */
+  private carryInsert(): CarriedInsert | null {
+    const { pending, invalid } = this.state;
+    if (!pending) return null;
+    const at = parentOf(pending.path);
+    const parent = at && blockAt(pending.root, at.parent);
+    const block = blockAt(pending.root, pending.path);
+    if (!at || !parent || !block) return null;
+    // Текст красной новой ноды (422) — в invalid.draft.
+    const own = invalid && invalid.path === pending.path ? invalid : null;
+    return {
+      parentId: parent.id,
+      parentIsRoot: at.parent === 'root',
+      slot: at.slot,
+      index: at.index,
+      block: own ? { ...block, fields: mergeFields(block, own.draft) } : block,
+      ...(own ? { message: own.message } : {}),
+    };
+  }
+
+  /** Вставить перенесённый блок в новое дерево; родителя нет — сообщение с текстом блока. */
+  private restoreInsert(carry: CarriedInsert, root: Schemas['Block']): void {
+    const parentPath = carry.parentIsRoot ? 'root' : findPathById(root, carry.parentId);
+    const parent = parentPath ? blockAt(root, parentPath) : undefined;
+    const len = parent?.slots?.[carry.slot]?.length ?? 0;
+    const res = parentPath ? insertBlock(root, { parent: parentPath, slot: carry.slot, index: Math.min(carry.index, len) }, carry.block) : null;
+    if (!res) {
+      this.set({ lostInsert: { text: blockText(carry.block) } });
+      return;
+    }
+    this.set({
+      pending: { root: res.root, path: res.path },
+      lostInsert: null,
+      invalid: {
+        path: res.path,
+        draft: draftOf(carry.block),
+        errorPath: res.path,
+        message: carry.message ?? 'Метод изменился — новый блок ещё не сохранён. Откройте и примените ещё раз.',
+      },
+    });
+  }
+
   /** Отменить непринятую правку красной ноды. */
   discardInvalid(): void {
-    if (this.state.invalid && this.state.status !== 'saving') this.set({ invalid: null });
+    if ((this.state.invalid || this.state.pending) && this.state.status !== 'saving') this.set({ invalid: null, pending: null });
   }
 
   /**
@@ -207,12 +313,14 @@ export class BlockSync {
    * Черновик другой красной ноды в дерево не входит и отбрасывается.
    */
   apply(path: BlockPath, draft: Record<string, string>): Promise<void> {
-    const { status, view, version, editing, invalid, stale } = this.state;
+    const { status, view, version, editing, invalid, stale, pending } = this.state;
     // stale: дерево устарело — отправка затёрла бы правку из кода; только rebase или отмена.
     if (status !== 'ready' || !view || editing !== path || stale) return Promise.resolve();
-    const block = blockAt(view.root, path);
+    const base = pending?.root ?? view.root;
+    const block = blockAt(base, path);
     if (!block) return Promise.resolve();
-    if (sameFields(mergeFields(block, draft), block.fields ?? {})) {
+    // Без изменений — закрыть редактор. Неотправленная вставка — сама по себе изменение.
+    if (!pending && sameFields(mergeFields(block, draft), block.fields ?? {})) {
       this.set({ editing: null, invalid: invalid && invalid.path === path ? null : invalid });
       return Promise.resolve();
     }
@@ -221,7 +329,86 @@ export class BlockSync {
       return Promise.resolve();
     }
 
-    const root = withFields(view.root, path, draft);
+    const root = withFields(base, path, draft);
+    return this.send(version, view, root, (error) => {
+      const errorPath = (error.blockId && findPathById(root, error.blockId)) || path;
+      this.set({
+        status: 'ready',
+        editing: null,
+        // Введённый текст остаётся в дереве вставки — правка другой ноды его не потеряет.
+        ...(pending ? { pending: { root, path: pending.path } } : {}),
+        invalid: { path, draft: { ...draft }, errorPath, blockId: error.blockId, message: error.message },
+      });
+    });
+  }
+
+  /**
+   * «+» на стрелке: новый блок kind в место point. Есть что вводить — нода появляется локально с открытым
+   * редактором (Enter — PUT полного дерева, Esc — вставка отменяется); иначе (break, continue, try) — сразу PUT.
+   * Сначала ждёт запрос в полёте (blur редактора перед кликом). false — вставка сейчас невозможна.
+   */
+  async insert(point: InsertPoint, kind: Schemas['BlockKind']): Promise<boolean> {
+    const asked = this.state.view?.root;
+    await this.idle();
+    const { view } = this.state;
+    if (!this.structureOpen() || !view || !asked || !sameShape(asked, view.root)) return false;
+    const owner = blockAt(view.root, point.parent);
+    if (!owner) return false;
+    const block = templateFor(owner, point.slot, kind);
+    const res = insertBlock(view.root, point, block);
+    if (!res) return false;
+    // Черновик другой красной ноды в дерево не входит и отбрасывается (как при правке текста).
+    this.set({ pending: { root: res.root, path: res.path }, editing: res.path, invalid: null, error: null });
+    if (!editsOnInsert(block)) await this.apply(res.path, draftOf(block));
+    return true;
+  }
+
+  /** Удалить блок (с содержимым) и отправить полное дерево. 422 — откат: дерево прежнее, сообщение в error. */
+  async remove(path: BlockPath): Promise<void> {
+    const asked = this.state.view?.root;
+    await this.idle();
+    const { view } = this.state;
+    // Пока ждали, структура поменялась — путь указывает на другой блок: ничего не делаем.
+    if (!this.structureOpen() || !view || !asked || !sameShape(asked, view.root)) return;
+    const root = removeBlock(view.root, path);
+    if (root !== view.root) await this.sendStructure(root);
+  }
+
+  /** Вверх (-1) / вниз (+1) внутри того же слота. На границе — ничего. */
+  async move(path: BlockPath, delta: -1 | 1): Promise<void> {
+    const asked = this.state.view?.root;
+    await this.idle();
+    const { view } = this.state;
+    if (!this.structureOpen() || !view || !asked || !sameShape(asked, view.root)) return;
+    const { root } = moveBlock(view.root, path, delta);
+    if (root !== view.root) await this.sendStructure(root);
+  }
+
+  /** Можно ли сейчас менять структуру: дерево загружено, нет неотправленной вставки, открытого редактора и stale. */
+  structureOpen(): boolean {
+    const { status, view, pending, stale, editing, version } = this.state;
+    return status === 'ready' && view !== null && pending === null && !stale && editing === null && version !== null;
+  }
+
+  private sendStructure(root: Schemas['Block']): Promise<void> {
+    const { view, version } = this.state;
+    if (!view || version === null) return Promise.resolve();
+    return this.send(version, view, root, (error) => {
+      // Структура не применилась: на экране дерево с сервера — правка откатилась.
+      this.set({ status: 'ready', error: `операция не применена: ${error.message}` });
+    });
+  }
+
+  /**
+   * PUT blocks {version, root} — общий путь правки текста и структуры. 200 → дерево и версия из ответа;
+   * 409 → тост и перезагрузка; 422 → onInvalid; прочее → error (редактор, если открыт, остаётся).
+   */
+  private send(
+    version: number,
+    view: Schemas['MethodView'],
+    root: Schemas['Block'],
+    onInvalid: (error: Schemas['Error']) => void,
+  ): Promise<void> {
     const gen = this.generation;
     this.set({ status: 'saving', error: null });
     const { client, projectId, methodId } = this.options;
@@ -239,6 +426,7 @@ export class BlockSync {
             version: data.version,
             editing: null,
             invalid: null,
+            pending: null,
           });
           this.options.onVersion?.(data.version);
           this.options.onMutation?.(data);
@@ -261,12 +449,7 @@ export class BlockSync {
           return 'reload';
         }
         if (response.status === 422 && error) {
-          const errorPath = (error.blockId && findPathById(root, error.blockId)) || path;
-          this.set({
-            status: 'ready',
-            editing: null,
-            invalid: { path, draft: { ...draft }, errorPath, blockId: error.blockId, message: error.message },
-          });
+          onInvalid(error);
           return;
         }
         // Прочая ошибка: редактор остаётся открытым с введённым текстом, можно повторить.

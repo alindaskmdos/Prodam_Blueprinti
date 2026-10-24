@@ -97,3 +97,30 @@ describe('layoutGraph (ELK)', () => {
     });
   });
 });
+
+describe('layoutGraph — с местами вставки (FE-08)', () => {
+  it('ноды «+» внутри своих групп, без перекрытий с соседями', async () => {
+    const graph = blocksToGraph(allKindsMethod(), { insertable: true });
+    const { nodes } = await layoutGraph(graph);
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    const groups = new Map<string, Positioned[]>();
+    for (const n of nodes) {
+      if (n.parentId) {
+        const p = byId.get(n.parentId) as Positioned;
+        expect(n.x + n.width).toBeLessThanOrEqual(p.width + 0.5);
+        expect(n.y + n.height).toBeLessThanOrEqual(p.height + 0.5);
+      }
+      groups.set(n.parentId ?? '', [...(groups.get(n.parentId ?? '') ?? []), n]);
+    }
+    for (const siblings of groups.values()) {
+      for (let i = 0; i < siblings.length; i++) {
+        for (let j = i + 1; j < siblings.length; j++) {
+          const a = siblings[i] as Positioned;
+          const c = siblings[j] as Positioned;
+          const overlap = a.x < c.x + c.width && c.x < a.x + a.width && a.y < c.y + c.height && c.y < a.y + a.height;
+          expect(overlap, `${a.id} × ${c.id}`).toBe(false);
+        }
+      }
+    }
+  });
+});

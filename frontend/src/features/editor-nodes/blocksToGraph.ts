@@ -1,4 +1,5 @@
 import { editableFields } from './blockEdit';
+import { insertableSlots, type InsertPoint } from './blockTree';
 import { blockText } from './blockText';
 import { isContainer, isKnownKind, kindMeta, orderedSlots, type Block, type BlockKind, type SlotSpec } from './kinds';
 
@@ -7,7 +8,7 @@ import { isContainer, isKnownKind, kindMeta, orderedSlots, type Block, type Bloc
  * block — обычная нода (и заголовок контейнера); container — group-нода контейнера;
  * slot — рамка ветки внутри контейнера с несколькими ветками; comment — стикер; raw — пунктирная рамка.
  */
-export type GraphNodeType = 'block' | 'container' | 'slot' | 'comment' | 'raw';
+export type GraphNodeType = 'block' | 'container' | 'slot' | 'comment' | 'raw' | 'insert';
 
 export interface GraphNodeData {
   [key: string]: unknown;
@@ -30,6 +31,8 @@ export interface GraphNodeData {
   editable: boolean;
   /** Ошибка текста ноды (422 PARSE_ERROR): нода красная, правка не применена. */
   error?: string;
+  /** Только у insert: куда вставит «+» (конец слота или пустой слот). */
+  insert?: InsertPoint;
 }
 
 export interface GraphNode {
@@ -50,6 +53,8 @@ export interface GraphEdge {
   label?: string;
   /** Группа, в которой лежат оба конца ребра (ELK кладёт ребро в неё); нет — верхний уровень. */
   parentId?: string;
+  /** «+» на стрелке: вставка между её концами (FE-08). Только с options.insertable. */
+  insert?: InsertPoint;
 }
 
 export interface Graph {
@@ -59,6 +64,9 @@ export interface Graph {
 
 export const HEAD_SUFFIX = '#head';
 export const SLOT_SUFFIX = '#slot:';
+export const INSERT_SUFFIX = '#add:';
+/** Размер ноды «+» в конце слота / в пустом слоте. */
+export const INSERT_SIZE = 24;
 
 // Оценка размеров по тексту (моноширинный 12.5px). Ноды фиксированного размера — ELK знает их до рендера.
 const CHAR_W = 7.8;
@@ -101,6 +109,11 @@ export interface ToGraphOptions {
   methodBadge?: string;
   /** Ошибки текста по пути блока: такие ноды красные, с сообщением. */
   errors?: Record<string, string>;
+  /**
+   * Режим правки структуры (FE-08): «+» на стрелках внутри слотов (insert у ребра), ноды insert в конце
+   * каждого слота и в пустых известных слотах (if без else, пустое тело цикла).
+   */
+  insertable?: boolean;
 }
 
 // Строка сообщения об ошибке под текстом ноды (Inter 12px).
@@ -131,14 +144,48 @@ export function blocksToGraph(root: Block, options: ToGraphOptions = {}): Graph 
     return id;
   };
 
-  const addEdge = (source: string, target: string, parentId: string | undefined, label?: string) => {
+  const insertable = options.insertable === true;
+
+  const addEdge = (
+    source: string,
+    target: string,
+    parentId: string | undefined,
+    label?: string,
+    insert?: InsertPoint,
+  ) => {
     edges.push({
       id: `e:${source}->${target}`,
       source,
       target,
       ...(label ? { label } : {}),
       ...(parentId ? { parentId } : {}),
+      ...(insert && insertable ? { insert } : {}),
     });
+  };
+
+  /** Нода «+» в конце слота (или в пустом слоте) владельца ownerPath; возвращает её id. */
+  const pushInsert = (owner: Block, ownerId: string, ownerPath: string, slot: string, index: number, parentId: string | undefined) => {
+    const id = `${ownerId}${INSERT_SUFFIX}${slot}`;
+    nodes.push({
+      id,
+      type: 'insert',
+      ...(parentId ? { parentId } : {}),
+      data: {
+        kind: owner.kind as BlockKind,
+        blockId: owner.id || ownerId,
+        title: '',
+        text: '',
+        issues: [],
+        path: ownerPath,
+        fields: {},
+        editable: false,
+        slotKey: slot,
+        insert: { parent: ownerPath, slot, index },
+      },
+      width: INSERT_SIZE,
+      height: INSERT_SIZE,
+    });
+    return id;
   };
 
   const errors = options.errors ?? {};
@@ -198,7 +245,7 @@ export function blocksToGraph(root: Block, options: ToGraphOptions = {}): Graph 
     const slots = orderedSlots(block);
     const only = slots[0];
     if (slots.length === 1 && only) {
-      layoutSlot(only.spec, only.items, `${path}/${only.spec.key}`, id, headId);
+      layoutSlot(only.spec, only.items, path, id, headId, block, id);
     } else {
       for (const { spec, items } of slots) {
         const slotId = `${id}${SLOT_SUFFIX}${spec.key}`;
@@ -216,39 +263,72 @@ export function blocksToGraph(root: Block, options: ToGraphOptions = {}): Graph 
             error: undefined,
           },
         });
-        addEdge(headId, slotId, id, spec.label);
-        layoutSlot({ ...spec, label: undefined }, items, `${path}/${spec.key}`, slotId, undefined);
+        addEdge(headId, slotId, id, spec.label, { parent: path, slot: spec.key, index: 0 });
+        layoutSlot({ ...spec, label: undefined }, items, path, slotId, undefined, block, slotId);
+      }
+    }
+    if (insertable) {
+      // Пустые известные слоты (if без else, пустое тело) — «+» от заголовка с подписью ветки.
+      const shown = new Set(slots.map((s) => s.spec.key));
+      for (const spec of kindMeta(block.kind).slots) {
+        if (shown.has(spec.key) || !insertableSlots(block).includes(spec.key)) continue;
+        const addId = pushInsert(block, `${id}${SLOT_SUFFIX}${spec.key}`, path, spec.key, 0, id);
+        addEdge(headId, addId, id, spec.label);
       }
     }
     return id;
   };
 
-  /** Элементы слота внутри группы parentId; from — нода, от которой идёт первая стрелка (заголовок). */
-  const layoutSlot = (spec: SlotSpec, items: Block[], path: string, parentId: string, from: string | undefined) => {
+  /**
+   * Элементы слота spec.key блока owner (путь ownerPath) внутри группы parentId; from — нода, от которой
+   * идёт первая стрелка (заголовок). keyId — основа id ноды «+» в конце слота.
+   */
+  const layoutSlot = (
+    spec: SlotSpec,
+    items: Block[],
+    ownerPath: string,
+    parentId: string,
+    from: string | undefined,
+    owner: Block,
+    keyId: string,
+  ) => {
+    const path = `${ownerPath}/${spec.key}`;
+    const canInsert = insertable && insertableSlots(owner).includes(spec.key);
+    const at = (index: number): InsertPoint => ({ parent: ownerPath, slot: spec.key, index });
     if (spec.mode === 'parallel') {
       items.forEach((item, i) => {
         const itemId = visit(item, `${path}/${i}`, parentId);
-        if (from) addEdge(from, itemId, parentId, spec.label);
+        if (from) addEdge(from, itemId, parentId, spec.label, at(i));
       });
+      if (canInsert) {
+        const addId = pushInsert(owner, keyId, ownerPath, spec.key, items.length, parentId);
+        if (from) addEdge(from, addId, parentId);
+      }
       return;
     }
     let prev = from;
     items.forEach((item, i) => {
       const itemId = visit(item, `${path}/${i}`, parentId);
-      if (prev) addEdge(prev, itemId, parentId, i === 0 ? spec.label : undefined);
+      if (prev) addEdge(prev, itemId, parentId, i === 0 ? spec.label : undefined, at(i));
       prev = itemId;
     });
+    if (canInsert) {
+      const addId = pushInsert(owner, keyId, ownerPath, spec.key, items.length, parentId);
+      if (prev) addEdge(prev, addId, parentId);
+    }
   };
 
   if (root.kind === 'method') {
     const rootId = uniqueId(root, 'root');
     pushLeaf(root, rootId, 'root', undefined, 'block', options.methodBadge);
     let prev = rootId;
-    (root.slots?.body ?? []).forEach((item, i) => {
+    const body = root.slots?.body ?? [];
+    body.forEach((item, i) => {
       const itemId = visit(item, `root/body/${i}`, undefined);
-      addEdge(prev, itemId, undefined);
+      addEdge(prev, itemId, undefined, undefined, { parent: 'root', slot: 'body', index: i });
       prev = itemId;
     });
+    if (insertable) addEdge(prev, pushInsert(root, rootId, 'root', 'body', body.length, undefined), undefined);
   } else {
     visit(root, 'root', undefined);
   }
