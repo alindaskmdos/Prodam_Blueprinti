@@ -9,10 +9,10 @@ import java.util.List;
  */
 public final class LongMethod implements Detector {
     /**
-     * Порог: больше экрана (≈ 50 строк) читают с прокруткой. 40 давало шум на плоских диспетчерах
-     * (switch по командам в samples/demo Main.dispatch — 50 строк), которые дробить незачем.
+     * Порог 30 (решение человека, BE-54): при 50 правило молчало на тестовых проектах. На samples/demo
+     * срабатывает и на плоском диспетчере Main.dispatch (50 строк).
      */
-    public static final int MAX_LINES = 50;
+    public static final int MAX_LINES = 30;
 
     @Override
     public String id() {

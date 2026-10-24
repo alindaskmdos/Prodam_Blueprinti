@@ -27,6 +27,13 @@ public final class Issues {
                 m.id(), null, message, recommendation, c, List.of());
     }
 
+    /** Находка на одну строку файла метода (span — эта строка, колонка в id — col), без complexity. */
+    static Issue atLine(String rule, String severity, String confidence, MethodAnalysis m, int line, int col,
+                               String message, String recommendation) {
+        return new Issue(rule + ":" + m.id() + ":" + line + ":" + col, rule, severity, confidence, "blueprints",
+                new Span(m.file(), line, line), m.id(), null, message, recommendation, null, List.of());
+    }
+
     static Span span(MethodAnalysis m, Node at) {
         int b = at.getBegin().map(p -> p.line).orElse(m.span().startLine());
         return new Span(m.file(), b, at.getEnd().map(p -> p.line).orElse(b));

@@ -18,22 +18,22 @@ class LongMethodDeepNestingTest {
 
     @Test
     void linesAreDeclarationRange() {
-        String body = "        int x = 0;\n\n        // c\n".repeat(16) + "        x++;\n"; // 49 строк тела
+        String body = "        int x = 0;\n\n        // c\n".repeat(10) + "        x++;\n"; // 31 строка тела
         ProjectAnalysis p = analyze("class A {\n    @Deprecated\n    void big() {\n" + body + "    }\n"
-                + "    /** doc */\n    void ok() {\n" + "        x();\n".repeat(48) + "    }\n}\n");
+                + "    /** doc */\n    void ok() {\n" + "        x();\n".repeat(28) + "    }\n}\n");
         MethodAnalysis big = m(p, "p.A.big~0"), ok = m(p, "p.A.ok~0");
-        assertEquals(52, big.lines(), "аннотация в счёт");
-        assertEquals(50, ok.lines(), "javadoc не в счёт");
+        assertEquals(34, big.lines(), "аннотация в счёт");
+        assertEquals(30, ok.lines(), "javadoc не в счёт");
         List<Issue> f = LONG.detect(big, p);
         assertEquals(1, f.size());
         Issue i = f.get(0);
         assertEquals("LongMethod", i.rule());
         assertEquals("low", i.severity());
         assertEquals("high", i.confidence());
-        assertEquals(new Span("src/p/F0.java", 4, 55), i.span());
+        assertEquals(new Span("src/p/F0.java", 4, 37), i.span());
         assertNull(i.complexity());
         assertTrue(i.fixes().isEmpty());
-        assertTrue(i.message().contains("52"), i.message());
+        assertTrue(i.message().contains("34"), i.message());
         assertTrue(i.recommendation().startsWith("Выделить метод"), i.recommendation());
         assertTrue(LONG.detect(ok, p).isEmpty(), "ровно порог — не длинный");
     }
@@ -119,13 +119,14 @@ class LongMethodDeepNestingTest {
                 .filter(i -> i.rule().equals("LongMethod") || i.rule().equals("DeepNesting"))
                 .map(i -> i.rule() + " " + i.methodId() + " " + i.span().startLine() + "-" + i.span().endLine())
                 .toList();
-        assertEquals(List.of("LongMethod com.demo.service.ReportService.fullReport~0 29-84",
+        assertEquals(List.of("LongMethod com.demo.Main.dispatch~0 74-123",
+                "LongMethod com.demo.service.ReportService.fullReport~0 29-84",
                 "DeepNesting com.demo.service.ReportService.hotProducts~0 97-99"), hits);
         assertEquals(56, demo.method("com.demo.service.ReportService.fullReport~0").lines());
         assertEquals(7, demo.method("com.demo.service.ReportService.hotProducts~0").maxNesting());
         assertEquals(19, demo.method("com.demo.service.OrderService.merge~0").lines(), "как в contract/fixtures/analysis.merge.json");
         assertEquals(4, demo.method("com.demo.service.OrderService.merge~0").maxNesting(), "как в contract/fixtures/analysis.merge.json");
-        assertEquals(50, demo.method("com.demo.Main.dispatch~0").lines(), "диспетчер ровно на пороге");
+        assertEquals(50, demo.method("com.demo.Main.dispatch~0").lines(), "диспетчер выше порога 30 (BE-53)");
     }
     // samples/roundtrip без падений — ProjectAnalysisTest.wholeSampleCorpusWithoutExceptions гоняет весь DetectorRegistry.defaults().
 }

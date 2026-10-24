@@ -55,10 +55,10 @@ after O(L), severity medium. Неизвестный тип хоть одной �
 каждая if/for/for-each/while/do/switch (оператор и выражение)/try/synchronized добавляет уровень; else-if не углубляет,
 лямбда прозрачна (её тело на уровне лямбды), тела анонимных и локальных классов не считаются (аргументы `new X(…) {…}` — считаются);
 `deepestConstruct()` — первая из самых глубоких конструкций или null.
-`LongMethod` — `lines() > LongMethod.MAX_LINES` (50: больше экрана; при 40 шумел плоский диспетчер `Main.dispatch` в demo — 50 строк);
+`LongMethod` — `lines() > LongMethod.MAX_LINES` (30, решение человека BE-54: при 50 правило молчало на тестовых проектах);
 span — объявление метода. `DeepNesting` — `maxNesting() > DeepNesting.MAX_NESTING` (4: тело + цикл/цикл/условие ещё читаются);
 одна находка на метод, span — `deepestConstruct()`. Оба: severity low, confidence high, без complexity и fixes, рекомендация «Выделить метод».
-На demo: LongMethod — `ReportService.fullReport` (56 строк), DeepNesting — `ReportService.hotProducts` (7 уровней); `OrderService.merge` — 19 строк, 4 уровня.
+На demo: LongMethod — `ReportService.fullReport` (56 строк) и `Main.dispatch` (50 строк, плоский switch по командам), DeepNesting — `ReportService.hotProducts` (7 уровней); `OrderService.merge` — 19 строк, 4 уровня.
 `DeadCode` (§14а.3) — только уверенные находки: приватный метод без вызова/ссылки `::` по имени в своём top-level классе
 (самовызов не в счёт; low/high; имя есть в строковом литерале проекта — возможно, рефлексия — confidence low), локальная
 переменная-оператор без единого `NameExpr` с её именем и без ссылки на метод `имя::m` (low/high), оператор после return/throw/break/continue/yield в том же
@@ -66,6 +66,38 @@ span — объявление метода. `DeepNesting` — `maxNesting() > De
 toString/equals/hashCode/compareTo, приватные методы сериализации (writeObject/readObject/readObjectNoData/readResolve/writeReplace), методы с аннотациями (кроме Deprecated/SuppressWarnings/SafeVarargs), конструкторы,
 переменные for/for-each/try/catch. Перегрузки и лямбды — по имени. Поля и классы не проверяются (у Issue без метода нет blockId).
 На demo находок нет. `ProjectAnalysis.stringLiterals()` — значения строковых литералов проекта.
+`EmptyCatch` (§8.3) — catch-клауза без единого оператора (любой оператор, даже `;`, — не пустая); span — catch-клауза,
+severity medium, одна находка на catch (включая catch в лямбдах и анонимных классах метода). Совсем пустое тело → confidence high,
+только комментарий (возможно, намеренно) → low. message «Исключение X перехватывается и молча игнорируется» (multi-catch — `A | B`),
+recommendation — залогировать/пробросить/обработать с примером «было → стало» в тексте; без complexity и fixes. На demo находок нет.
+`CatchBug` (§8.3) — catch, маскирующий баг: по Throwable/Error (глотает OutOfMemoryError/StackOverflowError) → severity high; по
+NullPointerException, ArrayIndexOutOfBounds/IndexOutOfBounds/StringIndexOutOfBoundsException, ClassCastException, ArithmeticException → medium.
+Тип — по простому имени (иерархия не строится, подклассы проекта не считаются), multi-catch тоже; одна находка на catch, span — catch,
+все такие типы в message, confidence high, без complexity и fixes. catch с `throw` в теле (проброс, обёртка) не сообщается. Пустой такой catch даёт ещё и `EmptyCatch` — это нормально.
+На demo: `Main.handle` — `catch (IndexOutOfBoundsException)` выдаёт любой выход за границы внутри `dispatch` (в т.ч. баг в сервисах) за «missing arguments».
+`IgnoredResult` (§8.3) — оператор-выражение, отбрасывающий результат чистого вызова у неизменяемого типа: String (trim, strip, toUpperCase,
+replace, substring, concat, repeat, formatted…), BigDecimal/BigInteger (add, subtract, multiply, divide, negate, pow, setScale, shiftLeft…),
+java.time (LocalDate/LocalDateTime/LocalTime/Instant/Duration/ZonedDateTime/OffsetDateTime/Period/Year/YearMonth: plus*/minus*/with*, truncatedTo…).
+Тип получателя — `typeOf` переменной/поля (`this.x`), строковый литерал, `new` или такой же вызов в цепочке (`s.trim().toLowerCase();`);
+неизвестный тип (`var` не от `new`, результат метода, статический вызов, имя — параметр лямбды без типа или объявлено в методе
+несколько раз с разными типами — `MethodAnalysis.unambiguousTypeOf`) и тип с тем же простым именем, что у класса проекта, не сообщаются;
+тело лямбды-выражения и ветка `case X -> expr;` switch-выражения — это значение, не оператор (в switch-операторе — находка). Span — вызов, severity high, confidence high,
+recommendation «было → стало» (`s = s.trim();`; для литерала/`new` — `T result = …;`); без complexity и fixes. На demo находок нет.
+`LongLine` (§8.3) — строка метода шире `LongLine.MAX_WIDTH` = 120 (табуляция = 4; исходный текст — package-private `ProjectAnalysis.sourceLines(path)`).
+Не считаются строки-комментарии, хвостовой `//`-комментарий, строки текстового блока и строки, где превышение даёт единственный строковый литерал
+(без него ≤ 120). Одна находка на метод, span — самая длинная строка (`Issues.atLine`), в message — сколько таких строк; severity low,
+confidence high, без complexity и fixes. В recommendation «Стало:» — `LongLine.reformat(line)`: только переносы с отступом исходной
+строки и продолжением +8 — цепочка по точкам (на глубине 0 после `)`), иначе самый длинный список аргументов / инициализатор массива —
+по элементу на строку; токены не меняются. Не уложилось в 120 → «Пример:» с общей цепочкой. Ограничение: строка внутри блочного
+комментария, не начинающаяся с `*` или `/*`, считается кодом. На demo: `ReportService.fullReport`, строка 80 (123 символа).
+`ReferenceEquality` (§8.3) — `==`/`!=`, где оба операнда одного типа String или обёртки (Integer, Long, Short, Byte, Character, Boolean,
+Double, Float): объявленный тип переменной/параметра/поля (`this.x`), cast, строковый литерал, конкатенация со строкой. Не сообщаются: null,
+примитив/примитивный литерал (анбоксинг), enum и прочие типы, неизвестный тип (в т.ч. параметр лямбды без типа и имя, объявленное
+в методе несколько раз, `var` не от `new`, затеняющий поле), `this`, два литерала. Ограничения: `this.x` при одноимённом
+локале берёт тип локала; catch с условным `throw` CatchBug тоже не сообщает; IgnoredResult сообщает `s.trim();` в ветке
+`case 1: s.trim(); yield s;` switch-выражения со старым синтаксисом только как обычный оператор (это и есть отброшенный результат). `var` — по инициализатору; тип от
+вызова метода проекта (`ProjectAnalysis.typeOfExpr`) → confidence low. Span — бинарное выражение, severity high, recommendation
+«было → стало» `Objects.equals(a, b)` / `!Objects.equals(…)`; без complexity и fixes. На demo находок нет.
 
 UML (§14а.1): `ProjectAnalysis.uml()` → `UmlModel` — `classes()` (`Clazz`: id = FQN через точки, вложенный `pkg.Outer.Inner`,
 name `Outer.Inner`, kind, pkg, path, span, modifiers, typeParams, поля включая компоненты record, конструкторы/методы с id как в дереве

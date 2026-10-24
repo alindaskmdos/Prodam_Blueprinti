@@ -14,7 +14,8 @@ public final class DetectorRegistry {
 
     public static DetectorRegistry defaults() {
         return new DetectorRegistry(List.of(new NestedLoopSameCollection(), new LinearSearchInLoop(), new ExpensiveCallInLoop(),
-                new StringConcatInLoop(), new LongMethod(), new DeepNesting(), new DeadCode(), new CyclicDependency()));
+                new StringConcatInLoop(), new LongMethod(), new DeepNesting(), new DeadCode(), new EmptyCatch(), new CatchBug(), new IgnoredResult(), new LongLine(), new ReferenceEquality(),
+                new CyclicDependency()));
     }
 
     public List<Detector> detectors() {

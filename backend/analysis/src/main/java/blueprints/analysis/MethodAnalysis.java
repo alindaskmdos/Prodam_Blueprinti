@@ -172,6 +172,26 @@ public final class MethodAnalysis {
         return freshKeys.contains(symbol);
     }
 
+    /**
+     * {@link #typeOf}, но null, если имя в методе — параметр лямбды без типа, {@code var} не от {@code new} или объявлено несколько раз с разными типами
+     * (плоское пространство имён {@link #typeOf} тогда может вернуть тип одноимённого поля или другой области).
+     */
+    String unambiguousTypeOf(String variable) {
+        Set<String> declared = new LinkedHashSet<>();
+        for (Parameter p : decl.findAll(Parameter.class)) {
+            if (!p.getNameAsString().equals(variable)) continue;
+            if (p.getType().isUnknownType()) return null;
+            declared.add(simpleType(p.getType()));
+        }
+        for (VariableDeclarator v : decl.findAll(VariableDeclarator.class)) {
+            if (!v.getNameAsString().equals(variable)) continue;
+            String t = declaredType(v.getType(), v.getInitializer());
+            if (t == null) return null; // var не от new — тип неизвестен, typeOf дал бы тип одноимённого поля
+            declared.add(t);
+        }
+        return declared.size() > 1 ? null : typeOf(variable);
+    }
+
     /** Простое имя объявленного типа переменной/параметра/поля (конкретный тип из {@code new}, если есть) или null. */
     public String typeOf(String variable) {
         return types.get(variable);

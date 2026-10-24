@@ -56,7 +56,7 @@ class CliTest {
         Run r = run("analyze", DEMO);
         assertEquals(Cli.OK, r.code(), r.err());
         assertTrue(r.out().contains("src/com/demo/service/OrderService.java:44  high/high  NestedLoopSameCollection"), r.out());
-        assertTrue(r.out().contains("Методов: 109, проблем: 21"), r.out());
+        assertTrue(r.out().contains("Методов: 109, проблем: 24"), r.out());
     }
 
     @Test
@@ -65,7 +65,7 @@ class CliTest {
         assertEquals(Cli.OK, r.code(), r.err());
         JsonNode j = new ObjectMapper().readTree(r.out());
         assertEquals(10_000, j.get("n").asInt());
-        assertEquals(21, j.get("issues").size());
+        assertEquals(24, j.get("issues").size()); // +CatchBug в Main.handle (BE-51), +LongMethod Main.dispatch (BE-54), +LongLine fullReport (BE-55)
         JsonNode merge = null;
         for (JsonNode i : j.get("issues")) if (i.get("rule").asText().equals("NestedLoopSameCollection")) merge = i;
         assertNotNull(merge);
