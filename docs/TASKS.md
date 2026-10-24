@@ -39,6 +39,7 @@
 - [x] BE-42 samples/demo: `String.format` с `Locale.ROOT` (ReportService:80 и др.) — IO-тесты demo и StringBuilderFixTest зелёные под ru_RU | samples/demo | BE-41 | §13
 - [x] BE-43 Долги fixes: List/ArrayList/LinkedList по простому имени в LinkedHashSetFix (как в IndexByIdFix), StringBuilderFix — отказ на `char[]` и сохранение комментария, QualityGate — закрыть StandardJavaFileManager, без системного компилятора отказ вместо NPE, Refactoring получает unmodifiable карту | fixes | BE-18…BE-21 | §9
 - [x] BE-44 Долги app: PUT files пересчитывает предупреждения загрузки/mainClasses/дубликаты FQN; verify не пропускает main при битых tests/*.json; ProjectsApiTest.javaJar ждёт/убивает процесс java | app | BE-07, BE-38, BE-36 | §11, §12
+- [ ] BE-45 runner: `--release 21` в Runner.run (на JDK 22 demo приходит original_fails); Instrumenter — при отказе вставки/некомпилируемой копии файл без вставок, атомарная запись trace-файла, `docker exec cat` в общем бюджете времени; тесты на jar без инструментации и halt → hits null | runner | BE-27 | §11а, §14а.6
 
 ## Frontend
 
@@ -73,7 +74,7 @@
 - [ ] CT-03 Контракт для пп.5–9: сложность по памяти, покрытие, шаблоны, консоль | contract | — | §14а
 - [ ] BE-26 Сложность по памяти | analysis | BE-12, CT-03 | §14а.5
 - [ ] FE-19 Второй бейдж «память», в карточке фикса до/после | analysis-panel, editor-nodes | FE-11, CT-03 | §14а.5
-- [ ] BE-27 Инструментация `Trace.hit(int)` в копии для запуска по правилам §14а.6, тесты на корпусе | runner | BE-08 | §14а.6
+- [x] BE-27 Инструментация `Trace.hit(int)` в копии для запуска по правилам §14а.6, тесты на корпусе | runner | BE-08 | §14а.6
 - [ ] BE-28 Покрытие нод по кнопке (отдельный прогон), «неполное» при таймауте, процент | testing, app | BE-27, BE-10, CT-03 | §14а.6
 - [ ] FE-20 Серые непокрытые ноды, счётчики, процент в панели тестов | editor-nodes, tests-panel | FE-12, CT-03 | §14а.6
 - [ ] FE-21 Экспорт схем и диаграмм в PNG/SVG | editor-nodes, diagrams | FE-03 | §14а.7

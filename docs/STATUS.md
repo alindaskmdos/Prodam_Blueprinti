@@ -7,10 +7,10 @@
 
 ## Backend
 
-**Готово:** BE-01…BE-21, BE-24, BE-36…BE-44 — весь обязательный путь бэкенда (загрузка/экспорт zip и jar, ноды ↔ код, валидация, анализ + 6 детекторов, 3 фикса + Quality Gate, тесты IO/JUnit, run/verify, все эндпоинты контракта); CT-01 (+ правки BE-38 по решению человека).
-**В работе:** BE-27 (runner, инструментация Trace.hit), BE-32 (cli) — исполнители в worktree.
+**Готово:** BE-01…BE-21, BE-24, BE-27, BE-36…BE-44 — весь обязательный путь бэкенда (загрузка/экспорт zip и jar, ноды ↔ код, валидация, анализ + 6 детекторов, 3 фикса + Quality Gate, тесты IO/JUnit, run/verify, все эндпоинты контракта); CT-01 (+ правки BE-38 по решению человека).
+**В работе:** BE-32 (cli) — исполнители в worktree.
 - FE-09 — палитра и drag на стрелку: ГОТОВ, verifier-проверки зелёные (306 тестов, build, без конфликтов с main, без трейлеров), коммит 88f441b в ветке worktree-agent-a34eab9338d69c95d. Осталось: reviewer → merge --squash. Подсветка самой стрелки при drag в браузере не проверена.
-**Висящие ветки/worktree:** FE-09, BE-27, BE-32. Папки старых worktree в .claude/worktrees не удаляются из-за длинных путей Windows, стирать вручную. На origin устаревшая ветка be-5 — `git push origin --delete be-5`.
+**Висящие ветки/worktree:** FE-09, BE-32. Папки старых worktree в .claude/worktrees не удаляются из-за длинных путей Windows, стирать вручную. На origin устаревшая ветка be-5 — `git push origin --delete be-5`.
 **Заблокировано:** —
 **Следующие шаги:** бэкенд обязательного пути закрыт — дальше по просьбе человека: долги из «Известных проблем» или задачи «Если успеем» (BE-32 CLI). В брифах исполнителям: работать от текущего main, не трогать docs/ и contract/, Docker запущен (тесты с Docker должны реально выполняться), сразу учитывать типичные дыры фиксов (алиасы, views, сторонние вызовы, null, == на обёртках, наследники/анонимные подклассы в src и tests).
 
@@ -35,7 +35,7 @@
 - Windows: 2 теста RunnerTest (fakeDocker) пропускаются — нужен /bin/bash.
 - testing: TestResult/IoTestCase пока свои типы в `testing` — после BE-05 заменить на `model` адаптером.
 - analysis/DeadCode: поля и классы не проверяются (Issue без метода — нет blockId); вызовы из tests/*.java не учитываются (app передаёт только project.files()); правило «код после return/throw» на компилируемом коде не срабатывает (javac отклоняет) — только после правки нод.
-- runner: Runner.run компилирует без `--release 21` — на JDK 22 IO-тесты demo приходят original_fails (verify/app/cli). Нужна задача runner после BE-27.
+- runner: Runner.run компилирует без `--release 21` — на JDK 22 IO-тесты demo приходят original_fails (verify/app/cli) → BE-45.
 - fixes/QualityGate: битые tests/*.json не учитываются (в verify уже warning + incomplete).
 - testing/JUnit: причина compile_error («тесты» vs «программа») определяется по простому имени файла — при совпадении имён может быть неверной.
 - Фронт: UploadScreen.test «папка (webkitdirectory) уходит multipart-запросом» падает на main (Content-Type text/plain вместо multipart) — до правки фикстуры, задача фронту.
@@ -105,3 +105,4 @@
 - CT-01 (правка): analysis.merge.json fixes = [index-by-id] вместо index-by-key + 2 теста фронта — по решению человека.
 - BE-24: DeadCode — приватный метод без вызова/`::` в своём top-level классе (low/high; имя в строковом литерале → low/low), неиспользуемая локальная (low/high), код после return/throw/break/continue/yield (medium/high); исключения main, toString/equals/hashCode/compareTo, сериализация, аннотированные, конструкторы; неприватные не сообщаются (решение человека). Demo — 0 находок. 2 круга ревью.
 - BE-44: PUT files/blocks — повторный ProjectLoader.load (пакет, предупреждения, mainClasses), 422 DUPLICATE_FQN / LIMIT_EXCEEDED (решение человека), заглушка корня только при общей верхней папке; verify — warning на битый tests/*.json, green → incomplete; javaJar — waitFor + destroyForcibly. 2 круга ревью.
+- BE-27: Instrumenter — `__blueprints.Trace.hit(id)` перед каждой нодой как в AstToBlocks (метод, оператор, case, catch; не внутрь raw/лямбд/анонимных/switch-выражений), в той же строке; конструктор — после super()/this(); Rewrite.TRACE, RunResult.hits (long[] по id, null без файла), probes (file, methodId, path без comment, line, col); таймаут ×3; jar не инструментируется. Для BE-28: path составного оператора, ставшего raw в AstToBlocks, нет в дереве — пропускать; индексы cases/catches в AstToBlocks с comment, в probes без.
