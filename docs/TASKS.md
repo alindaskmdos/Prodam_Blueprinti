@@ -19,7 +19,7 @@
 - [x] BE-36 Экспорт исполняемого .jar из чистого кода (манифест Main-Class, без tests/ и .blueprints/), тест через `java -jar` на IO-тестах | runner, app | BE-08, BE-09 | §11
 - [x] BE-37 Эндпоинты GET blocks / GET files / GET analysis (представления из ProjectView) | app | BE-07 | §12
 - [x] BE-38 Эндпоинты тестов (GET tests, GET/PUT/DELETE tests/{name}), POST run, POST verify | app | BE-09, BE-10, BE-11 | §10, §12
-- [ ] BE-39 GET /tree через ProjectView.tree (complexity, issueCount обязателен по схеме); параметр `n` у GET analysis пересчитывает ops | app, analysis | BE-37 | §8.4, §12
+- [x] BE-39 GET /tree через ProjectView.tree (complexity, issueCount обязателен по схеме); параметр `n` у GET analysis пересчитывает ops | app, analysis | BE-37 | §8.4, §12
 - [x] BE-40 POST issues/{issueId}/fix (QualityGate + RefactoringRegistry, version/diff в FixResult); Issue.fixes = id фиксов с canApply (пусто при confidence=low) | app | BE-19, BE-38 | §9, §12
 - [x] BE-41 samples/demo: место, где безопасен фикс contains → LinkedHashSet (локальный список из `new` в том же методе, без сторонних вызовов в цикле); IO-тесты demo зелёные, тесты детекторов/фиксов на demo обновить | samples/demo | BE-20 | §13
 - [x] BE-08 Runner: Docker, лимиты, таймаут, переписывание для запуска (seed) | runner | BE-01 | §11а, §10.4
