@@ -1,12 +1,14 @@
 import {
   Background,
   BackgroundVariant,
+  ControlButton,
   Controls,
   MiniMap,
   Panel,
   ReactFlow,
   useReactFlow,
   type Edge,
+  type FitViewOptions,
   type Node,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -30,7 +32,14 @@ import { collapsedPaths, containerEntries, keysInSlot, lockedPaths, revealKeys }
 import { CollapseContext, type CollapseApi } from './collapseContext';
 import { NodeEditContext, type NodeEditApi } from './editContext';
 import { FOCUS_ZOOM, flowNodeOfBlock, useFocusCenter, type FocusRequest } from './focus';
-import { computeInitialView, graphBounds, type InitialView } from './initialView';
+import {
+  MINIMAP_INSET,
+  TOP_BAR_INSET,
+  computeInitialView,
+  graphBounds,
+  type InitialView,
+  type Insets,
+} from './initialView';
 import { layoutGraph } from './layout';
 import { edgeTypes, nodeTypes } from './nodeTypes';
 import { kindMeta } from './kinds';
@@ -82,20 +91,30 @@ export interface MethodGraphProps {
 }
 
 /** Внутри <ReactFlow>: центрирует схему на ноде запроса (нужен экземпляр из контекста React Flow). */
-function FocusCenter({ targetNodeId, seq, done }: { targetNodeId: string | null; seq: number | null; done: { current: number | null } }) {
+function FocusCenter({
+  targetNodeId,
+  seq,
+  done,
+  getArea,
+}: {
+  targetNodeId: string | null;
+  seq: number | null;
+  done: { current: number | null };
+  getArea: () => { size: { width: number; height: number }; insets: Insets } | undefined;
+}) {
   const rf = useReactFlow();
-  useFocusCenter(rf, targetNodeId, seq, done);
+  useFocusCenter(rf, targetNodeId, seq, done, getArea);
   return null;
 }
 
-/** Клавиша пришла из поля ввода (инлайн-редактор, Monaco) — не команда схемы. */
+/** Клавиша пришла из поля ввода (инлайн-редактор, Monaco) или с кнопки / ссылки / пункта меню — не команда схемы. */
 function fromTextInput(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
+  return target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'A'].includes(target.tagName) || target.closest('[role="menuitem"]') !== null);
 }
 
 /**
  * Схема метода: дерево блоков → ELK → React Flow. С `edit` — тексты нод правятся (FE-07), «+» на стрелках,
- * удаление и вверх/вниз (FE-08): Delete / Alt+↑ / Alt+↓ на выделенной ноде.
+ * удаление и вверх/вниз (FE-08): Delete или Backspace / Enter / Alt+↑ / Alt+↓ на выделенной ноде.
  */
 export function MethodGraph({
   view,
@@ -112,6 +131,13 @@ export function MethodGraph({
   // Вид (FE-06): сворачивание и комментарии — состояние клиента, дерево и PUT не меняются.
   const showComments = useEditorView((s) => s.showComments);
   const setShowComments = useEditorView((s) => s.setShowComments);
+  const showMinimap = useEditorView((s) => s.showMinimap);
+  const setShowMinimap = useEditorView((s) => s.setShowMinimap);
+  // Поля, занятые оверлеями: верхняя панель и (если показана) мини-карта. Начальный вид и полёт к блоку их обходят.
+  const insets = useMemo<Insets>(
+    () => ({ top: TOP_BAR_INSET, left: 0, right: showMinimap ? MINIMAP_INSET.right : 0, bottom: showMinimap ? MINIMAP_INSET.bottom : 0 }),
+    [showMinimap],
+  );
   const setCollapsedKeys = useEditorView((s) => s.setCollapsed);
   const overrides = useCollapseOverrides(methodId);
   // Открытый редактор и красные ноды всегда видны: их контейнеры не сворачиваются, комментарий не скрывается.
@@ -179,16 +205,24 @@ export function MethodGraph({
     setRawSelection(s ? { ...s, root: view.root } : null);
   const selected = selection?.path ?? null;
   const editRef = useRef(edit);
+  const selectedEditable = useRef(false);
+  selectedEditable.current = graph.nodes.some((n) => n.id === selection?.id && n.data.editable);
 
   useEffect(() => {
     if (!insertable || selected === null || selected === 'root') return;
     const onKey = (e: KeyboardEvent) => {
       const api = editRef.current;
       if (!api || fromTextInput(e.target) || e.defaultPrevented) return;
-      if (e.key === 'Delete') {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        // Тот же путь, что у ✕ на ноде (edit.remove: confirm для контейнера с содержимым).
         e.preventDefault();
         api.remove(selected);
         setSelection(null);
+      } else if (e.key === 'Enter' && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        // Enter на выделенной ноде — править её текст, как ✎ / двойной клик.
+        if (!selectedEditable.current) return;
+        e.preventDefault();
+        api.startEdit(selected);
       } else if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
         const delta = e.key === 'ArrowUp' ? -1 : 1;
         if (!api.canMove(selected, delta)) return;
@@ -291,11 +325,21 @@ export function MethodGraph({
     const size = el ? { width: el.clientWidth, height: el.clientHeight } : null;
     initialViewRef.current = {
       methodId: view.methodId,
-      view: initialFit ? { mode: 'fit' } : computeInitialView(graphBounds(layout.flow.nodes), size),
+      view: initialFit ? { mode: 'fit' } : computeInitialView(graphBounds(layout.flow.nodes), size, undefined, insets),
     };
   }
   const startView = initialViewRef.current?.methodId === view.methodId ? initialViewRef.current.view : null;
   const topViewport = startView?.mode === 'top' ? startView.viewport : null;
+  // Поля как у padding 0.1 (≈4.5% стороны), но сверху / справа / снизу — не меньше занятого оверлеями.
+  const side = (px: number): `${number}px` | `${number}%` => (px > 0 ? `${px}px` : '4.5%');
+  const fitViewOptions: FitViewOptions = {
+    padding: { top: side(insets.top), right: side(insets.right), bottom: side(insets.bottom), left: side(insets.left) },
+    ...(initialFit ?? {}),
+  };
+  const getArea = useCallback(() => {
+    const el = canvasRef.current;
+    return el ? { size: { width: el.clientWidth, height: el.clientHeight }, insets } : undefined;
+  }, [insets]);
 
   return (
     <NodeEditContext.Provider value={guardedEdit ?? null}>
@@ -334,11 +378,14 @@ export function MethodGraph({
           edgesFocusable={false}
           edgesReconnectable={false}
           deleteKeyCode={null}
+          // Групповых действий нет — рамка выделения и мультивыбор выключены.
+          selectionKeyCode={null}
+          multiSelectionKeyCode={null}
           zoomOnDoubleClick={false}
           colorMode="dark"
           fitView={topViewport === null}
           {...(topViewport ? { defaultViewport: topViewport } : {})}
-          {...(initialFit ? { fitViewOptions: initialFit } : {})}
+          fitViewOptions={fitViewOptions}
           minZoom={0.1}
           proOptions={{ hideAttribution: true }}
         >
@@ -349,39 +396,49 @@ export function MethodGraph({
             color="var(--jb-border-strong)"
             bgColor="var(--jb-bg)"
           />
-          <Controls showInteractive={false} />
-          <MiniMap
-            className={styles.minimap}
-            nodeColor={miniColor}
-            nodeStrokeColor={miniStroke}
-            nodeStrokeWidth={2}
-            nodeBorderRadius={4}
-            bgColor="var(--jb-panel)"
-            maskColor="rgba(11, 14, 19, 0.6)"
-            pannable
-            zoomable
-            ariaLabel="Мини-карта схемы"
-          />
-          {edit && (
-            <Panel position="top-left">
-              <BlockPalette />
-            </Panel>
+          <Controls showInteractive={false}>
+            <ControlButton
+              onClick={() => setShowMinimap(!showMinimap)}
+              title={showMinimap ? 'Скрыть мини-карту' : 'Показать мини-карту'}
+              aria-label={showMinimap ? 'Скрыть мини-карту' : 'Показать мини-карту'}
+              aria-pressed={showMinimap}
+            >
+              <span aria-hidden="true">▦</span>
+            </ControlButton>
+          </Controls>
+          {showMinimap && (
+            <MiniMap
+              className={styles.minimap}
+              style={{ width: 140, height: 90 }}
+              nodeColor={miniColor}
+              nodeStrokeColor={miniStroke}
+              nodeStrokeWidth={2}
+              nodeBorderRadius={4}
+              bgColor="var(--jb-panel)"
+              maskColor="rgba(11, 14, 19, 0.6)"
+              pannable
+              zoomable
+              ariaLabel="Мини-карта схемы"
+            />
           )}
-          <Panel position="top-right">
-            <div className={styles.viewBar} data-testid="view-bar">
-              <label>
-                <input type="checkbox" checked={showComments} onChange={(e) => setShowComments(e.target.checked)} />
-                Комментарии
-              </label>
-              <button type="button" onClick={() => setAll(false)}>
-                Развернуть всё
-              </button>
-              <button type="button" onClick={() => setAll(true)}>
-                Свернуть всё
-              </button>
+          <Panel position="top-left">
+            <div className={`${styles.topBar} nodrag nopan`}>
+              {edit && <BlockPalette />}
+              <div className={styles.viewBar} data-testid="view-bar">
+                <label>
+                  <input type="checkbox" checked={showComments} onChange={(e) => setShowComments(e.target.checked)} />
+                  Комментарии
+                </label>
+                <button type="button" onClick={() => setAll(false)} title="Развернуть всё" aria-label="Развернуть всё">
+                  Развернуть
+                </button>
+                <button type="button" onClick={() => setAll(true)} title="Свернуть всё" aria-label="Свернуть всё">
+                  Свернуть
+                </button>
+              </div>
             </div>
           </Panel>
-          <FocusCenter targetNodeId={focusNodeId} seq={focusSeq} done={focusDone} />
+          <FocusCenter targetNodeId={focusNodeId} seq={focusSeq} done={focusDone} getArea={getArea} />
         </ReactFlow>
       )}
     </div>

@@ -5,7 +5,7 @@ import { resetAppState, useAppStore } from '../../app/store';
 import { server } from '../../mocks/server';
 import { createApiClient, type Schemas } from '../api';
 import { MethodCanvas } from './index';
-import { resetEditorView, SHOW_COMMENTS_KEY, useEditorView } from './viewStore';
+import { resetEditorView, SHOW_COMMENTS_KEY, SHOW_MINIMAP_KEY, useEditorView } from './viewStore';
 
 beforeAll(() => {
   globalThis.ResizeObserver ??= class {
@@ -114,10 +114,16 @@ describe('MethodCanvas — сворачивание, мини-карта, ком
     expect(flowNode('f4#head')).not.toBeNull();
   }, 20_000);
 
-  it('мини-карта рендерится', async () => {
+  it('мини-карта по умолчанию скрыта; кнопка в Controls показывает и скрывает, выбор запоминается', async () => {
     await renderDeep();
+    expect(document.querySelector('.react-flow__minimap')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Показать мини-карту' }));
     expect(document.querySelector('.react-flow__minimap')).not.toBeNull();
     expect(screen.getByRole('img', { name: 'Мини-карта схемы' })).toBeInTheDocument();
+    expect(localStorage.getItem(SHOW_MINIMAP_KEY)).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'Скрыть мини-карту' }));
+    expect(document.querySelector('.react-flow__minimap')).toBeNull();
+    localStorage.removeItem(SHOW_MINIMAP_KEY);
   }, 15_000);
 
   it('«Свернуть всё» / «Развернуть всё»; клик по свёрнутому разворачивает', async () => {

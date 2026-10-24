@@ -1,6 +1,7 @@
 import type { Node } from '@xyflow/react';
 import { useEffect, useRef, type MutableRefObject } from 'react';
 import type { GraphNodeData } from './blocksToGraph';
+import type { Insets, Size } from './initialView';
 
 /** Ноды, которые изображают сам блок (не рамки контейнера/ветки и не «+»). */
 const BLOCK_TYPES = new Set(['block', 'raw', 'comment']);
@@ -39,14 +40,23 @@ export function prefersReducedMotion(): boolean {
 }
 
 /** Центрирует схему на ноде (абсолютные координаты — с учётом родительских групп). false — ноды нет. */
-export function centerOnNode(rf: CenterApi, nodeId: string, reducedMotion = prefersReducedMotion()): boolean {
+export function centerOnNode(
+  rf: CenterApi,
+  nodeId: string,
+  reducedMotion = prefersReducedMotion(),
+  area?: { size: Size; insets: Insets },
+): boolean {
   const node = rf.getInternalNode(nodeId);
   if (!node) return false;
   const { x, y } = node.internals.positionAbsolute;
   const w = node.measured?.width ?? node.width ?? 0;
   const h = node.measured?.height ?? node.height ?? 0;
-  void rf.setCenter(x + w / 2, y + h / 2, {
-    zoom: Math.max(rf.getZoom(), FOCUS_ZOOM),
+  const zoom = Math.max(rf.getZoom(), FOCUS_ZOOM);
+  // Нода — в центре свободной области (без оверлеев): центр вида сдвигается на разницу центров.
+  const shiftX = area ? (area.insets.right - area.insets.left) / 2 / zoom : 0;
+  const shiftY = area ? (area.insets.bottom - area.insets.top) / 2 / zoom : 0;
+  void rf.setCenter(x + w / 2 + shiftX, y + h / 2 + shiftY, {
+    zoom,
     duration: reducedMotion ? 0 : FOCUS_DURATION_MS,
   });
   return true;
@@ -67,8 +77,11 @@ export function useFocusCenter(
   targetNodeId: string | null,
   seq: number | null,
   done: MutableRefObject<number | null>,
+  getArea?: () => { size: Size; insets: Insets } | undefined,
 ): void {
   const first = useRef(true);
+  const areaRef = useRef(getArea);
+  areaRef.current = getArea;
   useEffect(() => {
     // Первый показ схемы: на ноду уже навёл начальный fitView (fitViewOptions.nodes) — повторно не двигаем.
     if (first.current) {
@@ -79,6 +92,6 @@ export function useFocusCenter(
       }
     }
     if (!rf || targetNodeId === null || seq === null || done.current === seq) return;
-    if (centerOnNode(rf, targetNodeId)) done.current = seq;
+    if (centerOnNode(rf, targetNodeId, prefersReducedMotion(), areaRef.current?.())) done.current = seq;
   }, [rf, targetNodeId, seq, done]);
 }

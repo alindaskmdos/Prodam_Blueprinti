@@ -17,6 +17,20 @@ export interface Size {
   height: number;
 }
 
+/** Поля холста, занятые оверлеями (панель сверху, мини-карта): схема и цель полёта не должны уходить под них. */
+export interface Insets {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
+export const NO_INSETS: Insets = { top: 0, right: 0, bottom: 0, left: 0 };
+/** Высота верхней панели (кнопка палитры, вид) с отступом: нода метода начинается ниже. */
+export const TOP_BAR_INSET = 52;
+/** Мини-карта (когда показана) в правом нижнем углу. */
+export const MINIMAP_INSET = { right: 160, bottom: 110 };
+
 export type InitialView = { mode: 'fit' } | { mode: 'top'; viewport: { x: number; y: number; zoom: number } };
 
 type BoundsNode = Pick<Node, 'id' | 'parentId' | 'position' | 'width' | 'height'>;
@@ -56,17 +70,26 @@ export function graphBounds(nodes: readonly BoundsNode[]): Rect | null {
  * вписывается (но не мельче порога и не крупнее 1), при нехватке ширины прижимается к левому краю (нода метода),
  * иначе центрируется. Размер холста неизвестен или схема пуста — обычный fitView.
  */
-export function computeInitialView(bounds: Rect | null, size: Size | null, minZoom = MIN_READABLE_ZOOM): InitialView {
+export function computeInitialView(
+  bounds: Rect | null,
+  size: Size | null,
+  minZoom = MIN_READABLE_ZOOM,
+  insets: Insets = NO_INSETS,
+): InitialView {
   if (!bounds || !size || size.width <= 0 || size.height <= 0 || bounds.width <= 0 || bounds.height <= 0) return { mode: 'fit' };
-  const availW = size.width / (1 + FIT_PADDING);
-  const availH = size.height / (1 + FIT_PADDING);
+  // Свободная область холста без оверлеев.
+  const areaW = size.width - insets.left - insets.right;
+  const areaH = size.height - insets.top - insets.bottom;
+  if (areaW <= 0 || areaH <= 0) return { mode: 'fit' };
+  const availW = areaW / (1 + FIT_PADDING);
+  const availH = areaH / (1 + FIT_PADDING);
   const widthZoom = availW / bounds.width;
   const fitZoom = Math.min(widthZoom, availH / bounds.height);
   if (fitZoom >= minZoom) return { mode: 'fit' };
   const zoom = Math.min(1, Math.max(minZoom, widthZoom));
-  const margin = (size.width - availW) / 2;
+  const margin = insets.left + (areaW - availW) / 2;
   const w = bounds.width * zoom;
-  const x = w <= availW ? (size.width - w) / 2 - bounds.x * zoom : margin - bounds.x * zoom;
-  const y = (size.height - availH) / 2 - bounds.y * zoom;
+  const x = w <= availW ? insets.left + (areaW - w) / 2 - bounds.x * zoom : margin - bounds.x * zoom;
+  const y = insets.top + (areaH - availH) / 2 - bounds.y * zoom;
   return { mode: 'top', viewport: { x, y, zoom } };
 }

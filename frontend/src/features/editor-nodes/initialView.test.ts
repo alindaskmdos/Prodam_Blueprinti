@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MIN_READABLE_ZOOM, computeInitialView, graphBounds } from './initialView';
+import { MIN_READABLE_ZOOM, TOP_BAR_INSET, computeInitialView, graphBounds } from './initialView';
 
 const size = { width: 1000, height: 600 };
 
@@ -42,5 +42,20 @@ describe('computeInitialView', () => {
     if (v.mode !== 'top') return;
     expect(v.viewport.zoom).toBe(MIN_READABLE_ZOOM);
     expect(v.viewport.x).toBeGreaterThanOrEqual(0);
+  });
+  it('поля оверлеев: верх схемы начинается ниже верхней панели', () => {
+    const insets = { top: TOP_BAR_INSET, right: 0, bottom: 0, left: 0 };
+    const v = computeInitialView({ x: 50, y: 20, width: 300, height: 6000 }, size, MIN_READABLE_ZOOM, insets);
+    expect(v.mode).toBe('top');
+    if (v.mode !== 'top') return;
+    expect(20 * v.viewport.zoom + v.viewport.y).toBeGreaterThanOrEqual(TOP_BAR_INSET);
+    expect(computeInitialView({ x: 0, y: 0, width: 600, height: 400 }, size, MIN_READABLE_ZOOM, insets)).toEqual({ mode: 'fit' });
+  });
+  it('занятая правая часть (мини-карта) не перекрывает схему', () => {
+    const insets = { top: 0, right: 300, bottom: 0, left: 0 };
+    const v = computeInitialView({ x: 0, y: 0, width: 300, height: 6000 }, size, MIN_READABLE_ZOOM, insets);
+    expect(v.mode).toBe('top');
+    if (v.mode !== 'top') return;
+    expect(300 * v.viewport.zoom + v.viewport.x).toBeLessThanOrEqual(size.width - insets.right);
   });
 });

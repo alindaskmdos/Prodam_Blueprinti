@@ -7,6 +7,7 @@ import { server } from '../../mocks/server';
 import { createApiClient, type Schemas } from '../api';
 import { MethodCanvas } from './index';
 import styles from './MethodCanvas.module.css';
+import { PALETTE_OPEN_KEY, resetEditorView, useEditorView } from './viewStore';
 
 // React Flow в jsdom требует ResizeObserver и DOMMatrixReadOnly.
 beforeAll(() => {
@@ -166,12 +167,16 @@ describe('MethodCanvas — правка текста в ноде (FE-07)', () =>
 
 describe('MethodCanvas — вставка, удаление, вверх/вниз (FE-08)', () => {
   beforeEach(() => {
+    localStorage.clear();
+    resetEditorView();
     resetAppState();
     useAppStore.getState().openProject('p-1', 7);
   });
   afterEach(() => {
     server.events.removeAllListeners();
     vi.restoreAllMocks();
+    localStorage.clear();
+    resetEditorView();
   });
 
   function bodies(): { version: number; root: Schemas['Block'] }[] {
@@ -212,6 +217,7 @@ describe('MethodCanvas — вставка, удаление, вверх/вниз
   }, 20_000);
 
   describe('палитра и drag (FE-09)', () => {
+    beforeEach(() => useEditorView.getState().setPaletteOpen(true)); // по умолчанию свёрнута (FE-37)
     // Стрелки React Flow в jsdom не рисуются (нет измеренных нод), поэтому через холст проверяем drop на «+»
     // в конце слота — это та же drop-цель, что и стрелка; сама стрелка — в FlowEdge.drop.test.tsx.
     const dt = (kind?: string) => ({ types: [], getData: () => kind ?? '', setData: () => {}, dropEffect: '', effectAllowed: '' });
@@ -313,6 +319,86 @@ describe('MethodCanvas — вставка, удаление, вверх/вниз
     expect(confirm).toHaveBeenCalledTimes(1);
     expect(sent[0]?.root.slots.body?.map((x) => x.kind)).toEqual(['var', 'for']);
     await waitFor(() => expect(screen.queryByTestId('node-return')).not.toBeInTheDocument());
+  }, 20_000);
+
+  it('палитра по умолчанию свёрнута в «+ Блок», не закрывает схему; раскрытие запоминается (FE-37)', async () => {
+    render(<MethodCanvas projectId="p-1" methodId={methodId} client={client} />);
+    await screen.findByTestId('node-method', {}, { timeout: 10_000 });
+    expect(screen.queryByTestId('palette')).not.toBeInTheDocument();
+    const toggle = screen.getByTestId('palette-toggle');
+    expect(toggle).toHaveTextContent('+ Блок');
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(toggle);
+    expect(screen.getByTestId('palette')).toBeInTheDocument();
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(localStorage.getItem(PALETTE_OPEN_KEY)).toBe('true');
+    resetEditorView(); // «перезагрузка»: состояние читается из localStorage
+    expect(useEditorView.getState().paletteOpen).toBe(true);
+
+    fireEvent.click(toggle);
+    expect(screen.queryByTestId('palette')).not.toBeInTheDocument();
+    expect(localStorage.getItem(PALETTE_OPEN_KEY)).toBe('false');
+  }, 20_000);
+
+  it('Backspace на выделенной ноде — то же удаление, что ✕ (confirm для контейнера); в поле ввода — нет', async () => {
+    const sent = bodies();
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    render(<MethodCanvas projectId="p-1" methodId={methodId} client={client} />);
+    await screen.findByTestId('node-method', {}, { timeout: 10_000 });
+    const select = async (el: HTMLElement) => {
+      const flowNode = el.closest('.react-flow__node') as HTMLElement;
+      fireEvent.click(flowNode);
+      await waitFor(() => expect(flowNode).toHaveClass('selected'));
+    };
+
+    await select(screen.getByTestId('node-return'));
+    const input = document.createElement('input');
+    document.body.append(input);
+    fireEvent.keyDown(input, { key: 'Backspace' });
+    input.remove();
+    expect(sent).toHaveLength(0);
+
+    await select(screen.getAllByTestId('node-for')[0] as HTMLElement);
+    fireEvent.keyDown(document.body, { key: 'Backspace' });
+    expect(confirm).toHaveBeenCalledTimes(1); // контейнер с содержимым — спрашивает, отказ — ничего не удалено
+    expect(sent).toHaveLength(0);
+
+    await select(screen.getByTestId('node-return'));
+    fireEvent.keyDown(document.body, { key: 'Backspace' });
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]?.root.slots.body?.map((x) => x.kind)).toEqual(['var', 'for']);
+  }, 30_000);
+
+  it('Enter на выделенной ноде открывает правку текста', async () => {
+    render(<MethodCanvas projectId="p-1" methodId={methodId} client={client} />);
+    await screen.findByTestId('node-method', {}, { timeout: 10_000 });
+    fireEvent.keyDown(document.body, { key: 'Enter' }); // ничего не выделено
+    expect(screen.queryByTestId('node-editor')).not.toBeInTheDocument();
+
+    const ret = screen.getByTestId('node-return').closest('.react-flow__node') as HTMLElement;
+    fireEvent.click(ret);
+    await waitFor(() => expect(ret).toHaveClass('selected'));
+    fireEvent.keyDown(document.body, { key: 'Enter' });
+    expect(await screen.findByTestId('node-editor')).toBeInTheDocument();
+  }, 20_000);
+
+  it('Enter / Delete на сфокусированной кнопке при выделенной ноде не перехватываются схемой', async () => {
+    const sent = bodies();
+    render(<MethodCanvas projectId="p-1" methodId={methodId} client={client} />);
+    await screen.findByTestId('node-method', {}, { timeout: 10_000 });
+    const ret = screen.getByTestId('node-return').closest('.react-flow__node') as HTMLElement;
+    fireEvent.click(ret);
+    await waitFor(() => expect(ret).toHaveClass('selected'));
+    const btn = plus('root/body/3');
+    btn.focus();
+    fireEvent.keyDown(btn, { key: 'Enter' });
+    fireEvent.keyDown(btn, { key: 'Delete' });
+    expect(screen.queryByTestId('node-editor')).not.toBeInTheDocument();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(sent).toHaveLength(0);
+    fireEvent.click(btn); // нативное нажатие кнопки по-прежнему открывает меню «+»
+    expect(screen.getByRole('menu', { name: 'Вставить блок' })).toBeInTheDocument();
   }, 20_000);
 
   it('Delete на выделенной ноде — удаление; в поле ввода — нет', async () => {

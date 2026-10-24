@@ -13,6 +13,7 @@ import { useEffect, useRef, useState, type DragEvent, type MouseEvent as ReactMo
 import type { GraphNodeData } from './blocksToGraph';
 import { STATEMENT_OPTIONS, type InsertOption, type InsertPoint } from './blockTree';
 import { useNodeEdit } from './editContext';
+import { useEditorView } from './viewStore';
 import type { BlockKind } from './kinds';
 import type { FlowEdgeData } from './toFlow';
 import styles from './MethodCanvas.module.css';
@@ -21,35 +22,55 @@ import styles from './MethodCanvas.module.css';
 const DRAG_MIME = 'application/x-jb-block';
 let draggedKind: BlockKind | null = null;
 
-/** Палитра типов блоков (FE-09): те же kind, что в меню «+»; тащится на стрелку схемы. Без drag — «+». */
+/**
+ * Палитра типов блоков (FE-09): те же kind, что в меню «+»; тащится на стрелку схемы. Без drag — «+».
+ * По умолчанию свёрнута в кнопку «+ Блок» (раскрытая закрывала левую треть холста); состояние запоминается.
+ */
 export function BlockPalette() {
   const edit = useNodeEdit();
+  const open = useEditorView((s) => s.paletteOpen);
+  const setOpen = useEditorView((s) => s.setPaletteOpen);
   if (!edit) return null;
   return (
-    <div className={`${styles.palette} nodrag nopan`} role="list" aria-label="Палитра блоков" data-testid="palette">
-      {STATEMENT_OPTIONS.map((o) => (
-        <div
-          key={o.kind}
-          role="listitem"
-          className={styles.paletteItem}
-          draggable={edit.structure}
-          aria-disabled={!edit.structure}
-          aria-label={`Перетащить на стрелку: ${o.label}`}
-          title={`${o.label} — перетащите на стрелку (или нажмите «+» на ней)`}
-          data-kind={o.kind}
-          onDragStart={(e) => {
-            draggedKind = o.kind;
-            e.dataTransfer.setData(DRAG_MIME, o.kind);
-            e.dataTransfer.effectAllowed = 'copy';
-          }}
-          onDragEnd={() => {
-            draggedKind = null;
-          }}
-        >
-          <span className={styles.menuSwatch} style={{ background: `var(--jb-node-${o.kind})` }} aria-hidden="true" />
-          {o.label}
+    <div className={`${styles.paletteWrap} nodrag nopan`}>
+      <button
+        type="button"
+        className={styles.paletteToggle}
+        aria-expanded={open}
+        aria-label="Палитра блоков"
+        title={open ? 'Свернуть палитру блоков' : 'Палитра блоков: перетащите блок на стрелку схемы'}
+        data-testid="palette-toggle"
+        onClick={() => setOpen(!open)}
+      >
+        {open ? '× Блок' : '+ Блок'}
+      </button>
+      {open && (
+        <div className={styles.palette} role="list" aria-label="Палитра блоков" data-testid="palette">
+          {STATEMENT_OPTIONS.map((o) => (
+            <div
+              key={o.kind}
+              role="listitem"
+              className={styles.paletteItem}
+              draggable={edit.structure}
+              aria-disabled={!edit.structure}
+              aria-label={`Перетащить на стрелку: ${o.label}`}
+              title={`${o.label} — перетащите на стрелку (или нажмите «+» на ней)`}
+              data-kind={o.kind}
+              onDragStart={(e) => {
+                draggedKind = o.kind;
+                e.dataTransfer.setData(DRAG_MIME, o.kind);
+                e.dataTransfer.effectAllowed = 'copy';
+              }}
+              onDragEnd={() => {
+                draggedKind = null;
+              }}
+            >
+              <span className={styles.menuSwatch} style={{ background: `var(--jb-node-${o.kind})` }} aria-hidden="true" />
+              {o.label}
+            </div>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   );
 }
@@ -201,7 +222,7 @@ export function NodeTools({ data }: { data: GraphNodeData }) {
       <button
         type="button"
         aria-label={`Удалить: ${data.title}`}
-        title="Удалить (Delete)"
+        title="Удалить (Delete или Backspace на выделенной ноде)"
         disabled={off}
         onClick={stop(() => edit.remove(data.path))}
       >

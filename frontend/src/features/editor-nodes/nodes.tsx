@@ -87,7 +87,7 @@ function EditButton({ data }: { data: GraphNodeData }) {
       type="button"
       className={`${styles.editBtn} nodrag`}
       aria-label={`Править: ${data.title}`}
-      title="Править текст (или двойной клик)"
+      title="Править текст (двойной клик или Enter на выделенной ноде)"
       disabled={e.edit.saving}
       onClick={(ev) => {
         ev.stopPropagation();
@@ -167,11 +167,15 @@ export function BlockNode({ data }: NodeProps<FlowNode>) {
     >
       <Pins />
       <div className={`${styles.header} ${data.kind === 'method' ? styles.headerLight : ''}`}>
-        <span>
+        <span className={styles.headerTitle}>
           <CollapseToggle data={data} />
           {data.error !== undefined ? `${data.title} · ошибка` : data.title}
         </span>
-        {data.badge && <span className={styles.badge}>{data.badge}</span>}
+        {data.badge && (
+          <span className={`${styles.badge} ${styles.badgeFit}`} title={data.badge}>
+            {data.badge}
+          </span>
+        )}
         <HiddenBadge data={data} />
         <IssueBadge issues={data.issues} />
         <EditButton data={data} />
@@ -194,7 +198,7 @@ export function RawNode({ data }: NodeProps<FlowNode>) {
     >
       <Pins />
       <div className={`${styles.header} ${styles.rawHeader}`}>
-        <span>
+        <span className={styles.headerTitle}>
           <CollapseToggle data={data} />
           {data.title}
         </span>

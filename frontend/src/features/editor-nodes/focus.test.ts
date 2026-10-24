@@ -48,6 +48,14 @@ describe('centerOnNode', () => {
     expect(setCenter).toHaveBeenCalledWith(5, 5, { zoom: 1.5, duration: 0 });
   });
 
+  it('поля оверлеев: нода центрируется в свободной области (центр вида сдвинут)', () => {
+    const { rf, setCenter } = mockFlow({ a: { x: 100, y: 200, w: 40, h: 20 } }, 1);
+    const area = { size: { width: 800, height: 600 }, insets: { top: 60, right: 100, bottom: 0, left: 20 } };
+    centerOnNode(rf, 'a', true, area);
+    // сдвиг по x: (100 - 20) / 2 = 40, по y: (0 - 60) / 2 = -30
+    expect(setCenter).toHaveBeenCalledWith(160, 180, { zoom: 1, duration: 0 });
+  });
+
   it('нет ноды — false, setCenter не вызывается', () => {
     const { rf, setCenter } = mockFlow({});
     expect(centerOnNode(rf, 'a', true)).toBe(false);
