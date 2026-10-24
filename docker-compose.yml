@@ -17,6 +17,8 @@ services:
       BLUEPRINTS_RUN_DIR: /var/lib/blueprints-run
       BLUEPRINTS_RUN_IMAGE: eclipse-temurin:21-jdk
       LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_MODEL: ${LLM_MODEL:-}
     restart: unless-stopped
 
   frontend:

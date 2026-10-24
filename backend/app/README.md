@@ -3,7 +3,7 @@
 Spring Boot: REST по `contract/openapi.yaml`, хранение проектов в памяти, версия проекта (409 при старой), сборка реестров модулей в бины.
 Единственный модуль, который знает про Spring. Зависит от всех остальных модулей.
 
-Главный класс: `blueprints.app.Application`. Эндпоинты (`/api`): `GET /health` (`{status: UP, docker, llm}`: docker — `docker version` за 2 с, кэш 5 с; llm — непустой `LLM_API_KEY`), `POST /projects` (multipart `files[]` + `paths[]`), `GET /projects/{id}`, `GET /projects/{id}/tree`, `GET /projects/{id}/export?format=zip&includeSettings=` / `?format=jar&mainClass=`,
+Главный класс: `blueprints.app.Application`. Эндпоинты (`/api`): `GET /health` (`{status: UP, docker, llm}`: docker — `docker version` за 2 с, кэш 5 с; llm — непустой `LLM_API_KEY`; LLM-настройки `LLM_API_KEY`/`LLM_BASE_URL`/`LLM_MODEL` читает `LlmConfig.fromEnv()`, пустое = дефолт провайдера), `POST /projects` (multipart `files[]` + `paths[]`), `GET /projects/{id}`, `GET /projects/{id}/tree`, `GET /projects/{id}/export?format=zip&includeSettings=` / `?format=jar&mainClass=`,
 `PUT /projects/{id}/methods/{methodId}/blocks` (`{version, root}`), `PUT /projects/{id}/files?path=` (`{version, text}`) -> MutationResult,
 `GET /projects/{id}/methods/{methodId}/blocks` -> MethodView, `GET /projects/{id}/files?path=` -> FileText, `GET /projects/{id}/analysis` -> Analysis,
 `GET /projects/{id}/uml` -> UmlDiagram (`DiagramController`, `ProjectAnalysis.uml()` по текущей версии),
@@ -54,7 +54,7 @@ Spring Boot: REST по `contract/openapi.yaml`, хранение проекто�
 
 Контекст сборки — `backend/` (`samples/` и `contract/` нужны только тестам, в образ не идут): `docker build -t blueprints-backend backend`.
 Стадия Gradle (`:app:bootJar`, без тестов) → рантайм `eclipse-temurin:21-jdk` (JDK, не JRE: компиляция в процессе через `javax.tools`; тот же образ, что песочница, — слои общие) + docker CLI (`docker:27-cli`) + curl.
-Env по умолчанию: `BLUEPRINTS_RUN_DIR=/var/lib/blueprints-run`, `BLUEPRINTS_RUN_IMAGE=eclipse-temurin:21-jdk`, `JAVA_OPTS=-XX:MaxRAMPercentage=75` (переопределяется целиком). `LLM_API_KEY` не задан.
+Env по умолчанию: `BLUEPRINTS_RUN_DIR=/var/lib/blueprints-run`, `BLUEPRINTS_RUN_IMAGE=eclipse-temurin:21-jdk`, `JAVA_OPTS=-XX:MaxRAMPercentage=75` (переопределяется целиком). `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL` не заданы.
 При старте: создаётся `$BLUEPRINTS_RUN_DIR`; если образа песочницы нет у демона — `docker pull` в фоне, ошибка только в лог. Порт 8080, HEALTHCHECK — `curl /api/health`. Процесс под root (доступ к docker.sock).
 
     docker run -d -p 8080:8080 -v /var/run/docker.sock:/var/run/docker.sock \

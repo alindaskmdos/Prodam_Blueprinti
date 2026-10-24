@@ -47,7 +47,7 @@
 - [x] BE-45 runner: `--release 21` в Runner.run (на JDK 22 demo приходит original_fails); Instrumenter — при отказе вставки/некомпилируемой копии файл без вставок, атомарная запись trace-файла, `docker exec cat` в общем бюджете времени; тесты на jar без инструментации и halt → hits null | runner | BE-27 | §11а, §14а.6
 - [x] BE-46 `GET /health` по контракту: `docker` (реальная проверка доступности Docker, как у Runner) и `llm` (задан ли LLM_API_KEY); тест на схему ответа | app | BE-38 | §2, §11а
 - [x] BE-48 Поля дерева для форм FE-10 по CT-02: fqn/modifiers/extends/implements/typeParams/headerSpan у ClassNode, span у полей, span/headerSpan/modifiers/returnType/params/throws у MethodNode | app, source | CT-02 | §7
-- [ ] BE-49 Настройка LLM через env: кроме `LLM_API_KEY` — `LLM_BASE_URL` (OpenAI-совместимый endpoint) и `LLM_MODEL`; проброс в docker-compose*.yml, таблица env в README, `/health` llm:true только при ключе | app, compose, README | BE-01 | §9
+- [x] BE-49 Настройка LLM через env: кроме `LLM_API_KEY` — `LLM_BASE_URL` (OpenAI-совместимый endpoint) и `LLM_MODEL`; проброс в docker-compose*.yml, таблица env в README, `/health` llm:true только при ключе | app, compose, README | BE-01 | §9
 - [x] BE-47 `backend/Dockerfile` под Coolify (см. decisions «Деплой через Coolify»): многоэтапная сборка Gradle → JDK 21 (компиляция через javax.tools в процессе) + docker CLI; при старте фоном `docker pull $BLUEPRINTS_RUN_IMAGE`, если образа нет; JVM по лимиту контейнера (MaxRAMPercentage); HEALTHCHECK на /api/health; `.dockerignore`; проверка: образ собирается, в контейнере с docker.sock и папкой запуска /health → docker:true и verify на samples/demo зелёный | backend (Dockerfile) | BE-46 | §2
 
 ## Frontend

@@ -14,8 +14,7 @@ class HealthController {
 
     @GetMapping("/api/health")
     HealthDto health() {
-        String key = System.getenv("LLM_API_KEY");
-        return new HealthDto("UP", docker(), key != null && !key.isBlank());
+        return new HealthDto("UP", docker(), LlmConfig.fromEnv().enabled());
     }
 
     /** Тот же docker CLI, что у Runner; демон недоступен или не ответил за 2 с — false. Кэш на 5 с. */

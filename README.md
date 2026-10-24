@@ -17,10 +17,12 @@ git clone https://github.com/alindaskmdos/Prodam_Blueprinti.git && cd Prodam_Blu
 (UI сам отключит эти кнопки).
 
 Файла `.env` и `example.env` нет — все переменные необязательны (см. «Конфигурацию»). Единственная, которую имеет
-смысл задать, — ключ LLM; без него всё работает:
+смысл задать, — LLM (любой OpenAI-совместимый провайдер); без ключа всё работает:
 
 ```
 LLM_API_KEY=
+LLM_BASE_URL=
+LLM_MODEL=
 ```
 
 `docker-compose.yml` не публикует порты наружу (он рассчитан на Coolify). Чтобы открыть приложение локально,
@@ -133,11 +135,13 @@ docker-compose.yml      backend + frontend (деплой Coolify)
 ## Конфигурация
 
 Все переменные необязательны — у каждой есть значение по умолчанию. `.env` рядом с `docker-compose.yml` compose читает
-сам (в `.gitignore`); читаются они в `runner` (`BLUEPRINTS_*`), `app` (`LLM_API_KEY`) и Vite (`VITE_*`).
+сам (в `.gitignore`); читаются они в `runner` (`BLUEPRINTS_*`), `app` (`LLM_*`) и Vite (`VITE_*`).
 
 | Переменная | Назначение | По умолчанию / пример |
 |---|---|---|
 | `LLM_API_KEY` | Ключ LLM-провайдера; без него продукт работает полностью, `/health` отдаёт `llm: false` | пусто |
+| `LLM_BASE_URL` | Базовый URL OpenAI-совместимого API, например `https://api.openai.com/v1` | пусто — endpoint провайдера по умолчанию |
+| `LLM_MODEL` | Имя модели у провайдера | пусто — модель провайдера по умолчанию |
 | `BLUEPRINTS_RUN_DIR` | Рабочая папка запусков. Монтируется по **одному и тому же пути** на хосте и в контейнере бэкенда: Runner передаёт демону свои пути | `/var/lib/blueprints-run` в образе; если не задана — `<java.io.tmpdir>/blueprints-run` |
 | `BLUEPRINTS_RUN_IMAGE` | Образ песочницы с JDK 21 | `eclipse-temurin:21-jdk` |
 | `JAVA_OPTS` | Опции JVM бэкенда (задаются целиком, только в образе) | `-XX:MaxRAMPercentage=75` |

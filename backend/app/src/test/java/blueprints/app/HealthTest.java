@@ -23,6 +23,7 @@ class HealthTest {
         assertEquals(TestsApiTest.dockerUp(), h.get("docker").asBoolean());
         String key = System.getenv("LLM_API_KEY");
         assertEquals(key != null && !key.isBlank(), h.get("llm").asBoolean());
+        assertEquals(LlmConfig.fromEnv().enabled(), h.get("llm").asBoolean());
     }
 
     @Test
