@@ -55,6 +55,8 @@ export const handlers = [
   http.get(`${API}/projects/:projectId/methods/:methodId/blocks`, () =>
     HttpResponse.json(fixtures.methodViewMerge),
   ),
+  http.get(`${API}/projects/:projectId/uml`, () => HttpResponse.json(fixtures.umlDemo)),
+  http.get(`${API}/projects/:projectId/dependencies`, () => HttpResponse.json(fixtures.dependenciesDemo)),
   // Фикстура одна (n = 10000): параметр n принимается, но числа ops в моке не пересчитываются.
   http.get(`${API}/projects/:projectId/analysis`, () => HttpResponse.json(fixtures.analysisMerge)),
   // fix.applied.json + mutation из фикстур (как у PUT blocks): версия = присланная + 1.
@@ -184,6 +186,9 @@ export const scenarios = {
   conflictOnBlocks: http.put(`${API}/projects/:projectId/methods/:methodId/blocks`, () =>
     HttpResponse.json(fixtures.errorConflict, { status: 409 }),
   ),
+  /** Граф зависимостей с циклом Cart ↔ Pricing (dependencies.cycle.json) и его Issue CyclicDependency (analysis.cycle.json). */
+  dependenciesCycle: http.get(`${API}/projects/:projectId/dependencies`, () => HttpResponse.json(fixtures.dependenciesCycle)),
+  analysisCycle: http.get(`${API}/projects/:projectId/analysis`, () => HttpResponse.json(fixtures.analysisCycle)),
   // Для 404 фикстуры нет — ответ по схеме Error контракта.
   analysisNotFound: http.get(`${API}/projects/:projectId/analysis`, () =>
     HttpResponse.json<Schemas['Error']>({ code: 'NOT_FOUND', message: 'Проект не найден' }, { status: 404 }),

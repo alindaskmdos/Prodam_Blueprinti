@@ -210,4 +210,23 @@ describe('формы структуры (FE-10)', () => {
     act(() => openStructureDialog({ kind: 'delete', target: { kind: 'field', ref, field: 'orders' } }));
     expect(await screen.findByRole('dialog', { name: 'Удалить поле?' })).toBeInTheDocument();
   });
+
+  it('проблема с methodId, выбранная после класса, и клик по ноде холста снимают выбор класса (приоритет — последнее действие)', async () => {
+    await setup();
+    // Метод уже выбран: selectedMethodId при выборе его проблемы не меняется, выбор класса всё равно уступает.
+    act(() => useAppStore.getState().selectMethod(mergeId));
+    act(() => void selectClass('com.demo.service.OrderService'));
+    expect(useStructureStore.getState().selection).not.toBeNull();
+    act(() => useAppStore.getState().selectIssue({ issueId: 'i-1', methodId: mergeId, blockId: 'b-1' }));
+    expect(useStructureStore.getState().selection).toBeNull();
+    // Клик по ноде холста.
+    act(() => void selectClass('com.demo.service.OrderService'));
+    expect(useAppStore.getState().selectedIssueId).toBeNull();
+    act(() => useAppStore.getState().setHighlight({ source: 'canvas', blockId: 'b-2' }));
+    expect(useStructureStore.getState().selection).toBeNull();
+    // Курсор в Monaco выбор класса не снимает.
+    act(() => void selectClass('com.demo.service.OrderService'));
+    act(() => useAppStore.getState().setHighlight({ source: 'code', span: { file: file.path, startLine: 1, endLine: 1 } }));
+    expect(useStructureStore.getState().selection).not.toBeNull();
+  });
 });

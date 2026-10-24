@@ -15,4 +15,4 @@ export {
   type StructureSelection,
   type StructureDialog,
 } from './structure/structureStore';
-export { findClass, findClassByFqn, type ClassRef } from './structure/resolve';
+export { findClass, findClassByFqn, fqnOf, type ClassRef, type FoundClass } from './structure/resolve';

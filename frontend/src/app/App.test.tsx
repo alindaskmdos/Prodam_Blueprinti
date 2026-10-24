@@ -3,11 +3,13 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { delay, http, HttpResponse } from 'msw';
 import treeJson from '@contract/fixtures/tree.json';
 import fileJson from '@contract/fixtures/file.order-service.json';
-import { createApiClient } from '../features/api';
+import { createApiClient, resetMethodBlocks } from '../features/api';
+import { resetDiagrams } from '../features/diagrams/diagramsStore';
 import { resetAnalysisState, useAnalysisStore } from '../features/analysis-panel';
 import type { MonacoViewProps } from '../features/editor-code/MonacoView';
-import { resetTreeState } from '../features/project-tree';
+import { resetStructureState, resetTreeState, selectClass } from '../features/project-tree';
 import { server } from '../mocks/server';
+import { scenarios } from '../mocks/handlers';
 import { fixtures } from '../mocks/fixtures';
 import { App } from './App';
 import { resetAppState, useAppStore } from './store';
@@ -61,7 +63,10 @@ describe('App — каркас редактора на MSW', () => {
   beforeEach(() => {
     resetAppState();
     resetTreeState();
+    resetStructureState();
     resetAnalysisState();
+    resetDiagrams();
+    resetMethodBlocks();
   });
   afterEach(() => {
     server.events.removeAllListeners();
@@ -81,7 +86,10 @@ describe('App — каркас редактора на MSW', () => {
     expect(await screen.findByText('Main.main')).toBeInTheDocument();
     expect(screen.getByText('Выберите метод в дереве проекта')).toBeInTheDocument();
 
-    expect(screen.getAllByRole('tablist')).toHaveLength(2);
+    // Вкладки: холст (схема метода + диаграммы), анализ, низ.
+    expect(screen.getAllByRole('tablist')).toHaveLength(3);
+    const canvasTabs = screen.getByRole('tablist', { name: 'Холст' });
+    expect(within(canvasTabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['Метод не выбран', 'UML', 'Зависимости']);
     const right = screen.getByRole('tablist', { name: 'Анализ' });
     const bottom = screen.getByRole('tablist', { name: 'Код, консоль, тесты' });
     expect(within(right).getAllByRole('tab').map((t) => t.textContent)).toEqual([
@@ -137,6 +145,66 @@ describe('App — каркас редактора на MSW', () => {
     expect(area).toHaveValue(fileJson.text);
     expect((area as HTMLTextAreaElement).value).toContain('public class OrderService');
     expect(screen.getByRole('region', { name: `Код ${fileJson.path}` })).toBeInTheDocument();
+  });
+
+  it('вкладка UML (ленивый чанк): клик по методу в карточке → схема метода на холсте (FE-16)', async () => {
+    render(<App client={client} projectId="p-1" />);
+    fireEvent.click(screen.getByRole('tab', { name: 'UML' }));
+    const cards = await screen.findAllByTestId('uml-class', {}, { timeout: 10_000 });
+    expect(cards.length).toBeGreaterThan(0);
+    const member = document.querySelector('[data-member-id="com.demo.service.OrderService.merge~0"]');
+    if (!member) throw new Error('нет метода merge в UML');
+    fireEvent.click(member);
+    await waitFor(() => expect(useAppStore.getState().selectedMethodId).toBe('com.demo.service.OrderService.merge~0'), {
+      timeout: 3000,
+    });
+    await waitFor(() => expect(screen.getByTestId('canvas-method')).toHaveAttribute('aria-selected', 'true'));
+    expect(screen.queryAllByTestId('uml-class')).toHaveLength(0);
+  }, 20_000);
+
+  it.each(['UML', 'Зависимости'])('проблема с blockId при открытой вкладке «%s» → схема метода (FE-16)', async (tab) => {
+    render(<App client={client} projectId="p-1" />);
+    fireEvent.click(screen.getByRole('tab', { name: tab }));
+    await waitFor(() => expect(screen.getByRole('tab', { name: tab })).toHaveAttribute('aria-selected', 'true'));
+    act(() => useAppStore.getState().selectIssue({ issueId: 'ISSUE-1', methodId: merge.id, blockId: 'b' }));
+    await waitFor(() => expect(screen.getByTestId('canvas-method')).toHaveAttribute('aria-selected', 'true'));
+    // Проблема уровня класса (без blockId) схему не трогает.
+    fireEvent.click(screen.getByRole('tab', { name: tab }));
+    act(() => useAppStore.getState().selectIssue({ issueId: 'ISSUE-2' }));
+    expect(screen.getByRole('tab', { name: tab })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('Issue CyclicDependency без blockId: клик в панели анализа → код файла span проблемы, схема метода не ломается (FE-18)', async () => {
+    server.use(scenarios.analysisCycle);
+    render(<App client={client} projectId="p-1" />);
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(merge.name) }));
+    expect(await screen.findByRole('region', { name: `Код ${fileJson.path}` })).toBeInTheDocument();
+    const cycle = fixtures.analysisCycle.issues[0];
+    if (!cycle) throw new Error('нет проблемы в analysis.cycle.json');
+    const card = (await screen.findByText(cycle.message)).closest('button');
+    if (!card) throw new Error('карточка не кнопка');
+    fireEvent.click(card);
+    expect(await screen.findByRole('region', { name: `Код ${cycle.span.file}` })).toBeInTheDocument();
+    expect(useAppStore.getState().selectedMethodId).toBe(merge.id);
+    expect(screen.getByTestId('canvas-method')).toHaveTextContent('OrderService.merge');
+  });
+
+  it('общий выбор класса (UML/граф/палитра → selectClass): дерево, «Свойства», код класса с прокруткой к span (FE-16)', async () => {
+    render(<App client={client} projectId="p-1" />);
+    // Сначала выбран метод: выбор класса новее — код показывает класс.
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(merge.name) }));
+    let ok = false;
+    act(() => {
+      ok = selectClass('com.demo.service.OrderService');
+    });
+    expect(ok).toBe(true);
+    const area = await screen.findByLabelText('код');
+    expect(area).toHaveValue(fileJson.text);
+    await waitFor(() => expect(area).toHaveAttribute('data-reveal', '11-139'));
+    const row = document.querySelector('[data-class-id="com.demo.service.OrderService"]');
+    expect(row?.className).toMatch(/selected/);
+    expect(screen.getByRole('tab', { name: 'Свойства' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Код Java' })).toHaveAttribute('aria-selected', 'true');
   });
 
   it('выбор метода → код прокручивается к span метода; правка не прокручивает заново (FE-35)', async () => {

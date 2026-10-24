@@ -139,6 +139,20 @@ export const commands: readonly CommandDef[] = [
     run: () => useLayoutStore.getState().toggleCanvasOnly(),
   },
   {
+    id: 'view.uml',
+    title: 'Открыть UML-диаграмму',
+    group: 'Вид',
+    isEnabled: () => useAppStore.getState().projectId !== null,
+    run: () => useAppStore.getState().showPanel('canvas', 'canvas.uml'),
+  },
+  {
+    id: 'view.dependencies',
+    title: 'Открыть граф зависимостей классов',
+    group: 'Вид',
+    isEnabled: () => useAppStore.getState().projectId !== null,
+    run: () => useAppStore.getState().showPanel('canvas', 'canvas.deps'),
+  },
+  {
     // Кнопка «Применить» в карточке проблемы: args = { issueId, fixId } (fixId — из Issue.fixes).
     id: 'fix.apply',
     title: 'Применить фикс (Quality Gate)',

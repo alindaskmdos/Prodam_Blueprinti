@@ -3,7 +3,7 @@ import path from 'node:path';
 import type { Locator, Page } from '@playwright/test';
 import { DEMO_DIR, expect, test, versionOf } from './fixtures';
 
-const MERGE_ISSUE = 'NestedLoopSameCollection';
+const MERGE_ISSUE = 'Вложенный цикл по одной коллекции';
 const SLOW = 90_000;
 
 const issueCard = (page: Page, rule: string) => page.getByTestId('issue').filter({ hasText: rule }).first();
@@ -159,6 +159,9 @@ test('drag из палитры на стрелку: блок вставлен, �
   await openIssue(page, MERGE_ISSUE);
   await openCodeTab(page);
   const before = await versionOf(page);
+  // Палитра свёрнута по умолчанию (FE-37): раскрываем кнопкой «+ Блок».
+  const toggle = page.getByTestId('palette-toggle');
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
   const item = page.getByTestId('palette').locator('[data-kind="comment"]');
   // Схема отцентрирована на проблеме: берём стрелку, лежащую на экране правее палитры и левее миникарты.
   const targets = page.locator('[data-testid^="drop-"]');

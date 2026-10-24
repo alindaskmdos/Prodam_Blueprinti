@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ApiClient, Schemas } from '../api';
 import { useAppStore } from '../../app/store';
 import { useProjectTree } from './useProjectTree';
@@ -108,9 +108,19 @@ function ClassItem({ cls, path, open, onToggle }: { cls: ClassNode; path: string
   const mine = selection !== null && selection.ref.path === path && selection.ref.name === cls.name;
   const classSelected = mine && selection.kind === 'class';
   const ref = { path, name: cls.name };
+  // Выбор класса из UML / графа / палитры (FE-16) — строка прокручивается в видимую область.
+  const selectSeq = useStructureStore((s) => s.selectSeq);
+  const rowRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (classSelected) rowRef.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [classSelected, selectSeq]);
   return (
     <li>
-      <div className={`${styles.row} ${styles.depth1} ${styles.split} ${classSelected ? styles.selected : ''}`}>
+      <div
+        ref={rowRef}
+        className={`${styles.row} ${styles.depth1} ${styles.split} ${classSelected ? styles.selected : ''}`}
+        data-class-id={cls.fqn}
+      >
         <button
           type="button"
           className={styles.caretBtn}

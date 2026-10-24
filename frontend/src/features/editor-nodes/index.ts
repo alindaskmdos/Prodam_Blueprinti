@@ -8,7 +8,7 @@ export {
   type GraphNodeType,
   type ToGraphOptions,
 } from './blocksToGraph';
-export { layoutGraph, type LayoutResult, type Positioned } from './layout';
+export { getElk, layoutGraph, type LayoutResult, type Positioned } from './layout';
 export { toFlow } from './toFlow';
 export { blockText } from './blockText';
 export { highlightJava, type Token, type TokenType } from './highlightJava';
@@ -42,7 +42,8 @@ export {
   type InvalidEdit,
 } from './blockSync';
 export { blockAtLine, findBlockById, spanOfBlock } from './blockLocate';
-export { centerOnNode, flowNodeOfBlock, useFocusCenter, type CenterApi, type FocusRequest } from './focus';
+export { computeInitialView, graphBounds, type InitialView } from './initialView';
+export { centerOnNode, flowNodeOfBlock, prefersReducedMotion, useFocusCenter, type CenterApi, type FocusRequest } from './focus';
 export {
   COLLAPSE_DEPTH,
   blockKey,

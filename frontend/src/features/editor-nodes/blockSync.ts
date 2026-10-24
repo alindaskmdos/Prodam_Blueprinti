@@ -1,4 +1,4 @@
-import type { ApiClient, Schemas } from '../api';
+import { getMethodBlocks, type ApiClient, type Schemas } from '../api';
 import { blockAt, draftOf, editableFields, findPathById, mergeFields, sameFields, withFields, type BlockPath } from './blockEdit';
 import { blockText } from './blockText';
 import {
@@ -167,9 +167,8 @@ export class BlockSync {
     this.set({ status: 'loading', editing: null, invalid: before.invalid, error: null, stale: false, pending: null });
     const { client, projectId, methodId } = this.options;
     const needVersion = refreshVersion || (this.state.version === null && target === null);
-    const blocks = client.GET('/projects/{projectId}/methods/{methodId}/blocks', {
-      params: { path: { projectId, methodId } },
-    });
+    // Общий запрос с прокруткой кода к методу (FE-35) и предзагрузкой из UML (FE-16) — один GET на выбор метода.
+    const blocks = getMethodBlocks(client, projectId, methodId, target ?? this.state.version);
     const project = needVersion ? client.GET('/projects/{projectId}', { params: { path: { projectId } } }) : null;
     const p = Promise.all([blocks, project])
       .then(([b, pr]) => {

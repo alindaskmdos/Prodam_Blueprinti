@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Command } from 'cmdk';
-import type { ApiClient, Schemas } from '../api';
+import { getMethodBlocks, type ApiClient, type Schemas } from '../api';
 import { useAnalysisStore } from '../analysis-panel';
 import { useTreeStore } from '../project-tree';
 import { useAppStore } from '../../app/store';
@@ -23,8 +23,7 @@ function useMethodRoot(client: ApiClient, projectId: string | null, methodId: st
   useEffect(() => {
     if (!projectId || !methodId || !key) return;
     let cancelled = false;
-    client
-      .GET('/projects/{projectId}/methods/{methodId}/blocks', { params: { path: { projectId, methodId } } })
+    getMethodBlocks(client, projectId, methodId, useAppStore.getState().version)
       .then(({ data }) => {
         if (!cancelled && data) setLoaded({ key, root: data.root });
       })

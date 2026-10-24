@@ -29,13 +29,15 @@ export interface SaveError {
 
 interface StructureState {
   selection: StructureSelection | null;
+  /** Растёт на каждый выбор класса/поля (и повторный): код снова прокручивается к его span (FE-16). */
+  selectSeq: number;
   dialog: StructureDialog | null;
   /** Идёт запись файла (GET + PUT files). */
   saving: boolean;
   error: SaveError | null;
 }
 
-const initial: StructureState = { selection: null, dialog: null, saving: false, error: null };
+const initial: StructureState = { selection: null, selectSeq: 0, dialog: null, saving: false, error: null };
 
 export const useStructureStore = create<StructureState>()(() => ({ ...initial }));
 
@@ -45,14 +47,30 @@ useAppStore.subscribe((s, prev) => {
     const keep = s.selectedMethodId === null ? useStructureStore.getState().selection : null;
     useStructureStore.setState({ selection: keep, error: null });
   }
+  // Выбор новее выбранного класса — проблема (из панели, палитры, графа) или клик по ноде холста: код и
+  // «Свойства» переходят к нему, выбор класса снимается (приоритет — по последнему действию, FE-16).
+  const newerIssue = s.selectedIssueId !== null && s.selectedIssueId !== prev.selectedIssueId;
+  const newerCanvas = s.highlight?.source === 'canvas' && s.highlight !== prev.highlight;
+  if ((newerIssue || newerCanvas) && useStructureStore.getState().selection !== null) {
+    useStructureStore.setState({ selection: null, error: null });
+  }
   if (s.projectId !== prev.projectId) useStructureStore.setState({ ...initial });
 });
 
-/** Выбрать класс/поле в дереве: форма во вкладке «Свойства» (вкладка открывается). */
+/**
+ * Единый выбор класса/поля (дерево, UML, граф зависимостей, палитра): форма во вкладке «Свойства», вкладка
+ * «Код Java» открывает файл класса и прокручивает к span класса/поля (`app/codeTarget.ts`); выбранная
+ * проблема снимается, чтобы код показывал класс, а не её строки.
+ */
 export function selectStructure(selection: StructureSelection | null): void {
-  useStructureStore.setState({ selection, error: null });
+  useStructureStore.setState((s) => ({ selection, error: null, selectSeq: selection ? s.selectSeq + 1 : s.selectSeq }));
+  if (!selection) return;
   // Схема выбранного метода остаётся на холсте; повторный клик по методу вернёт его форму.
-  if (selection) useAppStore.getState().showPanel('right', STRUCTURE_PANEL_ID);
+  const app = useAppStore.getState();
+  if (app.selectedIssueId !== null) app.selectIssue(null);
+  if (app.highlight !== null) app.setHighlight(null);
+  app.showPanel('right', STRUCTURE_PANEL_ID);
+  app.showPanel('bottom', 'bottom.code');
 }
 
 /**

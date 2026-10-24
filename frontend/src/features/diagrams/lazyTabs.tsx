@@ -1,0 +1,24 @@
+import { lazy, Suspense } from 'react';
+import { PanelStub } from '../layout';
+
+// Диаграммы — отдельный чанк: код вкладок грузится при первом открытии, основной бандл не растёт.
+const LazyUml = lazy(() => import('./UmlView'));
+const LazyDeps = lazy(() => import('./DependenciesView'));
+
+/** Вкладка «UML» центральной зоны (реестр panels.ts). */
+export function UmlTab() {
+  return (
+    <Suspense fallback={<PanelStub text="Загрузка UML…" />}>
+      <LazyUml />
+    </Suspense>
+  );
+}
+
+/** Вкладка «Зависимости» центральной зоны (реестр panels.ts). */
+export function DependenciesTab() {
+  return (
+    <Suspense fallback={<PanelStub text="Загрузка графа зависимостей…" />}>
+      <LazyDeps />
+    </Suspense>
+  );
+}

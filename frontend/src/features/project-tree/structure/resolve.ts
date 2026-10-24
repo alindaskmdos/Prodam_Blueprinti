@@ -34,12 +34,14 @@ export function findClass(tree: Tree, ref: ClassRef): FoundClass | null {
   return null;
 }
 
+/** FQN класса (`pkg.Outer.Inner`, = UmlClass.id); без `fqn` в дереве (старый бэк) — из пакета и имени. */
+export function fqnOf(c: FoundClass): string {
+  return c.cls.fqn ?? (c.pkg ? `${c.pkg}.` : '') + c.cls.name.replace(/\$/g, '.');
+}
+
 /** По FQN (`pkg.Outer.Inner`, = UmlClass.id); без `fqn` в дереве (старый бэк) — по пакету и имени. */
 export function findClassByFqn(tree: Tree, fqn: string): FoundClass | null {
-  for (const c of classes(tree)) {
-    const own = c.cls.fqn ?? (c.pkg ? `${c.pkg}.` : '') + c.cls.name.replace(/\$/g, '.');
-    if (own === fqn) return c;
-  }
+  for (const c of classes(tree)) if (fqnOf(c) === fqn) return c;
   return null;
 }
 
