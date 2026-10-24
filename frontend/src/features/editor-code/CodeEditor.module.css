@@ -59,6 +59,42 @@
 
 .error { color: var(--jb-severity-high); }
 
+/* Файл изменён извне, пока были неотправленные правки (stale). */
+.stale {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #a3aebd;
+  background: rgba(251, 191, 36, 0.08);
+  border-bottom: 1px solid rgba(251, 191, 36, 0.35);
+}
+
+.staleTitle {
+  font-weight: 600;
+  color: var(--jb-severity-medium);
+}
+
+.staleActions {
+  display: flex;
+  gap: 12px;
+}
+
+.staleActions button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--jb-accent);
+  font: 500 12px var(--jb-font-ui);
+  cursor: pointer;
+}
+
+.staleActions button:disabled {
+  color: var(--jb-text-secondary);
+  cursor: default;
+}
+
 .editor {
   position: relative;
   flex: 1 1 auto;

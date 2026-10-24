@@ -31,6 +31,15 @@ export interface ConflictInfo {
   seq: number;
 }
 
+/**
+ * Файл изменился извне (правка нод, фикс), пока у пользователя были неотправленные правки.
+ * В редакторе уже новый серверный текст; правки пользователя сохранены здесь и не отправлены.
+ */
+export interface StaleEdit {
+  /** Текст пользователя, который не ушёл на сервер. */
+  text: string;
+}
+
 export interface FileSyncState {
   status: FileSyncStatus;
   /** Версия проекта, с которой уйдёт следующий PUT. */
@@ -41,6 +50,8 @@ export interface FileSyncState {
   parseError: ParseError | null;
   error: string | null;
   conflict: ConflictInfo | null;
+  /** Неотправленные правки, отложенные из-за внешней смены версии: «Взять новый текст» / «Оставить мои». */
+  stale: StaleEdit | null;
 }
 
 export interface FileSyncOptions {
@@ -80,6 +91,7 @@ export class FileSync {
     parseError: null,
     error: null,
     conflict: null,
+    stale: null,
   };
   private readonly listeners = new Set<Listener>();
   private readonly debounceMs: number;
@@ -88,6 +100,12 @@ export class FileSync {
   private serverText: string | null = null;
   /** Правка, ещё не отправленная. */
   private pendingText: string | null = null;
+  /** Текст, который сейчас в редакторе (последний из load/edit/keepMine). */
+  private localText: string | null = null;
+  /** Самая новая версия, пришедшая извне (adoptVersion). */
+  private externalVersion: number | null = null;
+  /** externalVersion на момент последнего GET files: его ответ уже учитывает эту версию. */
+  private caughtUp: number | null = null;
   private inFlight: Promise<void> | null = null;
   /** Растёт на каждую (пере)загрузку: ответы на запросы старых поколений игнорируются. */
   private generation = 0;
@@ -104,10 +122,11 @@ export class FileSync {
     return () => this.listeners.delete(listener);
   };
 
-  /** GET files: текст и версия. Сбрасывает неотправленные правки. */
+  /** GET files: текст и версия. Сбрасывает неотправленные правки (stale-черновик не трогает). */
   load(): Promise<void> {
     this.clearTimer();
     this.pendingText = null;
+    this.caughtUp = this.externalVersion;
     const gen = ++this.generation;
     this.set({ status: 'loading', error: null, parseError: null });
     const { client, projectId, path } = this.options;
@@ -117,6 +136,7 @@ export class FileSync {
         if (this.isStale(gen)) return;
         if (data) {
           this.serverText = data.text;
+          this.localText = data.text;
           this.set({
             status: 'synced',
             version: data.version,
@@ -132,7 +152,10 @@ export class FileSync {
         if (!this.isStale(gen)) this.set({ status: 'error', error: errorMessage(e) });
       });
     this.inFlight = p.finally(() => {
-      if (this.generation === gen) this.inFlight = null;
+      if (this.generation !== gen) return;
+      this.inFlight = null;
+      // Внешняя версия выросла во время загрузки — догнать.
+      this.reconcile();
     });
     return this.inFlight;
   }
@@ -140,6 +163,7 @@ export class FileSync {
   /** Новый полный текст из редактора. */
   edit(text: string): void {
     if (this.disposed || this.state.status === 'loading') return;
+    this.localText = text;
     if (text === this.serverText && !this.inFlight) {
       // Вернули текст к принятому сервером — отправлять нечего.
       this.clearTimer();
@@ -156,9 +180,43 @@ export class FileSync {
     if (!this.inFlight) this.set({ status: 'pending' });
   }
 
-  /** Версия проекта стала известна извне (правка нод, фикс): берём, если она новее. */
+  /**
+   * Версия проекта стала известна извне (правка нод, фикс). Новее нашей — текст файла мог измениться:
+   * перезагружаем его (GET files), а не подменяем только версию — иначе следующий PUT со старым текстом
+   * и свежей версией затёр бы чужую правку. Неотправленные правки не уходят, а откладываются в `stale`.
+   * PUT в полёте — проверим после ответа.
+   */
   adoptVersion(version: number): void {
-    if (this.state.version === null || version > this.state.version) this.set({ version });
+    if (this.externalVersion !== null && version <= this.externalVersion) return;
+    this.externalVersion = version;
+    this.reconcile();
+  }
+
+  /** stale → «Взять новый текст»: правки пользователя отброшены, в редакторе уже серверный текст. */
+  takeTheirs(): void {
+    if (this.state.stale) this.set({ stale: null });
+  }
+
+  /**
+   * stale → «Оставить мои»: вернуть текст пользователя в редактор и отправить его с актуальной версией
+   * (осознанная перезапись изменений извне).
+   */
+  keepMine(): void {
+    const { stale, status } = this.state;
+    if (!stale || status === 'loading' || this.disposed) return;
+    const text = stale.text;
+    this.localText = text;
+    this.clearTimer();
+    this.set({ stale: null, loadedText: text, loadSeq: this.state.loadSeq + 1 });
+    if (text === this.serverText) {
+      this.pendingText = null;
+      if (!this.inFlight) this.set({ status: 'synced', parseError: null, error: null });
+      return;
+    }
+    this.pendingText = text;
+    if (this.inFlight) return; // уйдёт после ответа (afterRequest)
+    this.set({ status: 'pending' });
+    this.flush();
   }
 
   dismissConflict(): void {
@@ -178,6 +236,11 @@ export class FileSync {
 
   private flush(): void {
     if (this.disposed || this.inFlight || this.pendingText === null) return;
+    if (this.needsCatchUp()) {
+      // Нельзя отправлять текст на основе устаревшей версии.
+      this.reconcile();
+      return;
+    }
     const version = this.state.version;
     if (version === null) return;
     const text = this.pendingText;
@@ -235,6 +298,10 @@ export class FileSync {
 
   /** После ответа PUT: отправить накопленную правку или выставить итоговый статус. */
   private afterRequest(): void {
+    if (this.needsCatchUp()) {
+      this.reconcile();
+      return;
+    }
     if (this.pendingText !== null) {
       if (this.timer) this.set({ status: 'pending' });
       else this.flush();
@@ -243,6 +310,27 @@ export class FileSync {
     if (this.state.parseError) this.set({ status: 'parse-error' });
     else if (this.state.error) this.set({ status: 'error' });
     else this.set({ status: 'synced' });
+  }
+
+  /** Есть внешняя версия новее нашей, которую ещё не учёл ни один GET files. */
+  private needsCatchUp(): boolean {
+    const ext = this.externalVersion;
+    if (ext === null) return false;
+    if (this.state.version !== null && ext <= this.state.version) return false;
+    return this.caughtUp === null || ext > this.caughtUp;
+  }
+
+  /**
+   * Догнать внешнюю версию, когда нет запроса в полёте: таймер отменяется, неотправленный текст
+   * (pending, отклонённый 422 или упавший PUT) откладывается в `stale`, затем GET files.
+   */
+  private reconcile(): void {
+    if (this.disposed || this.inFlight || !this.needsCatchUp()) return;
+    this.clearTimer();
+    this.pendingText = null;
+    const unsent = this.localText !== null && this.localText !== this.serverText ? this.localText : null;
+    if (unsent !== null) this.set({ stale: { text: unsent } });
+    void this.load();
   }
 
   private isStale(gen: number): boolean {

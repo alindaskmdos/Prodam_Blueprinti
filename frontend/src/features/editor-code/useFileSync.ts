@@ -6,6 +6,10 @@ export interface UseFileSync {
   edit: (text: string) => void;
   reload: () => void;
   dismissConflict: () => void;
+  /** stale: отбросить свои правки, оставить новый текст. */
+  takeTheirs: () => void;
+  /** stale: вернуть свои правки и отправить их с актуальной версией. */
+  keepMine: () => void;
 }
 
 /**
@@ -50,5 +54,7 @@ export function useFileSync(options: FileSyncOptions & { version?: number }): Us
     edit: (text) => sync.edit(text),
     reload: () => void sync.load(),
     dismissConflict: () => sync.dismissConflict(),
+    takeTheirs: () => sync.takeTheirs(),
+    keepMine: () => sync.keepMine(),
   };
 }

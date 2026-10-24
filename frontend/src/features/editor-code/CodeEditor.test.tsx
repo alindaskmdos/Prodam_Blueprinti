@@ -97,4 +97,72 @@ describe('<CodeEditor>', () => {
     expect(area).toHaveAttribute('data-error-line', '1');
     expect(onVersion).not.toHaveBeenCalled();
   });
+
+  it('внешняя version без правок → новый текст в редакторе, плашки нет', async () => {
+    serveFile('class Main {}', 1);
+    const { rerender } = render(<CodeEditor client={client} projectId="p-1" path={PATH} version={1} debounceMs={0} />);
+    const area = await screen.findByLabelText('код');
+    serveFile('class Main { /* нода */ }', 2);
+    rerender(<CodeEditor client={client} projectId="p-1" path={PATH} version={2} debounceMs={0} />);
+    await waitFor(() => expect(area).toHaveValue('class Main { /* нода */ }'));
+    expect(screen.queryByText(/Ваши правки не отправлены/)).not.toBeInTheDocument();
+  });
+
+  it('внешняя version при неотправленной правке → плашка; «Взять новый текст» и «Оставить мои»', async () => {
+    serveFile('class Main {}', 1);
+    const puts: { version: number; text: string }[] = [];
+    server.use(
+      http.put(`${API}/projects/:projectId/files`, async ({ request }) => {
+        const body = (await request.json()) as { version: number; text: string };
+        puts.push(body);
+        const version = body.version + 1;
+        return HttpResponse.json<Schemas['MutationResult']>({
+          version,
+          fileText: body.text,
+          tree: { version, classes: [] } as never,
+          analysis: { version } as never,
+        });
+      }),
+    );
+    const props = { client, projectId: 'p-1', path: PATH, debounceMs: 60_000 };
+    const { rerender } = render(<CodeEditor {...props} version={1} />);
+    const area = await screen.findByLabelText('код');
+    fireEvent.change(area, { target: { value: 'class Main { int mine; }' } });
+
+    serveFile('class Main { /* нода */ }', 2);
+    rerender(<CodeEditor {...props} version={2} />);
+    expect(await screen.findByText('Файл изменён (на схеме или фиксом). Ваши правки не отправлены')).toBeInTheDocument();
+    await waitFor(() => expect(area).toHaveValue('class Main { /* нода */ }'));
+    expect(puts).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Оставить мои' }));
+    await waitFor(() => expect(area).toHaveValue('class Main { int mine; }'));
+    await waitFor(() => expect(puts).toEqual([{ version: 2, text: 'class Main { int mine; }' }]));
+    expect(screen.queryByText(/Ваши правки не отправлены/)).not.toBeInTheDocument();
+
+    // Снова: правка, внешняя версия, теперь «Взять новый текст».
+    fireEvent.change(area, { target: { value: 'class Main { int again; }' } });
+    serveFile('class Main { /* фикс */ }', 4);
+    rerender(<CodeEditor {...props} version={4} />);
+    await screen.findByText(/Ваши правки не отправлены/);
+    await waitFor(() => expect(area).toHaveValue('class Main { /* фикс */ }'));
+    fireEvent.click(screen.getByRole('button', { name: 'Взять новый текст' }));
+    expect(screen.queryByText(/Ваши правки не отправлены/)).not.toBeInTheDocument();
+    expect(area).toHaveValue('class Main { /* фикс */ }');
+    expect(puts).toHaveLength(1);
+  });
+
+  it('плашка: «Скопировать» кладёт неотправленный текст в буфер обмена', async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    serveFile('class Main {}', 1);
+    const props = { client, projectId: 'p-1', path: PATH, debounceMs: 60_000 };
+    const { rerender } = render(<CodeEditor {...props} version={1} />);
+    const area = await screen.findByLabelText('код');
+    fireEvent.change(area, { target: { value: 'class Main { int mine; }' } });
+    serveFile('class Main { /* нода */ }', 2);
+    rerender(<CodeEditor {...props} version={2} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Скопировать' }));
+    expect(writeText).toHaveBeenCalledWith('class Main { int mine; }');
+  });
 });

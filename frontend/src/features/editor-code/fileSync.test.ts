@@ -224,15 +224,199 @@ describe('FileSync', () => {
     expect(sync.getState()).toMatchObject({ status: 'error', error: 'нет файла', loadedText: null });
   });
 
-  it('adoptVersion берёт только более новую версию', async () => {
+  it('adoptVersion: одинаковая или меньшая версия — ничего не происходит', async () => {
     const srv = serverFile({ text: 'a', version: 4 });
     const sync = await created();
     sync.adoptVersion(2);
-    expect(sync.getState().version).toBe(4);
-    sync.adoptVersion(7);
+    sync.adoptVersion(4);
+    await sync.idle();
+    expect(srv.gets()).toBe(1);
+    expect(sync.getState()).toMatchObject({ version: 4, loadSeq: 1, stale: null });
     sync.edit('ab');
     await settle(sync);
-    expect(srv.puts[0]?.version).toBe(7);
+    expect(srv.puts[0]?.version).toBe(4);
+  });
+
+  it('внешняя версия новее → GET files, новый текст в редактор, следующий PUT с новым текстом и версией', async () => {
+    const srv = serverFile({ text: 'class A {}', version: 4 });
+    const onVersion = vi.fn();
+    const sync = await created({ onVersion });
+    // Правка нод на холсте: сервер ушёл вперёд, store.version → adoptVersion.
+    srv.file.text = 'class A { /* нода */ }';
+    srv.file.version = 5;
+    sync.adoptVersion(5);
+    await sync.idle();
+    expect(srv.gets()).toBe(2);
+    expect(sync.getState()).toMatchObject({
+      status: 'synced',
+      version: 5,
+      loadedText: 'class A { /* нода */ }',
+      loadSeq: 2,
+      stale: null,
+    });
+    sync.edit('class A { /* нода */ int x; }');
+    await settle(sync);
+    expect(srv.puts).toEqual([{ path: PATH, version: 5, text: 'class A { /* нода */ int x; }' }]);
+  });
+
+  it('внешняя версия при неотправленной правке: PUT со старым текстом не уходит, stale; «Взять новый текст»', async () => {
+    const srv = serverFile({ text: 'a', version: 1 });
+    const sync = await created();
+    sync.edit('a mine');
+    await vi.advanceTimersByTimeAsync(200);
+    srv.file.text = 'a theirs';
+    srv.file.version = 2;
+    sync.adoptVersion(2);
+    await settle(sync, 1000);
+    expect(srv.puts).toHaveLength(0);
+    expect(sync.getState()).toMatchObject({
+      status: 'synced',
+      version: 2,
+      loadedText: 'a theirs',
+      loadSeq: 2,
+      stale: { text: 'a mine' },
+    });
+
+    sync.takeTheirs();
+    await settle(sync, 1000);
+    expect(srv.puts).toHaveLength(0);
+    expect(sync.getState()).toMatchObject({ stale: null, loadedText: 'a theirs', status: 'synced' });
+  });
+
+  it('stale → «Оставить мои»: текст пользователя в редактор и PUT с актуальной версией', async () => {
+    const srv = serverFile({ text: 'a', version: 1 });
+    const sync = await created();
+    sync.edit('a mine');
+    srv.file.text = 'a theirs';
+    srv.file.version = 2;
+    sync.adoptVersion(2);
+    await sync.idle();
+    expect(sync.getState().stale).toEqual({ text: 'a mine' });
+
+    sync.keepMine();
+    expect(sync.getState()).toMatchObject({ stale: null, loadedText: 'a mine', loadSeq: 3 });
+    await sync.idle();
+    expect(srv.puts).toEqual([{ path: PATH, version: 2, text: 'a mine' }]);
+    expect(sync.getState()).toMatchObject({ status: 'synced', version: 3 });
+  });
+
+  /**
+   * Задержанный PUT: принимается как версия body.version + 1, затем «извне» (правка нод) сервер уходит
+   * на theirs.version с текстом theirs.text. Возвращает release.
+   */
+  function gatedPut(srv: ReturnType<typeof serverFile>, theirs: { text: string; version: number }) {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    server.use(
+      http.put(
+        `${API}/projects/:projectId/files`,
+        async ({ request }) => {
+          await gate;
+          const body = (await request.json()) as { version: number; text: string };
+          srv.puts.push({ path: new URL(request.url).searchParams.get('path'), ...body });
+          const version = body.version + 1;
+          Object.assign(srv.file, theirs);
+          return HttpResponse.json<Schemas['MutationResult']>({
+            version,
+            fileText: body.text,
+            tree: { version, classes: [] } as never,
+            analysis: { version } as never,
+          });
+        },
+        { once: true },
+      ),
+    );
+    return () => release();
+  }
+
+  it('внешняя версия во время PUT в полёте: без новых правок — тихая перезагрузка после ответа', async () => {
+    const srv = serverFile({ text: 'a', version: 1 });
+    const release = gatedPut(srv, { text: 'ab theirs', version: 3 });
+    const sync = await created();
+    sync.edit('ab');
+    await vi.advanceTimersByTimeAsync(500);
+    expect(sync.getState().status).toBe('saving');
+    // Наш PUT станет версией 2, правка нод — 3.
+    sync.adoptVersion(3);
+    expect(srv.gets()).toBe(1); // GET только после ответа PUT
+    release();
+    await sync.idle();
+    expect(srv.puts.map((p) => p.version)).toEqual([1]);
+    expect(srv.gets()).toBe(2);
+    expect(sync.getState()).toMatchObject({ status: 'synced', version: 3, loadedText: 'ab theirs', stale: null });
+  });
+
+  it('внешняя версия во время PUT в полёте: правка, набранная во время запроса, не уходит — stale', async () => {
+    const srv = serverFile({ text: 'a', version: 1 });
+    const release = gatedPut(srv, { text: 'ab theirs', version: 3 });
+    const sync = await created();
+    sync.edit('ab');
+    await vi.advanceTimersByTimeAsync(500);
+    sync.edit('abc');
+    sync.adoptVersion(3);
+    await vi.advanceTimersByTimeAsync(500);
+    release();
+    await settle(sync, 1000);
+    expect(srv.puts.map((p) => p.text)).toEqual(['ab']);
+    expect(sync.getState()).toMatchObject({
+      status: 'synced',
+      version: 3,
+      loadedText: 'ab theirs',
+      stale: { text: 'abc' },
+    });
+
+    sync.keepMine();
+    await sync.idle();
+    expect(srv.puts.at(-1)).toMatchObject({ version: 3, text: 'abc' });
+    expect(sync.getState()).toMatchObject({ status: 'synced', version: 4, stale: null, loadedText: 'abc' });
+  });
+
+  it('внешняя версия после 422: отклонённый текст сохраняется в stale', async () => {
+    const srv = serverFile({ text: 'class A {}', version: 5 });
+    const sync = await created();
+    server.use(
+      http.put(
+        `${API}/projects/:projectId/files`,
+        () => HttpResponse.json<Schemas['Error']>({ code: 'PARSE_ERROR', message: 'x', line: 1 }, { status: 422 }),
+        { once: true },
+      ),
+    );
+    sync.edit('class A {');
+    await settle(sync);
+    expect(sync.getState().status).toBe('parse-error');
+    srv.file.text = 'class A { int y; }';
+    srv.file.version = 6;
+    sync.adoptVersion(6);
+    await sync.idle();
+    expect(sync.getState()).toMatchObject({
+      status: 'synced',
+      parseError: null,
+      loadedText: 'class A { int y; }',
+      stale: { text: 'class A {' },
+    });
+  });
+
+  it('внешняя версия во время первой загрузки: GET вернул старую версию → догоняющий GET', async () => {
+    const srv = serverFile({ text: 'new', version: 2 });
+    server.use(
+      http.get(
+        `${API}/projects/:projectId/files`,
+        ({ request }) =>
+          HttpResponse.json<Schemas['FileText']>({
+            path: new URL(request.url).searchParams.get('path') ?? '',
+            text: 'old',
+            version: 1,
+          }),
+        { once: true },
+      ),
+    );
+    const sync = new FileSync({ client, projectId: 'p-1', path: PATH });
+    const first = sync.load();
+    sync.adoptVersion(2);
+    await first;
+    await sync.idle();
+    expect(srv.gets()).toBe(1); // первый GET перехвачен once-обработчиком
+    expect(sync.getState()).toMatchObject({ version: 2, loadedText: 'new', stale: null });
   });
 
   it('dispose отменяет отложенную отправку', async () => {
