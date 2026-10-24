@@ -6,6 +6,11 @@
 ## Общее (делают люди вместе, первый час)
 
 - [x] CT-01 `contract/openapi.yaml` v1: файл проекта (`path` + `package`), блок, Issue, тест, результат теста, все эндпоинты §12; ручные фикстуры для одного метода | contract | — | §4, §11, §12
+- [ ] HU-01 (Иван) Coolify: ресурс «Docker Compose» из GitHub-репо, ветка `main`, файл `/docker-compose.yml`; домен только на сервис `frontend` (порт 80) | Coolify | BE-47, FE-14 | §2
+- [ ] HU-02 (Иван) Coolify: автодеплой выключить; Deploy Webhook и API-токен положить в секреты GitHub `COOLIFY_WEBHOOK`, `COOLIFY_TOKEN` (нужны для CI-01) | Coolify, GitHub | HU-01 | §2
+- [ ] HU-03 (Иван) VPS: ≥ 2 ГБ RAM (лучше 4), Docker; `LLM_API_KEY` в переменных Coolify — только если нужен ИИ | VPS | — | §2
+- [ ] HU-04 (Иван) Проверить вкладку Actions на GitHub: CI зелёный на main (у агентов нет `gh`) | GitHub | — | §2
+- [ ] HU-05 (оба) После первого деплоя: открыть публичный адрес, загрузить samples/demo, прогнать фикс → запуск → «Проверить поведение» → экспорт | — | HU-01 | §2
 
 ## Backend
 
@@ -58,7 +63,7 @@
 - [x] FE-11 Панель анализа: Проблемы / Предупреждения / Метрики, оценка «≈ операций» с n | analysis-panel | FE-02 | §8.4
 - [x] FE-12 Панель тестов: IO-тесты, JUnit в Monaco, результаты, diff, шумные строки серым | tests-panel | FE-02, FE-04 | §10
 - [x] FE-13 Кнопки: применить фикс, запуск, проверить поведение | analysis-panel, tests-panel | FE-11, FE-12 | §9, §10
-- [ ] FE-14 `frontend/Dockerfile` (сборка Vite → nginx) + `docker-compose.yml` под Coolify по стыку из decisions «Деплой через Coolify»: nginx-проксирование /api, лимит тела и таймаут, только `expose`, healthcheck фронта, depends_on backend healthy; необязательный basic auth nginx по env | docker-compose.yml, frontend (Dockerfile) | FE-01, BE-47 (стык зафиксирован — можно параллельно) | §2
+- [ ] FE-14 `frontend/Dockerfile` (сборка Vite → nginx) + `docker-compose.yml` под Coolify по стыку из decisions «Деплой через Coolify»: nginx-проксирование /api, лимит тела и таймаут, только `expose`, healthcheck фронта, depends_on backend healthy | docker-compose.yml, frontend (Dockerfile) | FE-01, BE-47 (стык зафиксирован — можно параллельно) | §2
 - [x] FE-15 Экран загрузки: drag&drop файлов, .zip/.jar, папки целиком (`webkitdirectory`); показ предупреждений и ошибок загрузки; экспорт .zip с галочкой «настройки Java Blueprints» и .jar (неактивна с причиной, если не компилируется; подпись «требует Java 21+») | upload | FE-02 | §11
 - [ ] FE-29 Холст после правки: правка ноды / «+» / удаление не сбрасывают viewport на fitView всей схемы; switch с множеством case не раскладывается в одну широкую строку (читаемо при fitView) | editor-nodes | FE-09 | §6
 - [x] FE-30 Красный тест на main: UploadScreen «папка (webkitdirectory) уходит multipart-запросом» получает content-type text/plain — найти причину (код загрузки или тестовое окружение) и починить | upload | FE-15 | §11
