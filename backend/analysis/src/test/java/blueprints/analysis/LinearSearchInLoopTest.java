@@ -154,6 +154,8 @@ class LinearSearchInLoopTest {
         assertEquals("high", found.get("com.demo.service.InventoryService.watched~0"), found.toString());
         assertEquals("high", found.get("com.demo.service.InventoryService.distinctIds~0"), found.toString());
         assertEquals("high", found.get("com.demo.service.Validator.checkLines~0"), found.toString());
-        assertEquals(3, found.size(), found.toString());
+        // known — копия параметра (размер известен), фикс linked-hash-set её берёт (своя локальная из new)
+        assertEquals("high", found.get("com.demo.service.ReportService.productsOutside~0"), found.toString());
+        assertEquals(4, found.size(), found.toString());
     }
 }

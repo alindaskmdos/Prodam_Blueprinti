@@ -20,4 +20,6 @@ max qty:  6
 Widget         94    2.50
 Gadget          9   19.99
 Gizmo           1    5.05
+Alice *gld*: 1 shipped, 28.65, never bought: Gizmo
+Bob [slv]: 1 shipped, 9.60, never bought: Widget Gadget
 done, errors=0
