@@ -1,11 +1,11 @@
 package blueprints.fixes;
 
+import static blueprints.fixes.FixText.*;
+
 import blueprints.analysis.MethodAnalysis;
 import blueprints.analysis.ProjectAnalysis;
 import blueprints.analysis.StringConcatInLoop;
 import blueprints.analysis.StringConcatInLoop.Concat;
-import blueprints.source.SourceFile;
-import com.github.javaparser.Position;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.AssignExpr;
@@ -20,17 +20,13 @@ import com.github.javaparser.ast.stmt.ContinueStmt;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.ast.stmt.Statement;
 import com.github.javaparser.ast.stmt.TryStmt;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Фикс §9 для {@code StringConcatInLoop}: {@code s += x} / {@code s = s + a + b} в цикле →
@@ -45,8 +41,6 @@ import java.util.regex.Pattern;
  */
 public final class StringBuilderFix implements Refactoring {
     public static final String ID = "string-builder";
-
-    private static final Pattern PACKAGE = Pattern.compile("^\\s*package\\s+([\\w.]+)\\s*;", Pattern.MULTILINE);
 
     @Override
     public String id() {
@@ -64,8 +58,6 @@ public final class StringBuilderFix implements Refactoring {
         if (out == null) throw new IllegalArgumentException("фикс " + ID + " неприменим к " + target);
         return out;
     }
-
-    private record Edit(int start, int end, String text) {}
 
     /** Новый текст файла с методом или null, если шаблон не подходит. */
     private static Map<String, String> rewrite(Map<String, String> files, String target) {
@@ -98,7 +90,7 @@ public final class StringBuilderFix implements Refactoring {
         }
         Set<String> taken = new LinkedHashSet<>();
         m.declaration().findAll(SimpleName.class).forEach(n -> taken.add(n.asString()));
-        String nl = text.contains("\r\n") ? "\r\n" : "\n";
+        String nl = newline(text);
         StringBuilder before = new StringBuilder(), after = new StringBuilder();
         List<Edit> edits = new ArrayList<>();
         for (VariableDeclarator vd : vars) {
@@ -118,11 +110,8 @@ public final class StringBuilderFix implements Refactoring {
         }
         edits.add(new Edit(start(text, loop), start(text, loop), before.toString()));
         edits.add(new Edit(end(text, loop), end(text, loop), after.toString()));
-        edits.sort(Comparator.comparingInt(Edit::start).reversed());
-        StringBuilder out = new StringBuilder(text);
-        for (Edit e : edits) out.replace(e.start(), e.end(), e.text());
         Map<String, String> res = new LinkedHashMap<>();
-        res.put(m.file(), out.toString());
+        res.put(m.file(), applyEdits(text, edits));
         return res;
     }
 
@@ -172,47 +161,5 @@ public final class StringBuilderFix implements Refactoring {
             e = b.getLeft();
         }
         return out;
-    }
-
-    private static List<SourceFile> sources(Map<String, String> files) {
-        List<SourceFile> out = new ArrayList<>();
-        files.forEach((path, text) -> {
-            String p = path.replace('\\', '/');
-            if (!p.endsWith(".java") || p.startsWith("tests/")) return;
-            Matcher pk = PACKAGE.matcher(text);
-            out.add(new SourceFile(path, pk.find() ? pk.group(1) : "", text.getBytes(StandardCharsets.UTF_8)));
-        });
-        return out;
-    }
-
-    /** Отступ строки, на которой начинается узел, если перед ним только пробелы; иначе null. */
-    private static String indent(String text, Node n) {
-        int at = start(text, n), from = at;
-        while (from > 0 && text.charAt(from - 1) != '\n' && text.charAt(from - 1) != '\r') from--;
-        String ind = text.substring(from, at);
-        return ind.isBlank() ? ind : null;
-    }
-
-    private static String slice(String text, Node n) {
-        return text.substring(start(text, n), end(text, n));
-    }
-
-    private static int start(String text, Node n) {
-        return offset(text, n.getBegin().orElseThrow());
-    }
-
-    /** Смещение после последнего символа узла (конец в JavaParser включительный). */
-    private static int end(String text, Node n) {
-        return offset(text, n.getEnd().orElseThrow()) + 1;
-    }
-
-    /** Строка/колонка JavaParser (с 1; таб = 1 колонка; \r\n, \r, \n — перевод строки) → смещение в тексте. */
-    private static int offset(String text, Position p) {
-        int i = 0;
-        for (int line = 1; line < p.line; line++) {
-            while (text.charAt(i) != '\n' && text.charAt(i) != '\r') i++;
-            i += text.startsWith("\r\n", i) ? 2 : 1;
-        }
-        return i + p.column - 1;
     }
 }

@@ -11,7 +11,7 @@ public final class RefactoringRegistry {
     }
 
     public static RefactoringRegistry defaults() {
-        return new RefactoringRegistry(List.of(new StringBuilderFix()));
+        return new RefactoringRegistry(List.of(new StringBuilderFix(), new LinkedHashSetFix()));
     }
 
     public List<Refactoring> refactorings() {
