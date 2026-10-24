@@ -21,6 +21,8 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/api/projects")
 class ProjectsController {
+    record FileText(String path, String text, int version) {}
+
     private final ProjectStore store;
 
     ProjectsController(ProjectStore store) {
@@ -53,6 +55,28 @@ class ProjectsController {
     ProjectDto.TreeDto tree(@PathVariable String id) {
         var s = store.get(id);
         return new ProjectDto.TreeDto(s.version(), TreeBuilder.build(s.content()));
+    }
+
+    @GetMapping("/{id}/methods/{methodId}/blocks")
+    ProjectView.MethodView blocks(@PathVariable String id, @PathVariable String methodId) {
+        ProjectView.MethodView m = new ProjectView(store.get(id).content()).method(methodId);
+        if (m == null) throw new ApiException(404, "NOT_FOUND", "метод не найден: " + methodId);
+        return m;
+    }
+
+    @GetMapping("/{id}/files")
+    FileText file(@PathVariable String id, @RequestParam String path) {
+        var s = store.get(id);
+        return s.content().files().stream().filter(f -> f.path().equals(path)).findFirst()
+                .map(f -> new FileText(path, f.text(), s.version()))
+                .orElseThrow(() -> new ApiException(404, "NOT_FOUND", "файл не найден: " + path));
+    }
+
+    /** ponytail: параметр n не читается — ops считаются при n = 10 000 (Issues.DEFAULT_N), это и отдаётся в n. */
+    @GetMapping("/{id}/analysis")
+    ProjectView.AnalysisDto analysis(@PathVariable String id) {
+        var s = store.get(id);
+        return new ProjectView(s.content()).analysis(s.version());
     }
 
     @GetMapping("/{id}/export")

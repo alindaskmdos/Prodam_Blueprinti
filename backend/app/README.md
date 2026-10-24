@@ -4,7 +4,11 @@ Spring Boot: REST по `contract/openapi.yaml`, хранение проекто�
 Единственный модуль, который знает про Spring. Зависит от всех остальных модулей.
 
 Главный класс: `blueprints.app.Application`. Эндпоинты (`/api`): `GET /health`, `POST /projects` (multipart `files[]` + `paths[]`), `GET /projects/{id}`, `GET /projects/{id}/tree`, `GET /projects/{id}/export?format=zip&includeSettings=`,
-`PUT /projects/{id}/methods/{methodId}/blocks` (`{version, root}`), `PUT /projects/{id}/files?path=` (`{version, text}`) -> MutationResult.
+`PUT /projects/{id}/methods/{methodId}/blocks` (`{version, root}`), `PUT /projects/{id}/files?path=` (`{version, text}`) -> MutationResult,
+`GET /projects/{id}/methods/{methodId}/blocks` -> MethodView, `GET /projects/{id}/files?path=` -> FileText, `GET /projects/{id}/analysis` -> Analysis.
+
+- GET blocks / analysis — те же представления `ProjectView`, что в MutationResult (снимок строится на каждый запрос, без кэша);
+  неизвестный проект/метод/файл -> 404 NOT_FOUND. Параметр `n` у analysis пока не читается: ops всегда при n = 10 000, это и в поле `n`.
 
 - `EditController` — правки через `ProjectStore.update`: PUT blocks = `NodeValidator` -> `BlocksToJava.replaceMethod` -> повторный разбор;
   неверная нода -> 422 PARSE_ERROR с blockId, версия не растёт; PUT files — разбор JavaParser, ошибка -> 422 PARSE_ERROR с line.
@@ -20,4 +24,4 @@ Spring Boot: REST по `contract/openapi.yaml`, хранение проекто�
 - `ProjectDto` — DTO руками по контракту; `TestImporter` — `Project.tests` из `tests/*.json`, пар `*.in`/`*.out` (mode original, expected null) и `tests/*.java` (junit).
 - В BE-09/BE-11 разбор тестов переедет из `TestImporter` в `TestSource` модуля `testing`.
 
-Запуск: `./gradlew :app:bootRun`. Тесты (RANDOM_PORT): `./gradlew :app:test`; `ContractConformanceTest`, `ProjectsApiTest` и `EditApiTest` валидируют ответы JSON Schema из `contract/openapi.yaml`.
+Запуск: `./gradlew :app:bootRun`. Тесты (RANDOM_PORT): `./gradlew :app:test`; `ContractConformanceTest` (в т.ч. GET blocks/files/analysis), `ProjectsApiTest` и `EditApiTest` валидируют ответы JSON Schema из `contract/openapi.yaml`.
