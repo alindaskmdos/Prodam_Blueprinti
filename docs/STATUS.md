@@ -7,11 +7,11 @@
 
 ## Backend
 
-**Готово:** BE-01, BE-02, BE-03, BE-04, BE-05, BE-06, BE-08, BE-09, BE-10, BE-11, BE-12, BE-13, BE-14, BE-15, BE-16, BE-17, BE-07, BE-18, BE-37, BE-19, BE-38, BE-20, BE-40, BE-41, BE-36, BE-39, BE-36; CT-01 (+ arrow-switch в Block, `<init>~N`)
-**В работе:** BE-21 (fixes)
-**Висящие ветки/worktree:** —. Локальный main впереди origin (BE-12..BE-20, BE-37, BE-38, BE-40, BE-41, BE-07 + merge BE-06) — нужен push. Папки старых worktree в .claude/worktrees не удаляются из-за длинных путей Windows, стирать вручную. На origin висит устаревшая ветка be-5 (остатки отменённого merge BE-09) — удалить: `git push origin --delete be-5`.
+**Готово:** BE-01…BE-21, BE-36…BE-41 — весь обязательный путь бэкенда (загрузка/экспорт zip и jar, ноды ↔ код, валидация, анализ + 6 детекторов, 3 фикса + Quality Gate, тесты IO/JUnit, run/verify, все эндпоинты контракта); CT-01 (+ правки BE-38 по решению человека).
+**В работе:** —
+**Висящие ветки/worktree:** —. Локальный main впереди origin (BE-21, BE-39, BE-36, BE-41, BE-40, BE-20, BE-38 и др.) — нужен push. Папки старых worktree в .claude/worktrees не удаляются из-за длинных путей Windows, стирать вручную. На origin устаревшая ветка be-5 — `git push origin --delete be-5`.
 **Заблокировано:** —
-**Следующие шаги:** детекторы MVP закрыты (в брифах: не вливать main в ветку, не трогать docs/; Node.equals у JavaParser по содержимому — ключевать узлы по идентичности); app должен отдавать Analysis.metrics из MethodAnalysis.lines()/maxNesting(); BE-19/20/21 (фиксы, нужен BE-18; BE-19 берёт переменные через публичный StringConcatInLoop.concats); app ещё не отдаёт анализ (подстановка blockId по диапазону строк — decisions.md); BE-18 Quality Gate — после BE-10 ✓ и BE-11 ✓, доступна (текст «нет тестов» — по decisions.md); BE-18 Quality Gate — доступна.
+**Следующие шаги:** бэкенд обязательного пути закрыт — дальше по просьбе человека: долги из «Известных проблем» (ru_RU в demo `String.format` без Locale — актуально для демо; LinkedHashSetFix и List по простому имени) или задачи «Если успеем» (BE-24 мёртвый код — только analysis, без контракта; BE-32 CLI). В брифах исполнителям: работать от текущего main, не трогать docs/ и contract/, Docker запущен (тесты с Docker должны реально выполняться), сразу учитывать типичные дыры фиксов (алиасы, views, сторонние вызовы, null, == на обёртках, наследники/анонимные подклассы в src и tests).
 
 ## Frontend
 
@@ -40,12 +40,14 @@
 - app/ProjectView: Issue без methodId → blockId null (по контракту обязателен; сейчас детекторы methodId всегда ставят); DetectorRegistry.defaults() вызывается напрямую, а не бином.
 - fixes/QualityGate: Refactoring получает саму карту currentFiles (не unmodifiable); StandardJavaFileManager не закрывается; без системного компилятора (JRE) — NPE.
 - app: ProjectView строится заново на каждый запрос (без кэша); n<1 у GET analysis → 400 (в контракте 400 нет; предложение: 400 + minimum: 1); fix/PUT считают ops при n=10000.
-- fixes/StringBuilderFix: `s += foo()` с foo(): char[] молча меняет вывод (только тест вывода поймает); комментарий внутри `s += /*c*/ x` теряется при замене; 
+- fixes/StringBuilderFix: `s += foo()` с foo(): char[] молча меняет вывод (только тест вывода поймает); комментарий внутри `s += /*c*/ x` теряется при замене.
 - app/verify: если все tests/*.json битые, проверка main пропускается (io=false).
 - fixes/LinkedHashSetFix: только своя локальная из `new ArrayList/LinkedList` или без сторонних вызовов в цикле; элемент String/обёртка; неявный код в цикле (toString, iterator() пользовательского Iterable) не учитывается; тип аргумента по имени в методе.
 - app/fix: без Docker / несколько main / нет main → 200 applied=false с reason (у fix в контракте нет 422/503); фикс, создающий новый файл, → 500; applied с пустым changed → 500; canApply считается на каждый снимок без кэша; Diff не видит разницу только в финальном 
 .
 - app/export: имя файла `<id>.zip|.jar`, а контракт описывает `<проект>`; без JDK → 500 (503 у export в контракте нет). ProjectsApiTest.javaJar не ждёт/не убивает процесс java.
+- fixes/LinkedHashSetFix: List/ArrayList/LinkedList распознаются по простому имени — свой класс проекта с таким именем примется за JDK (в IndexByIdFix уже отклоняется).
+- fixes/IndexByIdFix: при null-элементе/статусе, /0, IndexOutOfBounds в теле исключение сохраняется, но набор выполненных тел до него может отличаться; List считается JDK-реализацией; одноимённый T в tests/ → ложный отказ.
 - blocks/NodeValidator: исходный текст с \u разрешён в любом не-comment поле — можно перенести в ноду другого kind (крайний случай).
 
 ## Журнал (одна строка на закрытую задачу)
@@ -81,3 +83,4 @@
 - BE-39: GET /tree через ProjectView.tree (complexity, issueCount); n у GET analysis → ProjectAnalysis.of(files, n) → Issues.of (ops при n проекта), Detector не менялся; дефолт совпадает с analysis.merge.json.
 - FE-02: каркас редактора (шапка, дерево проекта из GET tree, слот холста, панели с вкладками из panels.ts {id,title,area,component}, zustand store projectId/version/selectedMethodId, react-resizable-panels).
 - FE-04: CodeEditor (Monaco локально, ленивый чанк), fileSync: debounce 500 мс, полный текст + version, 409 → тост и перезагрузка, 422 → маркер, один запрос в полёте; мок PUT files по умолчанию.
+- BE-21: IndexByIdFix `index-by-id` (вложенный for i / for j=i+1 по одному списку с поиском по ключу → LinkedHashMap + putIfAbsent за один проход; ключ — геттер final-примитива с тем же типом, без наследников/анонимных подклассов T в src и tests, белый список коммутирующих эффектов тела). Demo OrderService.merge → Map<Integer, Order> byCustomer, QualityGate GREEN, Issue.fixes = [index-by-id]. 3 круга ревью.
