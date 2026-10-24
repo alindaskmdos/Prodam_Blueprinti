@@ -111,6 +111,7 @@ class ContractConformanceTest {
         Contract.validate("Error", Contract.fixture("error.conflict.json"));
         Contract.validate("Analysis", Contract.fixture("analysis.merge.json"));
         Contract.validate("MethodView", Contract.fixture("method-view.merge.json"));
+        Contract.validate("UmlDiagram", Contract.fixture("uml.demo.json"));
     }
 
     /** Analysis / MethodView / ProjectTree из ProjectView на демо — по схемам; проблема merge — как в фикстуре. */
@@ -336,5 +337,42 @@ class ContractConformanceTest {
         assertEquals(1, rejected.get("version").asInt());
         assertTrue(rejected.get("reason").asText().startsWith("исправление не подтверждено: "), rejected.toString());
         assertEquals(1, ok(rest.getForEntity("/api/projects/" + bad + "/analysis", String.class)).get("version").asInt());
+    }
+
+    /** Загрузка samples/demo через POST /projects; возвращает базовый путь проекта. */
+    String uploadDemo() throws IOException {
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        ProjectsApiTest.demoFiles().forEach((path, data) -> {
+            body.add("files", ProjectsApiTest.part(path.replaceAll(".*/", ""), data));
+            body.add("paths", path);
+        });
+        HttpHeaders h = new HttpHeaders();
+        h.setContentType(MediaType.MULTIPART_FORM_DATA);
+        var created = rest.postForEntity("/api/projects", new HttpEntity<>(body, h), String.class);
+        assertEquals(HttpStatus.CREATED, created.getStatusCode(), created.getBody());
+        return "/api/projects/" + Contract.JSON.readTree(created.getBody()).get("id").asText();
+    }
+
+    /** GET uml на демо — по схеме UmlDiagram; классы как в uml.demo.json, связи — тем же набором. */
+    @Test
+    void umlOnDemoMatchesSchemaAndFixture() throws IOException {
+        String base = uploadDemo();
+        JsonNode uml = ok(rest.getForEntity(base + "/uml", String.class));
+        Contract.validate("UmlDiagram", uml);
+        JsonNode fx = Contract.fixture("uml.demo.json");
+        assertEquals(fx.get("version"), uml.get("version"));
+        assertEquals(fx.get("classes"), uml.get("classes"));
+        assertEquals(relations(fx), relations(uml));
+        // via в фикстуре у двух связей не первое использование (Main→Product «dispatch» — Product там не упомянут), сверяется отдельно
+        for (JsonNode r : uml.get("relations")) {
+            assertEquals(!r.get("kind").asText().matches("extends|implements"), r.has("via"), r.toString());
+        }
+        notFound(rest.getForEntity("/api/projects/p-none/uml", String.class));
+    }
+
+    private static java.util.Set<String> relations(JsonNode diagram) {
+        java.util.Set<String> out = new java.util.TreeSet<>();
+        diagram.get("relations").forEach(r -> out.add(((com.fasterxml.jackson.databind.node.ObjectNode) r.deepCopy()).without("via").toString()));
+        return out;
     }
 }

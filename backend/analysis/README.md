@@ -67,4 +67,13 @@ toString/equals/hashCode/compareTo, приватные методы сериал
 переменные for/for-each/try/catch. Перегрузки и лямбды — по имени. Поля и классы не проверяются (у Issue без метода нет blockId).
 На demo находок нет. `ProjectAnalysis.stringLiterals()` — значения строковых литералов проекта.
 
+UML (§14а.1): `ProjectAnalysis.uml()` → `UmlModel` — `classes()` (`Clazz`: id = FQN через точки, вложенный `pkg.Outer.Inner`,
+name `Outer.Inner`, kind, pkg, path, span, modifiers, typeParams, поля включая компоненты record, конструкторы/методы с id как в дереве
+(`FQN$Inner.имя~N`), сигнатура — объявленные модификаторы + заголовок), `relations()` — только между классами проекта, на пару одна
+самая сильная: extends/implements > composition > aggregation > association > dependency. Поле: коллекция/массив/Map (по значению) →
+aggregation «*»; присвоено `new` → composition; из параметра конструктора или компонент record → aggregation; иначе association «1».
+dependency — тип/статическое обращение в методе, конструкторе или объявлении поля (via — первый такой член по порядку). Резолв имён
+текстовый: параметры типа, вложенные своего и внешних классов, single-импорт, свой пакет, импорт `*`, полное имя. `nested(a, b)` —
+внешний/вложенный. Ограничения: унаследованные вложенные типы и статические импорты не резолвятся, `Outer.Inner.X` в выражении даёт только Outer.
+
 Зависит от: model, source. Тесты: `./gradlew :analysis:test` (в т.ч. прогон по `samples/demo` и `samples/roundtrip`).

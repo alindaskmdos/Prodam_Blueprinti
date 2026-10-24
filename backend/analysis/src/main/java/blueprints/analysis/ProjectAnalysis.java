@@ -33,8 +33,8 @@ import java.util.Set;
  * Резолв вызовов текстовый (объявленные типы переменных/полей, имена классов проекта), без Symbol Solver.
  */
 public final class ProjectAnalysis {
-    /** Тип проекта: fqn, пакет, объявление. */
-    record TypeInfo(String fqn, String pkg, TypeDeclaration<?> decl) {}
+    /** Тип проекта: fqn (вложенный — через $), пакет, путь файла, объявление. */
+    record TypeInfo(String fqn, String pkg, String path, TypeDeclaration<?> decl) {}
 
     private final Map<String, MethodAnalysis> methods = new LinkedHashMap<>();
     private final Map<String, List<TypeInfo>> typesBySimpleName = new LinkedHashMap<>();
@@ -42,7 +42,9 @@ public final class ProjectAnalysis {
     private final Map<String, List<MethodAnalysis>> methodsByType = new LinkedHashMap<>();
     private final List<String> warnings = new ArrayList<>();
     private final List<CompilationUnit> units = new ArrayList<>();
+    private final List<TypeInfo> types = new ArrayList<>();
     private Set<String> stringLiterals;
+    private UmlModel uml;
     private final CallGraph callGraph;
     private final long n;
 
@@ -94,6 +96,17 @@ public final class ProjectAnalysis {
         return callGraph;
     }
 
+    /** UML-модель классов проекта (§14а.1), строится лениво один раз. */
+    public UmlModel uml() {
+        if (uml == null) uml = UmlModel.build(this);
+        return uml;
+    }
+
+    /** Типы проекта в порядке файлов; внутри файла — внешний, затем вложенные (как в дереве проекта). */
+    List<TypeInfo> types() {
+        return types;
+    }
+
     /** Предупреждения уровня проекта (неразобранные файлы). */
     public List<String> warnings() {
         return warnings;
@@ -103,8 +116,9 @@ public final class ProjectAnalysis {
 
     private void index(TypeDeclaration<?> t, SourceFile f) {
         String fqn = f.pkg().isEmpty() ? binary(t) : f.pkg() + "." + binary(t);
-        TypeInfo info = new TypeInfo(fqn, f.pkg(), t);
+        TypeInfo info = new TypeInfo(fqn, f.pkg(), f.path(), t);
         typeOf.put(t, info);
+        types.add(info);
         typesBySimpleName.computeIfAbsent(t.getNameAsString(), k -> new ArrayList<>()).add(info);
         List<MethodAnalysis> own = methodsByType.computeIfAbsent(fqn, k -> new ArrayList<>());
         int ctor = 0;
