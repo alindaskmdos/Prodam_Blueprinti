@@ -3,7 +3,7 @@
 > Пишет только оркестратор. Это «сохранение игры»: после /clear новая сессия начинает отсюда.
 > Обновлять полностью после каждых ~5 закрытых задач или крупного этапа.
 
-Обновлено: 2026-10-24
+Обновлено: 2026-10-24 (фронт — полное обновление)
 
 ## Backend
 
@@ -15,15 +15,17 @@
 
 ## Frontend
 
-**Готово:** FE-01, FE-02, FE-03, FE-04, FE-07, FE-08, FE-11, FE-12, FE-15
-**В работе:** Также в работе (запущены 2026-10-24, исполнители в worktree `.claude/worktrees/agent-*`, ветки `worktree-agent-*` — смотреть `git worktree list`): FE-15 (upload, App.tsx выбор экрана, кнопки шапки, commands.ts, мок POST /projects). Если сессия прервалась: есть коммит FE-xx в ветке → verifier + reviewer; нет → перезапустить исполнителя на ту же ветку.
-
-FE-14 отложен: нужен Dockerfile бэка (зона бэкенда) и Docker-сокет хоста с одинаковым путём BLUEPRINTS_RUN_DIR — согласовать с бэкендом.
-В работе также: FE-13 (кнопки фикса/запуска/проверки: analysis-panel, features/fix, commands.ts, EditorHeader, моки POST fix/run/verify).
-**Висящие ветки/worktree:** FE-13 (см. выше). Локальный main впереди origin: FE-02, фикстура file.order-service.json, FE-04 — нужен push.
-**Заблокировано:** —
-**Следующие шаги:** FE-05, FE-06, FE-07, FE-11, FE-14. Агенты из `.claude/agents` подхватываются, только если сессия открыта из Prodam_Blueprinti/ (иначе general-purpose + путь к промпту роли).
-**Мелочи с ревью (на будущее):**  FE-07 rebase: если ноды нет в новом дереве или версия выросла во время rebase — черновик теряется (показать текст в сообщении); fixture<T>() — просто `as T`, нет сверки фикстур со схемой; store.version приходит только из GET tree, selectedMethodId не сверяется после перезагрузки; panels.ts findPanel — мёртвый код; фичи импортируют app/store (обратная зависимость); fileSync: после сетевой ошибки/5xx нет повтора PUT; FE-04: fileText из ответа PUT в редактор не подставляется (намеренно, курсор).
+**Готово:** FE-01, FE-02 (+ подключение холста и кода), FE-03, FE-04 (+ 2 исправления синхронизации), FE-07, FE-08, FE-11, FE-12, FE-15. На моках работает путь: загрузка → дерево → схема метода (правка текста, «+», удаление, ↑↓) → код в Monaco ↔ схема по version → анализ → тесты. main: 218 тестов, typecheck/lint/build зелёные; Monaco только в ленивых чанках (основной ~480 kB).
+**В работе** (исполнители в `.claude/worktrees/agent-*`, ветки `worktree-agent-*`, см. `git worktree list`; если сессия прервалась: есть коммит FE-xx в ветке → verifier + reviewer, нет → перезапустить исполнителя на ту же ветку):
+- FE-13 — «Применить фикс» (Quality Gate), «Запуск», «Проверить поведение»: analysis-panel, features/fix, commands.ts, EditorHeader, моки POST fix/run/verify; результаты → useTestsStore.showRunResult/showVerifyResult.
+- FE-05 — подсветка строка ↔ нода, центрирование по проблеме: editor-nodes, editor-code (декорации), store.highlight.
+**Висящие ветки/worktree:** FE-13, FE-05. Локальный main впереди origin — нужен push.
+**Заблокировано / ждёт решения людей:**
+- FE-10 (формы классов/полей/методов): в контракте нет эндпоинтов структуры. Варианты: правка текста через PUT files / новые эндпоинты (бэк + contract) / отложить (рекомендация).
+- FE-14 (docker-compose): нужен Dockerfile бэка (зона бэкенда) и Docker-сокет хоста с одинаковым путём BLUEPRINTS_RUN_DIR.
+- contract/fixtures/analysis.merge.json: fixes = ["index-by-key"], бэк — `index-by-id`.
+**Следующие шаги:** после FE-13/FE-05 — FE-06 (сворачивание, мини-карта, комментарии), FE-09 (drag из палитры). Порядок в editor-nodes — по одной задаче (FE-05 → FE-06 → FE-09). Агенты из `.claude/agents` подхватываются, только если сессия открыта из Prodam_Blueprinti/ (иначе general-purpose + путь к промпту роли). Ветки исполнителей перед мержем проверяются verifier (своя копия, только фронт, если diff только frontend/) + reviewer; package-lock при конфликте — объединить package.json, `git checkout --ours` lock и `npm install`.
+**Мелочи с ревью (на будущее):** FE-07 rebase: если ноды нет в новом дереве или версия выросла во время rebase — черновик теряется; fixture<T>() — просто `as T` (фикстуры сверены ajv вручную 2026-10-24, автотеста нет); store.version из GET tree «только если новее», selectedMethodId не сверяется после перезагрузки; panels.ts findPanel — мёртвый код; фичи импортируют app/store; fileSync: после сетевой ошибки/5xx нет повтора PUT; GET files с версией новее store не перезагружает дерево проекта; FE-08: confirm через window.confirm, отказ clipboard не показывается; FE-12: завершающий \n при шумных строках не виден в шапке diff.
 
 ## Известные проблемы
 
