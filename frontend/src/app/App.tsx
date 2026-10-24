@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, type ReactNode } from 'react';
 import { api, type ApiClient, type Schemas } from '../features/api';
+import { FixConflictToast, isFixRunning, QualityGateDialog, useFixStore } from '../features/fix';
 import { CanvasSlot, EditorHeader, EditorLayout, PanelTabs } from '../features/layout';
 import { ProjectTree } from '../features/project-tree';
+import { RunDialog, SandboxNotice, sandboxDisabledReason, useSandbox, useSandboxStore } from '../features/sandbox';
 import { ExportDialog, UploadScreen, useUploadUi, type SaveFile } from '../features/upload';
 import { runCommand } from './commands';
 import { SelectedMethodCanvas } from './methodViews';
@@ -62,7 +64,13 @@ function EditorScreen({ client, projectId, canvas, panels, saveFile }: EditorScr
   const methodId = useAppStore((s) => s.selectedMethodId);
   const exportOpen = useUploadUi((s) => s.exportOpen);
   const closeExport = useUploadUi((s) => s.closeExport);
-  const entryPoint = useEntryPoint(client, projectId);
+  const showPanel = useAppStore((s) => s.showPanel);
+  const bottomTab = useAppStore((s) => s.activePanels.bottom);
+  useSandbox(client, projectId);
+  const entryPoint = useSandboxStore((s) => entryPointLabel(s.mainClasses));
+  const sandboxBusy = useSandboxStore((s) => s.busy);
+  const fixRunning = useFixStore((s) => isFixRunning(s.gate));
+  const disabledReason = useSandboxStore(sandboxDisabledReason);
 
   return (
     <>
@@ -74,13 +82,29 @@ function EditorScreen({ client, projectId, canvas, panels, saveFile }: EditorScr
             entryPoint={entryPoint}
             onUpload={() => runCommand('project.upload')}
             onExport={() => runCommand('project.export')}
+            onRun={() => runCommand('project.run')}
+            onVerify={() => runCommand('project.verify')}
+            busy={sandboxBusy ?? (fixRunning ? 'fix' : null)}
+            sandboxDisabledReason={disabledReason}
+            onSandboxRecheck={() => void useSandboxStore.getState().checkHealth()}
           />
         }
         left={<ProjectTree client={client} projectId={projectId} />}
         canvas={<CanvasSlot>{canvas ?? (methodId ? <SelectedMethodCanvas client={client} /> : undefined)}</CanvasSlot>}
         right={<PanelTabs title="Анализ" tabs={panelsIn('right', panels)} />}
-        bottom={<PanelTabs aria-label="Код, консоль, тесты" tabs={panelsIn('bottom', panels)} />}
+        bottom={
+          <PanelTabs
+            aria-label="Код, консоль, тесты"
+            tabs={panelsIn('bottom', panels)}
+            activeId={bottomTab}
+            onActiveChange={(id) => showPanel('bottom', id)}
+          />
+        }
       />
+      <RunDialog />
+      <QualityGateDialog />
+      <SandboxNotice />
+      <FixConflictToast />
       {exportOpen && (
         <ExportDialog client={client} projectId={projectId} version={version} onClose={closeExport} save={saveFile} />
       )}
@@ -88,26 +112,10 @@ function EditorScreen({ client, projectId, canvas, panels, saveFile }: EditorScr
   );
 }
 
-/** Точка входа для шапки: первый класс с main из GET /projects/{id} → «Main.main». */
-function useEntryPoint(client: ApiClient, projectId: string): string | null {
-  const [entry, setEntry] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setEntry(null);
-    client
-      .GET('/projects/{projectId}', { params: { path: { projectId } } })
-      .then(({ data }) => {
-        const main = data?.mainClasses?.[0];
-        if (!cancelled && main) setEntry(`${main.split('.').pop() ?? main}.main`);
-      })
-      .catch(() => {
-        // Шапка без точки входа — не ошибка экрана.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [client, projectId]);
-
-  return entry;
+/** Точка входа для шапки: первый класс с main (Project.mainClasses) → «Main.main»; нет — null. */
+function entryPointLabel(mainClasses: string[] | null): string | null {
+  const main = mainClasses?.[0];
+  if (!main) return null;
+  const label = `${main.split('.').pop() ?? main}.main`;
+  return mainClasses.length > 1 ? `${label} (+${mainClasses.length - 1})` : label;
 }

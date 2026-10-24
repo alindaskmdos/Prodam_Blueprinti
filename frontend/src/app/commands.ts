@@ -1,5 +1,20 @@
+import { useAnalysisStore } from '../features/analysis-panel/analysisStore';
+import { isFixRunning, useFixStore } from '../features/fix';
+import { sandboxDisabledReason, useSandboxStore } from '../features/sandbox';
 import { useUploadUi } from '../features/upload';
 import { useAppStore } from './store';
+
+/** Запуск/проверка доступны: проект открыт, песочница доступна, ничего не выполняется. */
+function sandboxReady(): boolean {
+  const sandbox = useSandboxStore.getState();
+  return (
+    useAppStore.getState().projectId !== null &&
+    sandbox.client !== null &&
+    sandboxDisabledReason(sandbox) === null &&
+    sandbox.busy === null &&
+    !isFixRunning(useFixStore.getState().gate)
+  );
+}
 
 /** Пользовательское действие: кнопка в UI и пункт командной палитры (Ctrl+K). */
 export interface CommandDef {
@@ -12,8 +27,12 @@ export interface CommandDef {
   shortcut?: string;
   /** false — команда видна, но недоступна (напр. нет Docker). */
   isEnabled?: () => boolean;
-  run: () => void | Promise<void>;
+  /** `args` — параметры команды из UI (напр. fix.apply: issueId, fixId). */
+  run: (args?: CommandArgs) => void | Promise<void>;
 }
+
+/** Параметры команды: строки по имени. */
+export type CommandArgs = Readonly<Record<string, string>>;
 
 /** Реестр команд. Новое действие = новый элемент списка. */
 export const commands: readonly CommandDef[] = [
@@ -30,6 +49,38 @@ export const commands: readonly CommandDef[] = [
     isEnabled: () => useAppStore.getState().projectId !== null,
     run: () => useUploadUi.getState().openExport(),
   },
+  {
+    id: 'project.run',
+    title: 'Запуск программы',
+    group: 'Запуск',
+    isEnabled: sandboxReady,
+    run: () => useSandboxStore.getState().openRun(),
+  },
+  {
+    id: 'project.verify',
+    title: 'Проверить поведение (все тесты)',
+    group: 'Запуск',
+    isEnabled: sandboxReady,
+    run: () => useSandboxStore.getState().verify(),
+  },
+  {
+    // Кнопка «Применить» в карточке проблемы: args = { issueId, fixId } (fixId — из Issue.fixes).
+    id: 'fix.apply',
+    title: 'Применить фикс (Quality Gate)',
+    group: 'Анализ',
+    isEnabled: sandboxReady,
+    run: (args) => {
+      const issueId = args?.issueId;
+      const fixId = args?.fixId;
+      const { analysis } = useAnalysisStore.getState();
+      const { projectId } = useAppStore.getState();
+      const { client } = useSandboxStore.getState();
+      const issue = analysis?.issues.find((i) => i.id === issueId);
+      if (!analysis || !issue || !fixId || !issue.fixes.includes(fixId) || !projectId || !client) return;
+      // Версия — анализа, из которого взят Issue: issueId действителен только для неё.
+      return useFixStore.getState().apply(client, projectId, issue, fixId, analysis.version);
+    },
+  },
 ];
 
 export function findCommand(id: string): CommandDef | undefined {
@@ -37,7 +88,7 @@ export function findCommand(id: string): CommandDef | undefined {
 }
 
 /** Выполнить команду из реестра (кнопки UI), если она доступна. */
-export function runCommand(id: string): void {
+export function runCommand(id: string, args?: CommandArgs): void {
   const command = findCommand(id);
-  if (command && (command.isEnabled?.() ?? true)) void command.run();
+  if (command && (command.isEnabled?.() ?? true)) void command.run(args);
 }

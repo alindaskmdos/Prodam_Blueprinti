@@ -9,6 +9,7 @@ type Health = paths['/health']['get']['responses']['200']['content']['applicatio
 type PutFileBody = paths['/projects/{projectId}/files']['put']['requestBody']['content']['application/json'];
 type PutTestBody = paths['/projects/{projectId}/tests/{name}']['put']['requestBody']['content']['application/json'];
 type DeletedTest = paths['/projects/{projectId}/tests/{name}']['delete']['responses']['200']['content']['application/json'];
+type FixBody = paths['/projects/{projectId}/issues/{issueId}/fix']['post']['requestBody']['content']['application/json'];
 type PutBlocksBody =
   paths['/projects/{projectId}/methods/{methodId}/blocks']['put']['requestBody']['content']['application/json'];
 
@@ -36,7 +37,7 @@ function firstChangedBlockId(root: Schemas['Block']): string {
 /** Обработчики по умолчанию: «счастливый путь» на фикстурах contract/fixtures. */
 export const handlers = [
   // Для /health фикстуры нет — ответ по схеме контракта.
-  http.get(`${API}/health`, () => HttpResponse.json<Health>({ status: 'UP', docker: false, llm: false })),
+  http.get(`${API}/health`, () => HttpResponse.json<Health>({ status: 'UP', docker: true, llm: false })),
 
   http.post(`${API}/projects`, () => HttpResponse.json(fixtures.project, { status: 201 })),
   http.get(`${API}/projects/:projectId`, () => HttpResponse.json(fixtures.project)),
@@ -56,7 +57,21 @@ export const handlers = [
   ),
   // Фикстура одна (n = 10000): параметр n принимается, но числа ops в моке не пересчитываются.
   http.get(`${API}/projects/:projectId/analysis`, () => HttpResponse.json(fixtures.analysisMerge)),
-  http.post(`${API}/projects/:projectId/issues/:issueId/fix`, () => HttpResponse.json(fixtures.fixApplied)),
+  // fix.applied.json + mutation из фикстур (как у PUT blocks): версия = присланная + 1.
+  http.post(`${API}/projects/:projectId/issues/:issueId/fix`, async ({ request }) => {
+    const { version } = (await request.json()) as FixBody;
+    const next = version + 1;
+    return HttpResponse.json<Schemas['FixResult']>({
+      ...fixtures.fixApplied,
+      version: next,
+      mutation: {
+        version: next,
+        fileText: fixtures.fileOrderService.text,
+        tree: fixtures.tree,
+        analysis: { ...fixtures.analysisMerge, version: next },
+      },
+    });
+  }),
   // Список: IO-тесты из project.json + JUnit из test.junit.json.
   http.get(`${API}/projects/:projectId/tests`, () =>
     HttpResponse.json<Schemas['TestCase'][]>([...fixtures.project.tests, fixtures.testJunit]),
@@ -112,10 +127,60 @@ export const handlers = [
 
 /** Альтернативные сценарии для тестов и ручной проверки: `server.use(scenarios.fixRejected)`. */
 export const scenarios = {
-  fixRejected: http.post(`${API}/projects/:projectId/issues/:issueId/fix`, () =>
-    HttpResponse.json(fixtures.fixRejected),
+  /** Quality Gate отклонил фикс: fix.rejected.json, версия — присланная (не меняется). */
+  fixRejected: http.post(`${API}/projects/:projectId/issues/:issueId/fix`, async ({ request }) => {
+    const { version } = (await request.json()) as FixBody;
+    return HttpResponse.json<Schemas['FixResult']>({ ...fixtures.fixRejected, version });
+  }),
+  /** Применено с неполной проверкой (нет тестов) — по сообщению QualityGate бэка. */
+  fixIncomplete: http.post(`${API}/projects/:projectId/issues/:issueId/fix`, async ({ request }) => {
+    const { version } = (await request.json()) as FixBody;
+    return HttpResponse.json<Schemas['FixResult']>({
+      ...fixtures.fixApplied,
+      version: version + 1,
+      reason: 'подтверждена компиляция, тестов нет',
+      verify: { status: 'incomplete', results: [], warnings: [] },
+    });
+  }),
+  fixConflict: http.post(`${API}/projects/:projectId/issues/:issueId/fix`, () =>
+    HttpResponse.json(fixtures.errorConflict, { status: 409 }),
+  ),
+  // Для 404 фикстуры нет — ответ по схеме Error контракта.
+  fixNotFound: http.post(`${API}/projects/:projectId/issues/:issueId/fix`, () =>
+    HttpResponse.json<Schemas['Error']>({ code: 'NOT_FOUND', message: 'проблема ISSUE-1 не найдена' }, { status: 404 }),
   ),
   verifyRed: http.post(`${API}/projects/:projectId/verify`, () => HttpResponse.json(fixtures.verifyRed)),
+  // Для 503 / 422 run и verify фикстур нет — ответы по схеме Error контракта.
+  verifyUnavailable: http.post(`${API}/projects/:projectId/verify`, () =>
+    HttpResponse.json<Schemas['Error']>({ code: 'INTERNAL', message: 'Docker недоступен' }, { status: 503 }),
+  ),
+  verifyAmbiguousMain: http.post(`${API}/projects/:projectId/verify`, () =>
+    HttpResponse.json<Schemas['Error']>(
+      { code: 'AMBIGUOUS_MAIN', message: 'несколько main', details: { mainClasses: ambiguousMains } },
+      { status: 422 },
+    ),
+  ),
+  runUnavailable: http.post(`${API}/projects/:projectId/run`, () =>
+    HttpResponse.json<Schemas['Error']>({ code: 'INTERNAL', message: 'Docker недоступен' }, { status: 503 }),
+  ),
+  /** 422 AMBIGUOUS_MAIN без mainClass; с mainClass — run.ok.json. */
+  runAmbiguousMain: http.post(`${API}/projects/:projectId/run`, async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as { mainClass?: string };
+    if (body.mainClass) return HttpResponse.json(fixtures.runOk);
+    return HttpResponse.json<Schemas['Error']>(
+      { code: 'AMBIGUOUS_MAIN', message: 'несколько main', details: { mainClasses: ambiguousMains } },
+      { status: 422 },
+    );
+  }),
+  runInvalidMain: http.post(`${API}/projects/:projectId/run`, () =>
+    HttpResponse.json<Schemas['Error']>({ code: 'INVALID_REQUEST', message: 'класс с main не найден' }, { status: 422 }),
+  ),
+  /** /health: Docker не запущен — запуск, проверка и фиксы неактивны. */
+  noDocker: http.get(`${API}/health`, () => HttpResponse.json<Health>({ status: 'UP', docker: false, llm: false })),
+  /** Проект с двумя main (выбор точки входа в диалоге запуска). */
+  projectTwoMains: http.get(`${API}/projects/:projectId`, () =>
+    HttpResponse.json<Schemas['Project']>({ ...fixtures.project, mainClasses: ambiguousMains }),
+  ),
   conflictOnBlocks: http.put(`${API}/projects/:projectId/methods/:methodId/blocks`, () =>
     HttpResponse.json(fixtures.errorConflict, { status: 409 }),
   ),
@@ -204,6 +269,8 @@ export const scenarios = {
       : undefined,
   ),
 };
+
+const ambiguousMains = ['com.demo.Main', 'com.demo.tools.Seed'];
 
 const loadWarnings: Schemas['LoadWarning'][] = [
   ...fixtures.project.warnings,

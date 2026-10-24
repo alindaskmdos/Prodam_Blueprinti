@@ -1,6 +1,9 @@
 import { useMemo, type ReactNode } from 'react';
 import { api, type ApiClient, type Schemas } from '../api';
 import { shortMethodName } from '../layout';
+import { isFixRunning, useFixStore } from '../fix';
+import { sandboxDisabledReason, useSandboxStore } from '../sandbox';
+import { runCommand } from '../../app/commands';
 import { useAppStore } from '../../app/store';
 import { useAnalysis } from './analysisStore';
 import { splitIssues } from './format';
@@ -42,9 +45,30 @@ function WithAnalysis({ client, children }: { client: ApiClient; children: (a: A
   return <div className={styles.state}>Загрузка анализа…</div>;
 }
 
-function IssueList({ issues, empty, analysisN }: { issues: Issue[]; empty: string; analysisN: number }) {
+/** Почему «Применить» неактивна: Quality Gate требует песочницу; одновременно — один прогон. */
+function useFixDisabledReason(): string | null {
+  const sandboxReason = useSandboxStore(sandboxDisabledReason);
+  const sandboxBound = useSandboxStore((s) => s.projectId !== null);
+  const busy = useSandboxStore((s) => s.busy);
+  const fixRunning = useFixStore((s) => isFixRunning(s.gate));
+  if (fixRunning) return 'Уже выполняется Quality Gate';
+  if (busy) return busy === 'run' ? 'Идёт запуск программы' : 'Идёт проверка поведения';
+  // Без открытого проекта стор песочницы не привязан — блокируем только по известной причине.
+  return sandboxBound ? sandboxReason : null;
+}
+
+function IssueList({
+  analysis,
+  issues,
+  empty,
+}: {
+  analysis: Analysis;
+  issues: Issue[];
+  empty: string;
+}) {
   const selectedIssueId = useAppStore((s) => s.selectedIssueId);
   const selectIssue = useAppStore((s) => s.selectIssue);
+  const fixDisabledReason = useFixDisabledReason();
   if (issues.length === 0) return <div className={styles.state}>{empty}</div>;
   return (
     <div className={styles.list} role="list">
@@ -53,8 +77,10 @@ function IssueList({ issues, empty, analysisN }: { issues: Issue[]; empty: strin
           <IssueCard
             issue={issue}
             selected={issue.id === selectedIssueId}
-            analysisN={analysisN}
+            analysisN={analysis.n}
             onSelect={(i) => selectIssue({ issueId: i.id, methodId: i.methodId, blockId: i.blockId })}
+            fixDisabledReason={fixDisabledReason}
+            onApplyFix={(i, fixId) => runCommand('fix.apply', { issueId: i.id, fixId })}
           />
         </div>
       ))}
@@ -73,7 +99,9 @@ function IssuesTab({ client, pick, empty }: { client: ApiClient; pick: 'problems
   const selectedIssueId = useAppStore((s) => s.selectedIssueId);
   return (
     <WithAnalysis client={client}>
-      {(analysis) => <IssuesContent analysis={analysis} pick={pick} empty={empty} selectedIssueId={selectedIssueId} />}
+      {(analysis) => (
+        <IssuesContent analysis={analysis} pick={pick} empty={empty} selectedIssueId={selectedIssueId} />
+      )}
     </WithAnalysis>
   );
 }
@@ -92,7 +120,7 @@ function IssuesContent({
   const issues = useMemo(() => splitIssues(analysis.issues)[pick], [analysis.issues, pick]);
   return (
     <>
-      <IssueList issues={issues} empty={empty} analysisN={analysis.n} />
+      <IssueList analysis={analysis} issues={issues} empty={empty} />
       <OpsEstimate issue={estimateIssue(issues, selectedIssueId)} analysisN={analysis.n} />
     </>
   );

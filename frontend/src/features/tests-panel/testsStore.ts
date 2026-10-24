@@ -155,6 +155,7 @@ export const useTestsStore = create<TestsState>()((set, get) => {
       })),
 
     load: async (client, projectId) => {
+      // Проект стор получает от useAppStore (подписка ниже); здесь — только страховка для прямого вызова с другим id.
       const otherProject = get().projectId !== projectId;
       set({
         projectId,
@@ -291,6 +292,12 @@ export const useTestsStore = create<TestsState>()((set, get) => {
       }));
     },
   };
+});
+
+// Смена проекта в общем сторе — стор тестов сбрасывается и привязывается к новому проекту сразу,
+// а не при первом монтировании панели: результат запуска/проверки, показанный до этого, не теряется.
+useAppStore.subscribe((s, prev) => {
+  if (s.projectId !== prev.projectId) useTestsStore.setState({ ...initial, projectId: s.projectId });
 });
 
 /** Сброс (тесты). */

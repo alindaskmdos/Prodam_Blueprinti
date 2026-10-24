@@ -5,9 +5,9 @@
 - `EditorLayout` — шапка + три колонки (дерево | центр | анализ), центр делится на холст и нижнюю панель.
   Слоты: `header`, `left`, `canvas`, `right`, `bottom`. Разделители перетаскиваются (react-resizable-panels),
   размеры запоминаются в localStorage (`jb-editor-columns`, `jb-editor-center`).
-- `EditorHeader` — логотип, проект и версия, точка входа; «Загрузить проект» / «Экспорт» активны, если переданы `onUpload` / `onExport` (App вызывает команды `project.upload` / `project.export`); запуск и проверка пока неактивны (FE-13).
+- `EditorHeader` — логотип, проект и версия, точка входа; «Загрузить проект» / «Экспорт» активны, если переданы `onUpload` / `onExport` (App вызывает команды `project.upload` / `project.export`); «▶ Запуск» / «Проверить поведение» — `onRun` / `onVerify` (App вызывает команды `project.run` / `project.verify`); `busy` ('run' | 'verify' | 'fix') блокирует обе кнопки и показывает индикатор, `sandboxDisabledReason` — плашка «Песочница недоступна» и неактивные кнопки (причина в `title`).
 - `CanvasSlot` — рамка холста: полоса с выбранным методом (`useAppStore().selectedMethodId`) и `children` — холст; без него заглушка «Выберите метод в дереве проекта».
-- `PanelTabs` — панель с вкладками из списка `TabDef {id, title, component}` (`role=tablist/tab/tabpanel`).
+- `PanelTabs` — панель с вкладками из списка `TabDef {id, title, component}` (`role=tablist/tab/tabpanel`). Управляемый режим: `activeId` + `onActiveChange` (App держит активную нижнюю вкладку в `useAppStore().activePanels`, `showPanel('bottom', 'bottom.tests')` переключает на тесты).
 - `stubPanel(text)` / `PanelStub` — заглушки вкладок для реестра `src/app/panels.ts`.
 
 Вкладки не регистрируются здесь: реестр — `src/app/panels.ts` (`area: 'right' | 'bottom'`), сборка экрана — `src/app/App.tsx`.

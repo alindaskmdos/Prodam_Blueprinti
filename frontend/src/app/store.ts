@@ -44,6 +44,10 @@ export interface AppState {
   selectedBlockId: string | null;
   /** Последнее событие подсветки строка ↔ нода (FE-05); null — ничего не подсвечено. */
   highlight: Highlight | null;
+  /** Активная вкладка панели по зоне ('right' | 'bottom' → id из panels.ts); нет ключа — первая вкладка. */
+  activePanels: Record<string, string>;
+  /** Открыть вкладку панели (напр. результаты запуска → showPanel('bottom', 'bottom.tests')). */
+  showPanel: (area: string, panelId: string) => void;
   /** Открыть проект: сбрасывает выбранный метод и проблему. */
   openProject: (projectId: string, version?: number | null) => void;
   setVersion: (version: number) => void;
@@ -62,6 +66,7 @@ const initial = {
   selectedIssueId: null,
   selectedBlockId: null,
   highlight: null,
+  activePanels: {} as Record<string, string>,
 };
 
 let highlightSeq = 0;
@@ -83,6 +88,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   setVersion: (version) => set({ version }),
   selectMethod: (selectedMethodId) =>
     set({ selectedMethodId, selectedIssueId: null, selectedBlockId: null, highlight: null }),
+  showPanel: (area, panelId) => set((s) => ({ activePanels: { ...s.activePanels, [area]: panelId } })),
   selectIssue: (selection) => {
     if (!selection) {
       const h = get().highlight;

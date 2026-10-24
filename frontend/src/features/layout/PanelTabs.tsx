@@ -15,12 +15,24 @@ interface PanelTabsProps {
   /** Доп. содержимое справа от вкладок (статус синхронизации и т.п.). */
   extra?: ReactNode;
   initialTabId?: string;
+  /** Управляемый режим: активная вкладка задаётся снаружи (напр. store), клик сообщает `onActiveChange`. */
+  activeId?: string;
+  onActiveChange?: (id: string) => void;
   'aria-label'?: string;
 }
 
 /** Панель с вкладками: отрисовывает кнопки по списку и содержимое активной вкладки. */
-export function PanelTabs({ tabs, title, extra, initialTabId, 'aria-label': ariaLabel }: PanelTabsProps) {
-  const [activeId, setActiveId] = useState<string | undefined>(initialTabId);
+export function PanelTabs({
+  tabs,
+  title,
+  extra,
+  initialTabId,
+  activeId: controlledId,
+  onActiveChange,
+  'aria-label': ariaLabel,
+}: PanelTabsProps) {
+  const [localId, setLocalId] = useState<string | undefined>(initialTabId);
+  const activeId = controlledId ?? localId;
   const active = tabs.find((t) => t.id === activeId) ?? tabs[0];
   const baseId = useId();
   const Active = active?.component;
@@ -41,7 +53,10 @@ export function PanelTabs({ tabs, title, extra, initialTabId, 'aria-label': aria
                 aria-selected={selected}
                 aria-controls={`${baseId}-panel`}
                 className={selected ? `${styles.tab} ${styles.tabOn}` : styles.tab}
-                onClick={() => setActiveId(t.id)}
+                onClick={() => {
+                  setLocalId(t.id);
+                  onActiveChange?.(t.id);
+                }}
               >
                 {t.title}
               </button>

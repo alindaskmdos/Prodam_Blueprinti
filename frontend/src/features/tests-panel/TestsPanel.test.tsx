@@ -173,6 +173,22 @@ describe('панель тестов', () => {
     expect(screen.getByLabelText('Результат запуска')).toHaveTextContent('merged=2');
   });
 
+  it('результат, показанный до монтирования панели, сохраняется', async () => {
+    useTestsStore.getState().showVerifyResult(fixtures.verifyRed);
+    useTestsStore.getState().showRunResult(fixtures.runOk);
+    renderPanel();
+    await screen.findByRole('button', { name: /merge/ });
+    expect(useTestsStore.getState().verify).toEqual(fixtures.verifyRed);
+    expect(screen.getByLabelText('Результат запуска')).toHaveTextContent('merged=2');
+  });
+
+  it('смена проекта в useAppStore сбрасывает результаты и привязывает стор к новому проекту', () => {
+    act(() => useTestsStore.getState().showRunResult(fixtures.runOk));
+    act(() => useAppStore.getState().openProject('p-2'));
+    expect(useTestsStore.getState().projectId).toBe('p-2');
+    expect(useTestsStore.getState().run).toBeNull();
+  });
+
   it('смена проекта сбрасывает dirty и возвращённый черновик', async () => {
     useTestsStore.setState({
       projectId: 'p-1',
