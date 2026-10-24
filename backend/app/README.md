@@ -3,7 +3,7 @@
 Spring Boot: REST по `contract/openapi.yaml`, хранение проектов в памяти, версия проекта (409 при старой), сборка реестров модулей в бины.
 Единственный модуль, который знает про Spring. Зависит от всех остальных модулей.
 
-Главный класс: `blueprints.app.Application`. Эндпоинты (`/api`): `GET /health`, `POST /projects` (multipart `files[]` + `paths[]`), `GET /projects/{id}`, `GET /projects/{id}/tree`, `GET /projects/{id}/export?format=zip&includeSettings=` / `?format=jar&mainClass=`,
+Главный класс: `blueprints.app.Application`. Эндпоинты (`/api`): `GET /health` (`{status: UP, docker, llm}`: docker — `docker version` за 2 с, кэш 5 с; llm — непустой `LLM_API_KEY`), `POST /projects` (multipart `files[]` + `paths[]`), `GET /projects/{id}`, `GET /projects/{id}/tree`, `GET /projects/{id}/export?format=zip&includeSettings=` / `?format=jar&mainClass=`,
 `PUT /projects/{id}/methods/{methodId}/blocks` (`{version, root}`), `PUT /projects/{id}/files?path=` (`{version, text}`) -> MutationResult,
 `GET /projects/{id}/methods/{methodId}/blocks` -> MethodView, `GET /projects/{id}/files?path=` -> FileText, `GET /projects/{id}/analysis` -> Analysis.
 

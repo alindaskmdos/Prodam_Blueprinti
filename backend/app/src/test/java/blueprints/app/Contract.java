@@ -18,24 +18,34 @@ import org.yaml.snakeyaml.Yaml;
 final class Contract {
     static final ObjectMapper JSON = new ObjectMapper();
     static final Path DIR = Path.of("../../contract"); // тесты идут с cwd = backend/app
-    private static JsonNode components;
+    private static JsonNode doc;
 
     private Contract() {}
 
-    static synchronized void validate(String schema, JsonNode json) {
+    static void validate(String schema, JsonNode json) {
+        check(schema, JSON.createObjectNode().put("$ref", "#/components/schemas/" + schema), json);
+    }
+
+    /** Схема ответа, описанная прямо в paths (например, /health). */
+    static void validateResponse(String path, String method, String code, JsonNode json) {
+        JsonNode schema = doc().get("paths").get(path).get(method).get("responses").get(code)
+                .get("content").get("application/json").get("schema");
+        check(method + " " + path, schema.deepCopy(), json);
+    }
+
+    private static synchronized JsonNode doc() {
         try {
-            if (components == null) {
-                Object doc = new Yaml().load(Files.readString(DIR.resolve("openapi.yaml")));
-                components = JSON.valueToTree(doc).get("components");
-            }
+            if (doc == null) doc = JSON.valueToTree(new Yaml().load(Files.readString(DIR.resolve("openapi.yaml"))));
+            return doc;
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
-        ObjectNode root = JSON.createObjectNode();
-        root.put("$ref", "#/components/schemas/" + schema);
-        root.set("components", components);
+    }
+
+    private static void check(String name, ObjectNode root, JsonNode json) {
+        root.set("components", doc().get("components"));
         Set<ValidationMessage> errors = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V4).getSchema(root).validate(json);
-        assertTrue(errors.isEmpty(), schema + ": " + errors + "\n" + json);
+        assertTrue(errors.isEmpty(), name + ": " + errors + "\n" + json);
     }
 
     static JsonNode fixture(String name) throws IOException {
