@@ -16,7 +16,7 @@
 - [x] BE-05 Модели `model` по контракту + AstToBlocks для всех kind, включая `comment` и `raw` | model, blocks | BE-01, CT-01 | §4, §5
 - [x] BE-06 BlocksToJava + замена тела метода + `RoundTripCorpusTest` | blocks | BE-05, BE-03 | §5
 - [x] BE-07 Валидация текста нод (parseExpression/parseStatement), эндпоинты PUT blocks / PUT files | blocks, app | BE-06, BE-04 | §5, §12
-- [ ] BE-36 Экспорт исполняемого .jar из чистого кода (манифест Main-Class, без tests/ и .blueprints/), тест через `java -jar` на IO-тестах | runner, app | BE-08, BE-09 | §11
+- [x] BE-36 Экспорт исполняемого .jar из чистого кода (манифест Main-Class, без tests/ и .blueprints/), тест через `java -jar` на IO-тестах | runner, app | BE-08, BE-09 | §11
 - [x] BE-37 Эндпоинты GET blocks / GET files / GET analysis (представления из ProjectView) | app | BE-07 | §12
 - [x] BE-38 Эндпоинты тестов (GET tests, GET/PUT/DELETE tests/{name}), POST run, POST verify | app | BE-09, BE-10, BE-11 | §10, §12
 - [ ] BE-39 GET /tree через ProjectView.tree (complexity, issueCount обязателен по схеме); параметр `n` у GET analysis пересчитывает ops | app, analysis | BE-37 | §8.4, §12

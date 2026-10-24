@@ -7,8 +7,8 @@
 
 ## Backend
 
-**Готово:** BE-01, BE-02, BE-03, BE-04, BE-05, BE-06, BE-08, BE-09, BE-10, BE-11, BE-12, BE-13, BE-14, BE-15, BE-16, BE-17, BE-07, BE-18, BE-37, BE-19, BE-38, BE-20, BE-40, BE-41; CT-01 (+ arrow-switch в Block, `<init>~N`)
-**В работе:** BE-36 (runner, app), BE-21 (fixes)
+**Готово:** BE-01, BE-02, BE-03, BE-04, BE-05, BE-06, BE-08, BE-09, BE-10, BE-11, BE-12, BE-13, BE-14, BE-15, BE-16, BE-17, BE-07, BE-18, BE-37, BE-19, BE-38, BE-20, BE-40, BE-41, BE-36, BE-36; CT-01 (+ arrow-switch в Block, `<init>~N`)
+**В работе:** BE-21 (fixes), BE-39 (app, analysis)
 **Висящие ветки/worktree:** —. Локальный main впереди origin (BE-12..BE-20, BE-37, BE-38, BE-40, BE-41, BE-07 + merge BE-06) — нужен push. Папки старых worktree в .claude/worktrees не удаляются из-за длинных путей Windows, стирать вручную. На origin висит устаревшая ветка be-5 (остатки отменённого merge BE-09) — удалить: `git push origin --delete be-5`.
 **Заблокировано:** —
 **Следующие шаги:** детекторы MVP закрыты (в брифах: не вливать main в ветку, не трогать docs/; Node.equals у JavaParser по содержимому — ключевать узлы по идентичности); app должен отдавать Analysis.metrics из MethodAnalysis.lines()/maxNesting(); BE-19/20/21 (фиксы, нужен BE-18; BE-19 берёт переменные через публичный StringConcatInLoop.concats); app ещё не отдаёт анализ (подстановка blockId по диапазону строк — decisions.md); BE-18 Quality Gate — после BE-10 ✓ и BE-11 ✓, доступна (текст «нет тестов» — по decisions.md); BE-18 Quality Gate — доступна. Фронту: перегенерировать TS-типы (UNPARSED_FILE в LoadWarning.code; BE-38 — version у PUT/DELETE tests, 422/503 у run/verify).
@@ -25,7 +25,6 @@
 
 - analysis/ExpensiveCallInLoop: `for (;;)` / `while (true)` с обходом коллекции и break внутри вызываемого считаются дешёвыми (редкий N+1 пропускается).
 - samples/demo: `ReportService.java:80` — `String.format("%.2f")` без Locale, под ru_RU 4/6 IO-тестов demo падают (под en — 6/6).
-- app: export jar → 501 (заглушка до BE-36, кода 501 нет в контракте).
 - CLAUDE.md и .claude/ в .gitignore — правила и агенты не переносятся на другие устройства через git.
 - JavaParser (3.26.2, и 3.28.2 тоже) не разбирает локальные enum/interface: такие файлы (samples/roundtrip/NestedClasses.java) грузятся текстом без блоков с предупреждением UNPARSED_FILE; в RoundTripCorpusTest их тела не перегенерируются из блоков.
 - Windows: после пуля с .gitattributes уже склонированные копии нужно один раз перевыписать (`git ls-files -z | xargs -0 rm -f && git checkout -- .` при чистом дереве), иначе .out останутся с CRLF и IO-тесты упадут.
@@ -45,6 +44,7 @@
 - fixes/LinkedHashSetFix: только своя локальная из `new ArrayList/LinkedList` или без сторонних вызовов в цикле; элемент String/обёртка; неявный код в цикле (toString, iterator() пользовательского Iterable) не учитывается; тип аргумента по имени в методе.
 - app/fix: без Docker / несколько main / нет main → 200 applied=false с reason (у fix в контракте нет 422/503); фикс, создающий новый файл, → 500; applied с пустым changed → 500; canApply считается на каждый снимок без кэша; Diff не видит разницу только в финальном 
 . Фронт: schema.ts устарел после BE-38 — CI-шаг gen:api упадёт, напарнику перегенерировать.
+- app/export: имя файла `<id>.zip|.jar`, а контракт описывает `<проект>`; без JDK → 500 (503 у export в контракте нет). ProjectsApiTest.javaJar не ждёт/не убивает процесс java.
 - blocks/NodeValidator: исходный текст с \u разрешён в любом не-comment поле — можно перенести в ноду другого kind (крайний случай).
 
 ## Журнал (одна строка на закрытую задачу)
@@ -76,3 +76,4 @@
 - FE-01: скелет фронта (Vite+React 18+TS strict, ESLint, Vitest), gen:api (openapi-typescript, `--default-non-nullable false` — поля с default не required), клиент openapi-fetch /api, MSW из contract/fixtures при VITE_USE_MOCKS (иначе proxy /api → :8080), tokens.css Graphite, реестры panels.ts/commands.ts, job frontend в CI.
 - BE-40: FixController (POST issues/{id}/fix: 409 до и после QualityGate атомарно, 404 на неизвестную проблему/fixId; applied → version+1, unified diff; rejected → версия не меняется), Issue.fixes = canApply по RefactoringRegistry (low → пусто). Docker-тест: applied Texts.join, rejected fullReport.
 - BE-41: demo — ReportService.neverBought → productsOutside(Collection) с копией `new ArrayList<>(ids)` и contains в цикле по каталогу (high, Issue.fixes = [linked-hash-set], QualityGate GREEN); customerSummary выводит «never bought», .in/.out обновлены. На demo 4 находки LinearSearchInLoop.
+- BE-36: Runner.jar(sources, mainClass) → JarResult (та же компиляция, Rewrite.NONE, --release 21, Main-Class, только .class); export format=jar: RunController.chooseMain (общий с run), 422 COMPILE_ERROR/AMBIGUOUS_MAIN/INVALID_REQUEST, без tests/ и .blueprints/. jar demo через java -jar = .out на 6 IO-тестах.
