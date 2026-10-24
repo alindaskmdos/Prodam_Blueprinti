@@ -82,7 +82,7 @@ describe('App — каркас редактора на MSW', () => {
     expect(screen.getByText('OrderService')).toBeInTheDocument();
     expect(screen.getByText('orders')).toBeInTheDocument();
 
-    expect(await screen.findByText(/версия 1/)).toBeInTheDocument();
+    await waitFor(() => expect(useAppStore.getState().version).toBe(1));
     expect(await screen.findByText('Main.main')).toBeInTheDocument();
     expect(screen.getByText('Выберите метод в дереве проекта')).toBeInTheDocument();
 
@@ -217,7 +217,6 @@ describe('App — каркас редактора на MSW', () => {
 
     fireEvent.change(area, { target: { value: `${fileJson.text}\n// правка` } });
     await waitFor(() => expect(useAppStore.getState().version).toBe(treeJson.version + 1), { timeout: 3000 });
-    await screen.findByText(new RegExp(`версия ${treeJson.version + 1}`));
     // Правка сдвигает строки: подсветка по старым строкам снимается, прокрутки нет.
     expect(area).toHaveAttribute('data-reveal', '');
     expect(area).toHaveAttribute('data-reveals', '1');
@@ -324,7 +323,6 @@ describe('App — каркас редактора на MSW', () => {
 
     fireEvent.change(area, { target: { value: `${fileJson.text}\n// правка` } });
     await waitFor(() => expect(useAppStore.getState().version).toBe(treeJson.version + 1), { timeout: 3000 });
-    expect(await screen.findByText(new RegExp(`версия ${treeJson.version + 1}`))).toBeInTheDocument();
     await waitFor(() => expect(calls.tree).toBe(2));
     await waitFor(() => expect(calls.blocks).toBe(3));
     await waitFor(() => expect(calls.analysis).toBeGreaterThan(analysisBefore));

@@ -55,6 +55,7 @@ interface EditorHeaderProps {
   projectName: string;
   /** id проекта: показывается в подсказке, если projectName — имя. */
   projectId?: string;
+  /** Версия проекта: в шапке не показывается, только в data-version (для e2e). */
   version: number | null;
   /** Точка входа, напр. «Main.main»; null — main не найден. */
   entryPoint: string | null;
@@ -76,7 +77,7 @@ interface EditorHeaderProps {
 
 const BUSY_LABEL = { run: 'Запуск…', verify: 'Проверка…', fix: 'Quality Gate…' } as const;
 
-/** Шапка редактора: проект и версия, загрузка/экспорт, запуск и проверка поведения. */
+/** Шапка редактора: проект, загрузка/экспорт, запуск и проверка поведения. */
 export function EditorHeader({
   projectName,
   projectId,
@@ -104,9 +105,13 @@ export function EditorHeader({
         </div>
         <div className={styles.brandText}>
           <span className={styles.brandName}>Java Blueprints</span>
-          <span className={styles.muted} data-testid="project-label" title={projectId ? `id: ${projectId}` : undefined}>
+          <span
+            className={styles.muted}
+            data-testid="project-label"
+            data-version={version ?? undefined}
+            title={projectId ? `id: ${projectId}` : undefined}
+          >
             {projectName}
-            {version !== null && ` · версия ${version}`}
           </span>
         </div>
       </div>

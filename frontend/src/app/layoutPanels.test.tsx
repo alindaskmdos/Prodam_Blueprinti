@@ -31,7 +31,8 @@ describe('FE-36: каркас — панели и шапка', () => {
     useAppStore.getState().openProject('p-3', 1, 'demo');
     render(<App client={client} projectId="p-3" canvas={<div>холст</div>} />);
     const label = screen.getByTestId('project-label');
-    expect(label).toHaveTextContent('demo · версия 1');
+    expect(label).toHaveTextContent(/^demo$/);
+    expect(label).toHaveAttribute('data-version', '1');
     expect(label).toHaveAttribute('title', 'id: p-3');
   });
 

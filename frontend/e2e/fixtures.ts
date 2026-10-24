@@ -3,12 +3,11 @@ import { test as base, expect, type Page } from '@playwright/test';
 
 export const DEMO_DIR = path.resolve(import.meta.dirname, '../../samples/demo');
 
-/** Номер версии из шапки «имя · версия N». */
+/** Номер версии из data-version подписи проекта в шапке (в тексте версии нет). */
 export async function versionOf(page: Page): Promise<number> {
-  const label = (await page.getByTestId('project-label').textContent()) ?? '';
-  const m = /версия (\d+)/.exec(label);
-  if (!m) throw new Error(`версия не найдена в «${label}»`);
-  return Number(m[1]);
+  const v = await page.getByTestId('project-label').getAttribute('data-version');
+  if (v === null) throw new Error('data-version не найден в подписи проекта');
+  return Number(v);
 }
 
 /**
