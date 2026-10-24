@@ -426,3 +426,38 @@ describe('MethodCanvas — подсветка строка ↔ нода, про�
     await waitFor(() => expect(wrapper(head)).not.toHaveClass(PULSE));
   }, 15_000);
 });
+
+describe('MethodCanvas — правка не сбрасывает вид (FE-29)', () => {
+  beforeEach(() => {
+    resetAppState();
+    useAppStore.getState().openProject('p-1', 7);
+  });
+
+  it('после правки ноды React Flow не пересоздаётся (viewport сохраняется), «Раскладка схемы…» не появляется', async () => {
+    const { container } = render(<MethodCanvas projectId="p-1" methodId={methodId} client={client} />);
+    await screen.findByTestId('node-method', {}, { timeout: 10_000 });
+    const flow = container.querySelector('.react-flow');
+    const viewport = container.querySelector('.react-flow__viewport');
+    expect(flow).not.toBeNull();
+    const node = screen.getAllByTestId('node-var').find((n) => n.textContent?.includes('a = orders.get(i)')) as HTMLElement;
+
+    let pendingSeen = false;
+    const observer = new MutationObserver(() => {
+      if (screen.queryByText('Раскладка схемы…')) pendingSeen = true;
+    });
+    observer.observe(container, { childList: true, subtree: true });
+
+    fireEvent.doubleClick(within(node).getByText((_, el) => el?.tagName === 'PRE'));
+    const init = within(node).getByLabelText('=');
+    fireEvent.change(init, { target: { value: 'new Order()' } });
+    fireEvent.keyDown(init, { key: 'Enter' });
+
+    await waitFor(() => expect(useAppStore.getState().version).toBe(8));
+    expect(await screen.findByText((_, el) => el?.tagName === 'PRE' && el.textContent === 'Order a = new Order()', {}, { timeout: 10_000 })).toBeInTheDocument();
+    observer.disconnect();
+
+    expect(pendingSeen).toBe(false);
+    expect(container.querySelector('.react-flow')).toBe(flow);
+    expect(container.querySelector('.react-flow__viewport')).toBe(viewport);
+  }, 20_000);
+});
