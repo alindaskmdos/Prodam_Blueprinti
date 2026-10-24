@@ -41,6 +41,7 @@
 - [x] BE-44 Долги app: PUT files пересчитывает предупреждения загрузки/mainClasses/дубликаты FQN; verify не пропускает main при битых tests/*.json; ProjectsApiTest.javaJar ждёт/убивает процесс java | app | BE-07, BE-38, BE-36 | §11, §12
 - [x] BE-45 runner: `--release 21` в Runner.run (на JDK 22 demo приходит original_fails); Instrumenter — при отказе вставки/некомпилируемой копии файл без вставок, атомарная запись trace-файла, `docker exec cat` в общем бюджете времени; тесты на jar без инструментации и halt → hits null | runner | BE-27 | §11а, §14а.6
 - [x] BE-46 `GET /health` по контракту: `docker` (реальная проверка доступности Docker, как у Runner) и `llm` (задан ли LLM_API_KEY); тест на схему ответа | app | BE-38 | §2, §11а
+- [ ] BE-47 `backend/Dockerfile` под Coolify (см. decisions «Деплой через Coolify»): многоэтапная сборка Gradle → JRE 21 + docker CLI; при старте фоном `docker pull $BLUEPRINTS_RUN_IMAGE`, если образа нет; JVM по лимиту контейнера (MaxRAMPercentage); HEALTHCHECK на /api/health; `.dockerignore`; проверка: образ собирается, в контейнере с docker.sock и папкой запуска /health → docker:true и verify на samples/demo зелёный | backend (Dockerfile) | BE-46 | §2
 
 ## Frontend
 
@@ -57,10 +58,12 @@
 - [x] FE-11 Панель анализа: Проблемы / Предупреждения / Метрики, оценка «≈ операций» с n | analysis-panel | FE-02 | §8.4
 - [x] FE-12 Панель тестов: IO-тесты, JUnit в Monaco, результаты, diff, шумные строки серым | tests-panel | FE-02, FE-04 | §10
 - [x] FE-13 Кнопки: применить фикс, запуск, проверить поведение | analysis-panel, tests-panel | FE-11, FE-12 | §9, §10
-- [ ] FE-14 docker-compose, деплой | docker-compose.yml | FE-01 | §2
+- [ ] FE-14 `frontend/Dockerfile` (сборка Vite → nginx) + `docker-compose.yml` под Coolify по стыку из decisions «Деплой через Coolify»: nginx-проксирование /api, лимит тела и таймаут, только `expose`, healthcheck фронта, depends_on backend healthy; необязательный basic auth nginx по env | docker-compose.yml, frontend (Dockerfile) | FE-01, BE-47 (стык зафиксирован — можно параллельно) | §2
 - [x] FE-15 Экран загрузки: drag&drop файлов, .zip/.jar, папки целиком (`webkitdirectory`); показ предупреждений и ошибок загрузки; экспорт .zip с галочкой «настройки Java Blueprints» и .jar (неактивна с причиной, если не компилируется; подпись «требует Java 21+») | upload | FE-02 | §11
 - [ ] FE-29 Холст после правки: правка ноды / «+» / удаление не сбрасывают viewport на fitView всей схемы; switch с множеством case не раскладывается в одну широкую строку (читаемо при fitView) | editor-nodes | FE-09 | §6
 - [x] FE-30 Красный тест на main: UploadScreen «папка (webkitdirectory) уходит multipart-запросом» получает content-type text/plain — найти причину (код загрузки или тестовое окружение) и починить | upload | FE-15 | §11
+- [ ] FE-31 e2e на Playwright в `frontend/e2e/`: загрузка samples/demo, проблема → схема, правка ноды, фикс через Quality Gate, запуск со STDIN, verify зелёный и красный, экспорт zip/jar, drag из палитры; против URL из env (локально или compose) | frontend (e2e) | FE-14 | §2
+- [ ] CI-01 `.github/workflows/ci.yml`: job `compose` — `docker compose up`, /health → docker:true, FE-31 e2e; job `deploy` только на main после всех зелёных — POST на webhook Coolify (секреты COOLIFY_WEBHOOK, COOLIFY_TOKEN) | .github | BE-47, FE-14, FE-31 | §2
 
 ## Если успеем (только после того, как обязательный путь работает целиком; по порядку)
 
