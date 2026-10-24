@@ -9,6 +9,7 @@ import { resetAppState, useAppStore } from '../../app/store';
 import { CommandPalette } from './CommandPalette';
 import { isPaletteHotkey } from './hotkey';
 import { buildEntries, groupEntries, type PaletteCommand } from './entries';
+import { searchEntries } from './search';
 
 const client = createApiClient('http://localhost/api');
 const tree = fixtures.tree as Schemas['ProjectTree'];
@@ -144,6 +145,24 @@ describe('CommandPalette', () => {
     expect(runCommand).not.toHaveBeenCalled();
   });
 
+  it('после ввода выделен первый по score пункт; disabled-фикс пропускается', async () => {
+    const run = vi.fn();
+    setup([
+      { id: 'fix.apply', title: 'Фикс', paletteHidden: true, isEnabled: () => false, run },
+      { id: 'x.open', title: 'Открыть index-by-id', run },
+    ]);
+    const input = await openByHotkey();
+    fireEvent.change(input, { target: { value: 'merge' } });
+    const first = await screen.findByRole('option', { name: /OrderService\.merge/ });
+    await vi.waitFor(() => expect(first).toHaveAttribute('aria-selected', 'true'));
+    // Фикс «index-by-id» — первый по score, но неактивен: выделена команда после него.
+    fireEvent.change(input, { target: { value: 'index-by-id' } });
+    const fix = await screen.findByRole('option', { name: /Применить фикс «index-by-id»/ });
+    const cmd = await screen.findByRole('option', { name: /Открыть index-by-id/ });
+    await vi.waitFor(() => expect(cmd).toHaveAttribute('aria-selected', 'true'));
+    expect(fix).toHaveAttribute('aria-selected', 'false');
+  });
+
   it('Ctrl+K в поле ввода (Monaco, диалоги) не перехватывается; Ctrl+Shift+P — перехватывается', async () => {
     setup([]);
     const area = document.createElement('textarea');
@@ -193,5 +212,121 @@ describe('buildEntries / groupEntries', () => {
   it('из дерева — классы, поля и методы; из анализа — проблемы и фиксы', () => {
     const entries = buildEntries({ tree, analysis, root: null, commands: [], runCommand: vi.fn() });
     expect(groupEntries(entries).map((g) => g.group)).toEqual(['Исправления', 'Проблемы', 'Методы', 'Классы', 'Поля']);
+  });
+});
+
+describe('searchEntries: ранжирование', () => {
+  beforeEach(() => resetAppState());
+
+  const m = (cls: string, name: string) => ({
+    id: `${cls}.${name}~0`,
+    name,
+    signature: `${name}()`,
+    issueCount: 0,
+  });
+  const cls = (name: string, methods: string[]) => ({
+    name,
+    kind: 'class' as const,
+    fields: [],
+    constructors: [],
+    methods: methods.map((n) => m(name, n)),
+  });
+  const demoTree = {
+    version: 1,
+    packages: [
+      {
+        name: 'com.demo',
+        files: [
+          { path: 'src/ReportService.java', classes: [cls('ReportService', ['fullReport', 'report'])] },
+          { path: 'src/OrderService.java', classes: [cls('OrderService', ['find', 'merge'])] },
+          { path: 'src/PricingService.java', classes: [cls('PricingService', ['flat'])] },
+        ],
+      },
+    ],
+  } as unknown as Schemas['ProjectTree'];
+  const demoAnalysis = {
+    ...analysis,
+    issues: [
+      {
+        id: 'i1',
+        rule: 'StringConcatInLoop',
+        severity: 'warning',
+        confidence: 'high',
+        span: { file: 'src/ReportService.java', startLine: 3, startCol: 0, endLine: 3, endCol: 1 },
+        blockId: 'b1',
+        message: 'Конкатенация строк «report» в цикле',
+        fixes: ['string-builder'],
+      },
+    ],
+  } as unknown as Schemas['Analysis'];
+  const commands: PaletteCommand[] = [{ id: 'fix.apply', title: 'Применить фикс', paletteHidden: true, run: vi.fn() }];
+  const all = () => buildEntries({ tree: demoTree, analysis: demoAnalysis, root: null, commands, runCommand: vi.fn() });
+  const titles = (q: string) => searchEntries(all(), q).flatMap((g) => g.entries.map((e) => e.title));
+
+  it('«fullReport»: первым метод, без подпоследовательностей', () => {
+    const res = titles('fullReport');
+    expect(res[0]).toBe('ReportService.fullReport');
+    expect(res).not.toContain('OrderService.find');
+    expect(res).not.toContain('PricingService.flat');
+    expect(res.some((t) => t.startsWith('Применить фикс'))).toBe(false);
+  });
+
+  it('регистр не важен, префикс после «Класс.» и camelCase-инициалы', () => {
+    expect(titles('FULLREPORT')[0]).toBe('ReportService.fullReport');
+    expect(titles('ReportService.fu')[0]).toBe('ReportService.fullReport');
+    expect(titles('fR')[0]).toBe('ReportService.fullReport');
+  });
+
+  it('«string-builder»: фикс первым', () => {
+    const groups = searchEntries(all(), 'string-builder');
+    expect(groups[0]?.group).toBe('Исправления');
+    expect(groups[0]?.entries[0]?.id).toBe('fix:i1:string-builder');
+  });
+
+  it('при равном score навигация выше действий', () => {
+    const groups = searchEntries(all(), 'report');
+    expect(groups[0]?.group).toBe('Методы');
+    expect(groups[0]?.entries[0]?.title).toBe('ReportService.report');
+    expect(groups.findIndex((g) => g.group === 'Исправления')).toBeGreaterThan(0);
+  });
+
+  it('префикс члена выше префикса «Класс.член»', () => {
+    const t = {
+      ...demoTree,
+      packages: [
+        {
+          name: 'com.demo',
+          files: [
+            { path: 'a.java', classes: [cls('ReportService', ['find'])] },
+            { path: 'b.java', classes: [cls('OrderService', ['reportX'])] },
+          ],
+        },
+      ],
+    } as unknown as Schemas['ProjectTree'];
+    const entries = buildEntries({ tree: t, analysis: null, root: null, commands: [], runCommand: vi.fn() });
+    const res = searchEntries(entries, 'report').flatMap((g) => g.entries).map((e) => e.title);
+    expect(res.indexOf('OrderService.reportX')).toBeLessThan(res.indexOf('ReportService.find'));
+  });
+
+  it('инициалы слабее подстроки и не работают по «Класс.член»', () => {
+    const t = {
+      ...demoTree,
+      packages: [
+        {
+          name: 'com.demo',
+          files: [{ path: 'a.java', classes: [cls('ReportService', ['fullReport', 'users', 'rest'])] }],
+        },
+      ],
+    } as unknown as Schemas['ProjectTree'];
+    const entries = buildEntries({ tree: t, analysis: null, root: null, commands: [], runCommand: vi.fn() });
+    const rs = searchEntries(entries, 'rs').flatMap((g) => g.entries).map((e) => e.title);
+    expect(rs[0]).toBe('ReportService.users');
+    expect(rs).not.toContain('ReportService.fullReport');
+    const fr = searchEntries(entries, 'fR').flatMap((g) => g.entries).map((e) => e.title);
+    expect(fr).toEqual(['ReportService.fullReport']);
+  });
+
+  it('пустой запрос — прежний порядок групп', () => {
+    expect(groupEntries(all()).map((g) => g.group)).toEqual(['Исправления', 'Проблемы', 'Методы', 'Классы']);
   });
 });

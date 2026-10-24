@@ -5,6 +5,7 @@ import { useAnalysisStore } from '../analysis-panel';
 import { useTreeStore } from '../project-tree';
 import { useAppStore } from '../../app/store';
 import { buildEntries, groupEntries, type PaletteCommand } from './entries';
+import { searchEntries } from './search';
 import styles from './CommandPalette.module.css';
 
 interface Props {
@@ -37,7 +38,7 @@ function useMethodRoot(client: ApiClient, projectId: string | null, methodId: st
   return key !== null && loaded?.key === key ? loaded.root : null;
 }
 
-/** Окно палитры: cmdk с нечётким поиском по командам и данным проекта. Грузится лениво при первом открытии. */
+/** Окно палитры: cmdk (UI и клавиатура) со своим ранжированным поиском (`search.ts`) по командам и данным проекта. Грузится лениво при первом открытии. */
 export default function PaletteDialog({ client, commands, runCommand, onClose }: Props) {
   const projectId = useAppStore((s) => s.projectId);
   const methodId = useAppStore((s) => s.selectedMethodId);
@@ -47,9 +48,15 @@ export default function PaletteDialog({ client, commands, runCommand, onClose }:
   const tree = treeState?.kind === 'ok' ? treeState.tree : null;
 
   // isEnabled команд читается при построении: пересобираем на смену данных, пока палитра открыта.
-  const groups = useMemo(
-    () => groupEntries(buildEntries({ tree, analysis, root, commands, runCommand })),
+  const entries = useMemo(
+    () => buildEntries({ tree, analysis, root, commands, runCommand }),
     [tree, analysis, root, commands, runCommand],
+  );
+  const [query, setQuery] = useState('');
+  // Свой отбор и порядок (фильтр cmdk отключён): пустой запрос — группы как есть, иначе по score.
+  const groups = useMemo(
+    () => (query.trim() ? searchEntries(entries, query) : groupEntries(entries)),
+    [entries, query],
   );
 
   return (
@@ -57,6 +64,7 @@ export default function PaletteDialog({ client, commands, runCommand, onClose }:
       <Command
         className={styles.palette}
         label="Командная палитра"
+        shouldFilter={false}
         onKeyDown={(e) => {
           if (e.key === 'Escape') {
             e.preventDefault();
@@ -66,7 +74,13 @@ export default function PaletteDialog({ client, commands, runCommand, onClose }:
           }
         }}
       >
-        <Command.Input className={styles.input} placeholder="Класс, метод, нода, проблема или команда" autoFocus />
+        <Command.Input
+          className={styles.input}
+          value={query}
+          onValueChange={setQuery}
+          placeholder="Класс, метод, нода, проблема или команда"
+          autoFocus
+        />
         <Command.List className={styles.list}>
           {groups.map(({ group, entries }) => (
             <Command.Group key={group} heading={group}>
@@ -74,7 +88,6 @@ export default function PaletteDialog({ client, commands, runCommand, onClose }:
                 <Command.Item
                   key={entry.id}
                   value={entry.id}
-                  keywords={[entry.title, ...(entry.hint ? [entry.hint] : []), ...entry.keywords]}
                   disabled={entry.disabled}
                   className={styles.item}
                   onSelect={() => {
