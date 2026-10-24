@@ -7,9 +7,9 @@
 
 ## Backend
 
-**Готово:** BE-01, BE-02, BE-03, BE-04, BE-05, BE-06, BE-08, BE-09, BE-10, BE-11, BE-12, BE-13, BE-14, BE-15, BE-16, BE-17, BE-07, BE-18, BE-37; CT-01 (+ arrow-switch в Block, `<init>~N`)
-**В работе:** BE-19 (fixes), BE-38 (app)
-**Висящие ветки/worktree:** —. Локальный main впереди origin (BE-12..BE-18, BE-37, BE-07 + merge BE-06) — нужен push. Папки старых worktree в .claude/worktrees не удаляются из-за длинных путей Windows, стирать вручную. На origin висит устаревшая ветка be-5 (остатки отменённого merge BE-09) — удалить: `git push origin --delete be-5`.
+**Готово:** BE-01, BE-02, BE-03, BE-04, BE-05, BE-06, BE-08, BE-09, BE-10, BE-11, BE-12, BE-13, BE-14, BE-15, BE-16, BE-17, BE-07, BE-18, BE-37, BE-19; CT-01 (+ arrow-switch в Block, `<init>~N`)
+**В работе:** BE-20 (fixes), BE-38 (app)
+**Висящие ветки/worktree:** —. Локальный main впереди origin (BE-12..BE-19, BE-37, BE-07 + merge BE-06) — нужен push. Папки старых worktree в .claude/worktrees не удаляются из-за длинных путей Windows, стирать вручную. На origin висит устаревшая ветка be-5 (остатки отменённого merge BE-09) — удалить: `git push origin --delete be-5`.
 **Заблокировано:** —
 **Следующие шаги:** детекторы MVP закрыты (в брифах: не вливать main в ветку, не трогать docs/; Node.equals у JavaParser по содержимому — ключевать узлы по идентичности); app должен отдавать Analysis.metrics из MethodAnalysis.lines()/maxNesting(); BE-19/20/21 (фиксы, нужен BE-18; BE-19 берёт переменные через публичный StringConcatInLoop.concats); app ещё не отдаёт анализ (подстановка blockId по диапазону строк — decisions.md); BE-18 Quality Gate — после BE-10 ✓ и BE-11 ✓, доступна (текст «нет тестов» — по decisions.md); BE-18 Quality Gate — доступна. Фронту: перегенерировать TS-типы (UNPARSED_FILE в LoadWarning.code).
 
@@ -38,6 +38,7 @@
 - app/ProjectView: Issue без methodId → blockId null (по контракту обязателен; сейчас детекторы methodId всегда ставят); DetectorRegistry.defaults() вызывается напрямую, а не бином.
 - fixes/QualityGate: Refactoring получает саму карту currentFiles (не unmodifiable); StandardJavaFileManager не закрывается; без системного компилятора (JRE) — NPE.
 - app: ProjectView строится заново на каждый запрос (без кэша); GET /tree без complexity/issueCount, параметр n у analysis игнорируется (n=10000, тест ContractConformanceTest ждёт 10000 при n=500) — BE-39.
+- fixes/StringBuilderFix: `s += foo()` с foo(): char[] молча меняет вывод (только тест вывода поймает); комментарий внутри `s += /*c*/ x` теряется при замене; правка по диапазонам текста, не LexicalPreservingPrinter (backend/CLAUDE.md) — ждёт решения. Issue.fixes пока пуст — BE-40.
 - blocks/NodeValidator: исходный текст с \u разрешён в любом не-comment поле — можно перенести в ноду другого kind (крайний случай).
 
 ## Журнал (одна строка на закрытую задачу)
@@ -63,3 +64,4 @@
 - BE-07: NodeValidator (печать ноды + разбор в обёртке: синтаксис, // в выражении, вылезший текст, kind не на месте, лишние слоты, новый \u), PUT blocks / PUT files с analysis (metrics, blockId по строкам, issueCount/complexity в дереве), 409, ошибки нод → 422 PARSE_ERROR (по контракту), битый JSON/multipart → 400, дыра originals закрыта.
 - BE-18: QualityGate (canApply/apply → javac программы без tests/ → проверка поведения через Function<TestContext,VerifyResult> = behaviorVerifier::verify; blocked/red/ошибка компиляции/исключение → отказ «исправление не подтверждено», вход не меняется; incomplete применяется с пометкой — нет тестов или шум). Result ложится на FixResult, version/diff добавит app.
 - BE-37: GET blocks (ProjectView.method), GET files (FileText), GET analysis (ProjectView.analysis); 404 NOT_FOUND; ContractConformanceTest — SpringBootTest на демо по HTTP.
+- BE-19: StringBuilderFix `string-builder` (переменные из StringConcatInLoop.concats; sSb до цикла, append, s = sSb.toString() после; только локальная не-null String, без меток и try между объявлением и циклом), RefactoringRegistry.defaults()/byId(); target = id Issue. Demo через QualityGate, вывод сверен локальной java (Docker-теста нет: fixes не зависит от runner).

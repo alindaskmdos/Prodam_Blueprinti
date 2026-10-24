@@ -20,6 +20,7 @@
 - [x] BE-37 Эндпоинты GET blocks / GET files / GET analysis (представления из ProjectView) | app | BE-07 | §12
 - [ ] BE-38 Эндпоинты тестов (GET tests, GET/PUT/DELETE tests/{name}), POST run, POST verify | app | BE-09, BE-10, BE-11 | §10, §12
 - [ ] BE-39 GET /tree через ProjectView.tree (complexity, issueCount обязателен по схеме); параметр `n` у GET analysis пересчитывает ops | app, analysis | BE-37 | §8.4, §12
+- [ ] BE-40 POST issues/{issueId}/fix (QualityGate + RefactoringRegistry, version/diff в FixResult); Issue.fixes = id фиксов с canApply (пусто при confidence=low) | app | BE-19, BE-38 | §9, §12
 - [x] BE-08 Runner: Docker, лимиты, таймаут, переписывание для запуска (seed) | runner | BE-01 | §11а, §10.4
 - [x] BE-09 IoTestSource: `tests/*.json`, импорт `*.in/*.out`, режимы original/manual, ignoreLines | testing | BE-08 | §10.1
 - [x] BE-10 BehaviorVerifier: двойной прогон, шумные строки, правило сравнения, блок при отсутствии stdin-тестов | testing | BE-09 | §10.3–10.5
@@ -31,7 +32,7 @@
 - [x] BE-16 Детектор StringConcatInLoop | analysis | BE-12 | §8.3
 - [x] BE-17 Детекторы LongMethod / DeepNesting | analysis | BE-12 | §8.3
 - [x] BE-18 Quality Gate: применить → компиляция → все тесты → откат | fixes | BE-10, BE-11 | §9
-- [ ] BE-19 Фикс StringBuilder | fixes | BE-16, BE-18 | §9
+- [x] BE-19 Фикс StringBuilder | fixes | BE-16, BE-18 | §9
 - [ ] BE-20 Фикс contains → LinkedHashSet | fixes | BE-14, BE-18 | §9
 - [ ] BE-21 Фикс «индекс по id» | fixes | BE-13, BE-18 | §9
 
