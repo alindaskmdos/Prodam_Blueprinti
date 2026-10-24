@@ -2,6 +2,7 @@ import { useAnalysisStore } from '../features/analysis-panel/analysisStore';
 import { isFixRunning, useFixStore } from '../features/fix';
 import { sandboxDisabledReason, useSandboxStore } from '../features/sandbox';
 import { useUploadUi } from '../features/upload';
+import { currentClassRef, openStructureDialog, useTreeStore } from '../features/project-tree';
 import { useAppStore } from './store';
 
 /** Запуск/проверка доступны: проект открыт, песочница доступна, ничего не выполняется. */
@@ -14,6 +15,19 @@ function sandboxReady(): boolean {
     sandbox.busy === null &&
     !isFixRunning(useFixStore.getState().gate)
   );
+}
+
+/** Дерево открытого проекта загружено (формы структуры работают по нему). */
+function treeReady(): boolean {
+  const tree = useTreeStore.getState();
+  const { projectId } = useAppStore.getState();
+  return projectId !== null && tree.projectId === projectId && tree.state.kind === 'ok';
+}
+
+/** Диалог нового члена для выбранного класса (класс/поле в дереве или класс выбранного метода). */
+function openMember(member: 'field' | 'constructor' | 'method'): void {
+  const ref = currentClassRef();
+  if (ref) openStructureDialog({ kind: 'new-member', member, ref });
 }
 
 /** Пользовательское действие: кнопка в UI и пункт командной палитры (Ctrl+K). */
@@ -64,6 +78,35 @@ export const commands: readonly CommandDef[] = [
     group: 'Запуск',
     isEnabled: sandboxReady,
     run: () => useSandboxStore.getState().verify(),
+  },
+  // FE-10: структура проекта — диалоги project-tree, правка текста файла через PUT files.
+  {
+    id: 'structure.newClass',
+    title: 'Новый класс',
+    group: 'Структура',
+    isEnabled: treeReady,
+    run: () => openStructureDialog({ kind: 'new-class', pkg: null }),
+  },
+  {
+    id: 'structure.newField',
+    title: 'Новое поле (в выбранном классе)',
+    group: 'Структура',
+    isEnabled: () => treeReady() && currentClassRef() !== null,
+    run: () => openMember('field'),
+  },
+  {
+    id: 'structure.newConstructor',
+    title: 'Новый конструктор (в выбранном классе)',
+    group: 'Структура',
+    isEnabled: () => treeReady() && currentClassRef() !== null,
+    run: () => openMember('constructor'),
+  },
+  {
+    id: 'structure.newMethod',
+    title: 'Новый метод (в выбранном классе)',
+    group: 'Структура',
+    isEnabled: () => treeReady() && currentClassRef() !== null,
+    run: () => openMember('method'),
   },
   {
     id: 'view.uml',

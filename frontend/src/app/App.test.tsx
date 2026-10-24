@@ -6,7 +6,7 @@ import fileJson from '@contract/fixtures/file.order-service.json';
 import { createApiClient } from '../features/api';
 import { resetAnalysisState, useAnalysisStore } from '../features/analysis-panel';
 import type { MonacoViewProps } from '../features/editor-code/MonacoView';
-import { resetTreeState } from '../features/project-tree';
+import { resetStructureState, resetTreeState, selectClass } from '../features/project-tree';
 import { server } from '../mocks/server';
 import { scenarios } from '../mocks/handlers';
 import { fixtures } from '../mocks/fixtures';
@@ -62,6 +62,7 @@ describe('App — каркас редактора на MSW', () => {
   beforeEach(() => {
     resetAppState();
     resetTreeState();
+    resetStructureState();
     resetAnalysisState();
   });
   afterEach(() => {
@@ -92,6 +93,7 @@ describe('App — каркас редактора на MSW', () => {
       'Проблемы',
       'Предупреждения',
       'Метрики',
+      'Свойства',
     ]);
     expect(within(bottom).getAllByRole('tab').map((t) => t.textContent)).toEqual([
       'Код Java',
@@ -172,21 +174,22 @@ describe('App — каркас редактора на MSW', () => {
     expect(screen.getByTestId('canvas-method')).toHaveTextContent('OrderService.merge');
   });
 
-  it('выбор класса (UML → редактор, FE-16): файл класса, прокрутка к span, класс выделен в дереве', async () => {
+  it('общий выбор класса (UML/граф/палитра → selectClass): дерево, «Свойства», код класса с прокруткой к span (FE-16)', async () => {
     render(<App client={client} projectId="p-1" />);
-    await screen.findByText('OrderService');
-    act(() =>
-      useAppStore.getState().selectClass({
-        id: 'com.demo.service.OrderService',
-        path: fileJson.path,
-        span: { file: fileJson.path, startLine: 11, endLine: 139 },
-      }),
-    );
+    // Сначала выбран метод: выбор класса новее — код показывает класс.
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(merge.name) }));
+    let ok = false;
+    act(() => {
+      ok = selectClass('com.demo.service.OrderService');
+    });
+    expect(ok).toBe(true);
     const area = await screen.findByLabelText('код');
     expect(area).toHaveValue(fileJson.text);
     await waitFor(() => expect(area).toHaveAttribute('data-reveal', '11-139'));
     const row = document.querySelector('[data-class-id="com.demo.service.OrderService"]');
     expect(row?.className).toMatch(/selected/);
+    expect(screen.getByRole('tab', { name: 'Свойства' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Код Java' })).toHaveAttribute('aria-selected', 'true');
   });
 
   it('выбор метода → код прокручивается к span метода; правка не прокручивает заново (FE-35)', async () => {

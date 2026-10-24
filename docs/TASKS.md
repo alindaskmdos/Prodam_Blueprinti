@@ -46,7 +46,7 @@
 - [x] BE-44 Долги app: PUT files пересчитывает предупреждения загрузки/mainClasses/дубликаты FQN; verify не пропускает main при битых tests/*.json; ProjectsApiTest.javaJar ждёт/убивает процесс java | app | BE-07, BE-38, BE-36 | §11, §12
 - [x] BE-45 runner: `--release 21` в Runner.run (на JDK 22 demo приходит original_fails); Instrumenter — при отказе вставки/некомпилируемой копии файл без вставок, атомарная запись trace-файла, `docker exec cat` в общем бюджете времени; тесты на jar без инструментации и halt → hits null | runner | BE-27 | §11а, §14а.6
 - [x] BE-46 `GET /health` по контракту: `docker` (реальная проверка доступности Docker, как у Runner) и `llm` (задан ли LLM_API_KEY); тест на схему ответа | app | BE-38 | §2, §11а
-- [ ] BE-48 Поля дерева для форм FE-10 по CT-02: fqn/modifiers/extends/implements/typeParams/headerSpan у ClassNode, span у полей, span/headerSpan/modifiers/returnType/params/throws у MethodNode | app, source | CT-02 | §7
+- [x] BE-48 Поля дерева для форм FE-10 по CT-02: fqn/modifiers/extends/implements/typeParams/headerSpan у ClassNode, span у полей, span/headerSpan/modifiers/returnType/params/throws у MethodNode | app, source | CT-02 | §7
 - [x] BE-47 `backend/Dockerfile` под Coolify (см. decisions «Деплой через Coolify»): многоэтапная сборка Gradle → JDK 21 (компиляция через javax.tools в процессе) + docker CLI; при старте фоном `docker pull $BLUEPRINTS_RUN_IMAGE`, если образа нет; JVM по лимиту контейнера (MaxRAMPercentage); HEALTHCHECK на /api/health; `.dockerignore`; проверка: образ собирается, в контейнере с docker.sock и папкой запуска /health → docker:true и verify на samples/demo зелёный | backend (Dockerfile) | BE-46 | §2
 
 ## Frontend
@@ -60,7 +60,7 @@
 - [x] FE-07 Правка текста в ноде с подсветкой синтаксиса Java + красная нода при ошибке | editor-nodes | FE-03 | §5, §6
 - [x] FE-08 «+» на стрелке, удаление, вверх/вниз | editor-nodes | FE-07 | §6
 - [x] FE-09 Drag из палитры на стрелку | editor-nodes | FE-08 | §6
-- [ ] FE-10 Формы классов/полей/конструкторов/методов: правка заголовка объявления по headerSpan/span в тексте файла → PUT files (решение 2026-10-25), создание/удаление шаблоном текста | project-tree | FE-02, CT-02 (моки), BE-48 (реальный бэк) | §7
+- [x] FE-10 Формы классов/полей/конструкторов/методов: правка заголовка объявления по headerSpan/span в тексте файла → PUT files (решение 2026-10-25), создание/удаление шаблоном текста | project-tree | FE-02, CT-02 (моки), BE-48 (реальный бэк) | §7
 - [x] FE-11 Панель анализа: Проблемы / Предупреждения / Метрики, оценка «≈ операций» с n | analysis-panel | FE-02 | §8.4
 - [x] FE-12 Панель тестов: IO-тесты, JUnit в Monaco, результаты, diff, шумные строки серым | tests-panel | FE-02, FE-04 | §10
 - [x] FE-13 Кнопки: применить фикс, запуск, проверить поведение | analysis-panel, tests-panel | FE-11, FE-12 | §9, §10
@@ -80,12 +80,12 @@
 Задачи с зависимостью от CT-xx начинаются с изменения `contract/` людьми.
 
 - [x] CT-02 Контракт для пп.1–4: UML, граф зависимостей, конфиг PMD | contract | — | §14а
-- [ ] BE-22 UML-модель: классы, члены, связи (агрегация/композиция с флагом «эвристика») | analysis, app | BE-12, CT-02 | §14а.1
+- [x] BE-22 UML-модель: классы, члены, связи (агрегация/композиция с флагом «эвристика») | analysis, app | BE-12, CT-02 | §14а.1
 - [ ] FE-16 Вкладка UML: React Flow + ELK, клик → дерево проекта; переход UML → редактор (класс → дерево + Monaco на span, метод → схема метода) с анимацией | diagrams | FE-02, CT-02 | §14а.1
 - [ ] BE-23 PmdDetector + `.blueprints/pmd-ruleset.xml` по умолчанию (без правил, пересекающихся с нашими детекторами), привязка к нодам по строке, GET/PUT конфига | analysis, app | BE-12, CT-02 | §14а.2
 - [ ] FE-17 Редактор конфига PMD (Monaco XML), источник «PMD» в предупреждениях | analysis-panel | FE-11, CT-02 | §14а.2
 - [x] BE-24 Детектор мёртвого кода (исключения из §14а.3) | analysis | BE-12 | §14а.3
-- [ ] BE-25 Граф зависимостей классов + циклы (Tarjan) как Issue, без связей внешний↔вложенный | analysis, app | BE-12, CT-02 | §14а.4
+- [x] BE-25 Граф зависимостей классов + циклы (Tarjan) как Issue, без связей внешний↔вложенный | analysis, app | BE-12, CT-02 | §14а.4
 - [ ] FE-18 Вкладка графа зависимостей, циклы красным | diagrams | FE-16 | §14а.4
 - [ ] CT-03 Контракт для пп.5–9: сложность по памяти, покрытие, шаблоны, консоль | contract | — | §14а
 - [ ] BE-26 Сложность по памяти | analysis | BE-12, CT-03 | §14а.5

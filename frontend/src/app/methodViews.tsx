@@ -4,10 +4,19 @@ import { useAnalysisStore } from '../features/analysis-panel';
 import { CodeEditor, revealFor, revealForMethod } from '../features/editor-code';
 import { MethodCanvas } from '../features/editor-nodes';
 import { PanelStub } from '../features/layout';
-import { findMethodFile, reloadProjectTree, useTreeStore } from '../features/project-tree';
+import { findClass, findMethodFile, reloadProjectTree, useStructureStore, useTreeStore, type StructureSelection } from '../features/project-tree';
 import { useAppStore, type LineSpan } from './store';
 import { useMethodSpan } from './useMethodSpan';
-import { codeTarget } from './codeTarget';
+import { codeTarget, type StructureTarget } from './codeTarget';
+
+/** Файл и span выбранного класса/поля (общий выбор project-tree); нет в дереве — null. */
+function structureTarget(tree: Schemas['ProjectTree'] | null, selection: StructureSelection | null): StructureTarget | null {
+  if (!tree || !selection) return null;
+  const found = findClass(tree, selection.ref);
+  if (!found) return null;
+  const field = selection.kind === 'field' ? found.cls.fields.find((f) => f.name === selection.field) : undefined;
+  return { path: found.path, span: field?.span ?? found.cls.span ?? null };
+}
 
 /** Счётчик событий прокрутки к методу (FE-35): новый выбор — новый seq. */
 let methodRevealSeq = 0;
@@ -53,8 +62,9 @@ export function SelectedMethodCode({ client = api }: Props) {
   const version = useAppStore((s) => s.version);
   const tree = useTreeStore((s) => (s.projectId === projectId ? s.state : null));
   const methodPath = tree?.kind === 'ok' && methodId ? findMethodFile(tree.tree, methodId) : null;
-  const selectedClass = useAppStore((s) => s.selectedClass);
-  const classSelectSeq = useAppStore((s) => s.classSelectSeq);
+  const selection = useStructureStore((s) => s.selection);
+  const structureSeq = useStructureStore((s) => s.selectSeq);
+  const structure = useMemo(() => structureTarget(tree?.kind === 'ok' ? tree.tree : null, selection), [tree, selection]);
 
   const onVersion = useCallback((next: number) => {
     const { version: prev, setVersion } = useAppStore.getState();
@@ -67,15 +77,14 @@ export function SelectedMethodCode({ client = api }: Props) {
   const issueId = useAppStore((s) => s.selectedIssueId);
   const issue = useAnalysisStore((s) => (issueId ? s.analysis?.issues.find((i) => i.id === issueId) : null) ?? null);
   const issueSpan = issue?.span ?? null;
-  // Проблема без метода (CyclicDependency и др. уровня класса) → файл её span; иначе метод; иначе класс (FE-16).
-  const target = codeTarget({ methodPath, selectedMethodId: methodId, selectedClass, issue });
+  // Проблема без метода (CyclicDependency) → файл её span; иначе выбранный класс/поле; иначе метод.
+  const target = codeTarget({ methodPath, selectedMethodId: methodId, structure, issue });
   const path = target.kind === 'none' ? null : target.path;
-  // Выбор класса (UML / граф зависимостей) — прокрутка к span класса, один раз на выбор.
-  const [classReveal, setClassReveal] = useState<{ span: LineSpan | null; seq: number } | null>(null);
+  // Выбор класса/поля (дерево, UML, граф, палитра) — прокрутка к его span, заново на каждый выбор (seq).
+  const [classRevealSeq, setClassRevealSeq] = useState<number | null>(null);
   useEffect(() => {
-    const current = useAppStore.getState().selectedClass;
-    setClassReveal(current ? { span: current.span, seq: ++methodRevealSeq } : null);
-  }, [classSelectSeq]);
+    setClassRevealSeq(structureSeq > 0 ? ++methodRevealSeq : null);
+  }, [structureSeq]);
   // FE-35: выбор метода прокручивает к span метода (из GET blocks). Одноразово: подсветка, выставленная после
   // выбора метода (клик по ноде, курсор, проблема), и любая правка (версия) гасят его; поздний ответ GET blocks
   // после такой подсветки не применяется. Повторный клик по методу (selectSeq) прокручивает снова.
@@ -113,8 +122,10 @@ export function SelectedMethodCode({ client = api }: Props) {
     [highlight, path, issueSpan],
   );
   const classRevealLines = useMemo(
-    () => (path && target.kind === 'class' && classReveal ? revealForMethod(classReveal.span, path, classReveal.seq) : null),
-    [classReveal, path, target.kind],
+    () =>
+      path && target.kind === 'class' && classRevealSeq !== null ? revealForMethod(target.span, path, classRevealSeq) : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- span — из target того же рендера
+    [classRevealSeq, path, target.kind, target.kind === 'class' ? target.span : null],
   );
   const reveal = highlight ? highlightReveal : target.kind === 'class' ? classRevealLines : methodRevealLines;
   const onCursorLine = useCallback(

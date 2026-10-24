@@ -1,23 +1,28 @@
 import { useCallback } from 'react';
 import { useReactFlow } from '@xyflow/react';
-import { useAppStore, type ClassSelection } from '../../app/store';
-import type { Schemas } from '../api';
+import { useAppStore } from '../../app/store';
 import { CANVAS_METHOD_TAB } from '../layout';
 import { prefersReducedMotion } from '../editor-nodes';
-import { useTreeStore } from '../project-tree';
-import { useDiagramsStore } from './diagramsStore';
+import { findClass, fqnOf, selectClass, useStructureStore, useTreeStore } from '../project-tree';
 
 /** Вкладка кода в нижней зоне (panels.ts). */
 const CODE_TAB = 'bottom.code';
 
 /**
- * Класс → редактор: выбор класса в дереве проекта (`selectedClass`) и вкладка «Код Java» с прокруткой
- * к span класса. Диаграмма остаётся открытой.
+ * Класс → редактор через общий выбор класса FE-10 (`selectClass` из project-tree): класс выделен в дереве,
+ * открыта его форма «Свойства», вкладка «Код Java» прокручена к span класса. Класса нет в дереве — false.
  */
-export function goToClass(target: ClassSelection): void {
-  const app = useAppStore.getState();
-  app.selectClass(target);
-  app.showPanel('bottom', CODE_TAB);
+export function goToClass(fqn: string): boolean {
+  return selectClass(fqn);
+}
+
+/** FQN класса, выбранного в общем выборе (дерево/UML/граф/палитра); не класс — null. */
+export function useSelectedClassFqn(): string | null {
+  const selection = useStructureStore((s) => s.selection);
+  const tree = useTreeStore((s) => s.state);
+  if (!selection || selection.kind !== 'class' || tree.kind !== 'ok') return null;
+  const found = findClass(tree.tree, selection.ref);
+  return found ? fqnOf(found) : null;
 }
 
 /** Метод/конструктор (UmlMember.id = MethodId) → схема метода на холсте и Monaco на методе (как FE-35). */
@@ -37,27 +42,6 @@ export function goToCycleIssue(issueId: string): void {
   app.selectIssue({ issueId });
   app.showPanel('right', 'analysis.problems');
   app.showPanel('bottom', CODE_TAB);
-}
-
-/** Классы дерева проекта (с вложенными, если они есть в файле). */
-function* treeClasses(tree: Schemas['ProjectTree']): Generator<{ cls: Schemas['ClassNode']; path: string }> {
-  for (const pkg of tree.packages) for (const file of pkg.files) for (const cls of file.classes) yield { cls, path: file.path };
-}
-
-/**
- * Где класс в коде: span из UML (если загружен), иначе ClassNode.span из дерева по fqn, иначе — только файл
- * (`fallbackPath`, напр. DependencyGraph.nodes[].path) без прокрутки.
- */
-export function classLocation(id: string, fallbackPath: string | null = null): ClassSelection | null {
-  const uml = useDiagramsStore.getState().uml.data?.classes.find((c) => c.id === id);
-  if (uml) return { id, path: uml.path, span: uml.span };
-  const tree = useTreeStore.getState().state;
-  if (tree.kind === 'ok') {
-    for (const { cls, path } of treeClasses(tree.tree)) {
-      if (cls.fqn === id) return { id, path, span: cls.span ?? null };
-    }
-  }
-  return fallbackPath ? { id, path: fallbackPath, span: null } : null;
 }
 
 /** Длительность «полёта» к карточке перед переходом в редактор. */

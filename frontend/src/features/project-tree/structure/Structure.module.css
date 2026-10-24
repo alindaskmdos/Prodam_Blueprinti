@@ -1,0 +1,260 @@
+/* Формы структуры по docs/design/screens/Structure.dc.html (.fld, .inp, .ck, .btn, .btn-p). */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px 16px 18px;
+  animation: jb-rise var(--jb-dur-rise) var(--jb-ease-out) both;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: 600 14px var(--jb-font-ui);
+  color: var(--jb-text);
+}
+
+.subtitle {
+  font: 400 12px var(--jb-font-code);
+  color: var(--jb-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font: 700 11px var(--jb-font-code);
+  color: var(--jb-bg);
+  background: var(--jb-node-method);
+  flex: 0 0 auto;
+}
+
+.iconClass {
+  background: var(--jb-accent);
+}
+
+.iconField {
+  background: var(--jb-node-var);
+}
+
+.fld {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font: 500 12px var(--jb-font-ui);
+  color: var(--jb-text-secondary);
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.fld > legend {
+  padding: 0;
+  margin-bottom: 6px;
+}
+
+.inp {
+  height: 34px;
+  min-width: 0;
+  border-radius: 7px;
+  border: 1px solid var(--jb-border-strong);
+  background: var(--jb-header);
+  color: var(--jb-text);
+  padding: 0 10px;
+  font: 13px var(--jb-font-code);
+  transition:
+    border-color var(--jb-dur-hover),
+    box-shadow var(--jb-dur-hover);
+}
+
+.inp:focus {
+  outline: none;
+  border-color: var(--jb-accent);
+  box-shadow: 0 0 0 3px rgba(91, 155, 255, 0.2);
+}
+
+.inp:disabled {
+  opacity: 0.65;
+}
+
+.inpBad {
+  border-color: var(--jb-severity-high);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ck {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 500 12.5px var(--jb-font-code);
+  color: #c9d2de;
+  background: var(--jb-raised);
+  border: 1px solid var(--jb-border-strong);
+  border-radius: 7px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.ck:has(input:checked) {
+  border-color: var(--jb-accent);
+  background: var(--jb-selected);
+  color: #fff;
+}
+
+.ck input {
+  margin: 0;
+  accent-color: var(--jb-accent);
+}
+
+.param {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.btnRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.btn {
+  font: 500 13px var(--jb-font-ui);
+  color: #d7dee8;
+  background: var(--jb-raised);
+  border: 1px solid var(--jb-border-strong);
+  border-radius: 8px;
+  padding: 0 14px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition:
+    background var(--jb-dur-hover),
+    border-color var(--jb-dur-hover),
+    filter var(--jb-dur-hover);
+}
+
+.btn:hover:not(:disabled) {
+  background: #1d2430;
+  border-color: #3a4556;
+  color: #fff;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.btnPrimary {
+  background: var(--jb-accent);
+  border-color: var(--jb-accent);
+  color: var(--jb-bg);
+  font-weight: 600;
+}
+
+.btnPrimary:hover:not(:disabled) {
+  background: var(--jb-accent);
+  border-color: var(--jb-accent);
+  color: var(--jb-bg);
+  filter: brightness(1.12);
+}
+
+.btnDanger {
+  color: #ffc2bc;
+  border-color: #6b2f35;
+}
+
+.ib {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  justify-content: center;
+}
+
+.note {
+  font: 400 12px var(--jb-font-ui);
+  color: var(--jb-text-secondary);
+  line-height: 1.45;
+}
+
+.warn {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #2a2312;
+  border: 1px solid #6b5521;
+  color: #fde68a;
+  font-size: 12.5px;
+}
+
+.error {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #2a1518;
+  border: 1px solid #6b2f35;
+  color: #ffc2bc;
+  font-size: 12.5px;
+}
+
+.mono {
+  font-family: var(--jb-font-code);
+}
+
+.stub {
+  padding: 18px 16px;
+  font: 400 13px var(--jb-font-ui);
+  color: var(--jb-text-secondary);
+}
+
+/* Диалоги «Новый …» / «Удалить …». */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  background: rgba(5, 7, 10, 0.72);
+  backdrop-filter: blur(2px);
+}
+
+.dialog {
+  width: 100%;
+  max-width: 460px;
+  background: var(--jb-panel);
+  border: 1px solid var(--jb-border-strong);
+  border-radius: 16px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 22px;
+  animation: jb-rise var(--jb-dur-rise) var(--jb-ease-out) both;
+}
+
+.dialogTitle {
+  font: 700 17px var(--jb-font-ui);
+  color: var(--jb-text);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

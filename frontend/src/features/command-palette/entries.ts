@@ -1,10 +1,10 @@
 import type { Schemas } from '../api';
 import { KIND_META, blockText, type Block, type BlockKind } from '../editor-nodes';
 import { useAppStore } from '../../app/store';
+import { selectStructure } from '../project-tree';
 
 type Tree = Schemas['ProjectTree'];
 type Analysis = Schemas['Analysis'];
-type ClassNode = Schemas['ClassNode'];
 
 /** Описание команды реестра (`app/commands.ts`) — структурно, чтобы фича не зависела от app. */
 export interface PaletteCommand {
@@ -50,11 +50,6 @@ export interface EntrySources {
   runCommand: (id: string, args?: Readonly<Record<string, string>>) => void;
 }
 
-/** Первый метод класса (конструкторы раньше методов, как в дереве): класс и поле открывают его файл. */
-function firstMethodId(cls: ClassNode): string | null {
-  return cls.constructors[0]?.id ?? cls.methods[0]?.id ?? null;
-}
-
 /** Все блоки поддерева в порядке обхода, без самого корня (метод — отдельная группа). */
 function descendants(root: Block): Block[] {
   const out: Block[] = [];
@@ -92,21 +87,18 @@ function treeEntries(tree: Tree): PaletteEntry[] {
   for (const pkg of tree.packages) {
     for (const file of pkg.files) {
       for (const cls of file.classes) {
-        const open = firstMethodId(cls);
-        // Класс без методов открывать нечем (в контракте нет «выбранного класса») — в палитру не попадает.
-        if (open) {
-          out.push({
-            id: `class:${file.path}:${cls.name}`,
-            group: 'Классы',
-            title: cls.name,
-            hint: file.path,
-            names: [cls.name],
-            keywords: [cls.kind, pkg.name],
-            run: () => selectMethod(open),
-          });
-        }
+        // Класс и поле — общий выбор класса (FE-10/FE-16): дерево, «Свойства», код с прокруткой к span.
+        const ref = { path: file.path, name: cls.name };
+        out.push({
+          id: `class:${file.path}:${cls.name}`,
+          group: 'Классы',
+          title: cls.name,
+          hint: file.path,
+          names: [cls.name],
+          keywords: [cls.kind, pkg.name],
+          run: () => selectStructure({ kind: 'class', ref }),
+        });
         for (const f of cls.fields) {
-          if (!open) continue;
           out.push({
             id: `field:${file.path}:${cls.name}.${f.name}`,
             group: 'Поля',
@@ -114,7 +106,7 @@ function treeEntries(tree: Tree): PaletteEntry[] {
             hint: f.type,
             names: [f.name, `${cls.name}.${f.name}`],
             keywords: [f.type],
-            run: () => selectMethod(open),
+            run: () => selectStructure({ kind: 'field', ref, field: f.name }),
           });
         }
         for (const m of [...cls.constructors, ...cls.methods]) {

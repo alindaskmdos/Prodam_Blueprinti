@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { Schemas } from '../api';
 import { createApiClient } from '../api';
 import { resetAnalysisState, useAnalysisStore } from '../analysis-panel';
-import { resetTreeState, useTreeStore } from '../project-tree';
+import { resetStructureState, resetTreeState, STRUCTURE_PANEL_ID, useStructureStore, useTreeStore } from '../project-tree';
 import { fixtures } from '../../mocks/fixtures';
 import { resetAppState, useAppStore } from '../../app/store';
 import { CommandPalette } from './CommandPalette';
@@ -212,6 +212,29 @@ describe('buildEntries / groupEntries', () => {
   it('из дерева — классы, поля и методы; из анализа — проблемы и фиксы', () => {
     const entries = buildEntries({ tree, analysis, root: null, commands: [], runCommand: vi.fn() });
     expect(groupEntries(entries).map((g) => g.group)).toEqual(['Исправления', 'Проблемы', 'Методы', 'Классы', 'Поля']);
+  });
+
+  it('класс и поле ведут на общий выбор класса (дерево, «Свойства», код), а не на первый метод', () => {
+    resetStructureState();
+    useAppStore.getState().openProject('p-1', 1);
+    const entries = buildEntries({ tree, analysis: null, root: null, commands: [], runCommand: vi.fn() });
+    const ref = { path: 'src/com/demo/service/OrderService.java', name: 'OrderService' };
+    entries.find((e) => e.id === `class:${ref.path}:OrderService`)?.run();
+    expect(useStructureStore.getState().selection).toEqual({ kind: 'class', ref });
+    expect(useAppStore.getState().selectedMethodId).toBeNull();
+    expect(useAppStore.getState().activePanels.right).toBe(STRUCTURE_PANEL_ID);
+    expect(useAppStore.getState().activePanels.bottom).toBe('bottom.code');
+    entries.find((e) => e.id === `field:${ref.path}:OrderService.orders`)?.run();
+    expect(useStructureStore.getState().selection).toEqual({ kind: 'field', ref, field: 'orders' });
+  });
+
+  it('класс без методов тоже попадает в палитру', () => {
+    const t = {
+      version: 1,
+      packages: [{ name: 'p', files: [{ path: 'E.java', classes: [{ name: 'Empty', kind: 'class', fields: [], constructors: [], methods: [] }] }] }],
+    } as unknown as Schemas['ProjectTree'];
+    const entries = buildEntries({ tree: t, analysis: null, root: null, commands: [], runCommand: vi.fn() });
+    expect(entries.map((e) => e.id)).toEqual(['class:E.java:Empty']);
   });
 });
 

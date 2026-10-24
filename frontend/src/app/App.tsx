@@ -76,6 +76,7 @@ function EditorScreen({ client, projectId, canvas, panels, saveFile }: EditorScr
     seenSelectSeq.current = methodSelectSeq;
     showPanel('canvas', CANVAS_METHOD_TAB);
   }, [methodSelectSeq, showPanel]);
+  const rightTab = useAppStore((s) => s.activePanels.right);
   useSandbox(client, projectId);
   const entryPoint = useSandboxStore((s) => entryPointLabel(s.mainClasses));
   const sandboxBusy = useSandboxStore((s) => s.busy);
@@ -105,7 +106,14 @@ function EditorScreen({ client, projectId, canvas, panels, saveFile }: EditorScr
             {canvas ?? (methodId ? <SelectedMethodCanvas client={client} /> : undefined)}
           </CanvasSlot>
         }
-        right={<PanelTabs title="Анализ" tabs={panelsIn('right', panels)} />}
+        right={
+          <PanelTabs
+            title="Анализ"
+            tabs={panelsIn('right', panels)}
+            activeId={rightTab}
+            onActiveChange={(id) => showPanel('right', id)}
+          />
+        }
         bottom={
           <PanelTabs
             aria-label="Код, консоль, тесты"

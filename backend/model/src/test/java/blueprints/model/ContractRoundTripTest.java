@@ -51,8 +51,8 @@ class ContractRoundTripTest {
 
     @Test
     void issues() throws Exception {
-        for (JsonNode n : read("analysis.merge.json").get("issues")) {
-            assertEquals(n, rt(M.treeToValue(n, Issue.class)));
+        for (String f : new String[] {"analysis.merge.json", "analysis.cycle.json"}) {
+            for (JsonNode n : read(f).get("issues")) assertEquals(n, rt(M.treeToValue(n, Issue.class)));
         }
     }
 

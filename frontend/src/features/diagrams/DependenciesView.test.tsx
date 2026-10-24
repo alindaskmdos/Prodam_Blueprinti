@@ -6,7 +6,8 @@ import { resetAppState, useAppStore } from '../../app/store';
 import { scenarios } from '../../mocks/handlers';
 import { server } from '../../mocks/server';
 import { createApiClient, type Schemas } from '../api';
-import { resetTreeState } from '../project-tree';
+import { resetStructureState, resetTreeState, STRUCTURE_PANEL_ID, useStructureStore, useTreeStore } from '../project-tree';
+import treeJson from '@contract/fixtures/tree.json';
 import { cycleLabel, depsFlow, depsToGraph } from './depsGraph';
 import { resetDiagrams } from './diagramsStore';
 import { DependenciesView } from './DependenciesView';
@@ -31,6 +32,7 @@ beforeEach(() => {
   resetAppState();
   resetDiagrams();
   resetTreeState();
+  resetStructureState();
 });
 
 describe('depsToGraph / depsFlow — ответ GET dependencies → ноды и рёбра', () => {
@@ -88,19 +90,33 @@ describe('DependenciesView (MSW)', () => {
     const list = screen.getByTestId('cycle-list');
     expect(within(list).getByText('Циклы: 1')).toBeInTheDocument();
     fireEvent.click(within(list).getByText('Cart → Pricing → Cart'));
-    let s = useAppStore.getState();
+    const s = useAppStore.getState();
     expect(s.selectedIssueId).toBe('ISSUE-7');
     expect(s.selectedBlockId).toBeNull();
     expect(s.activePanels.right).toBe('analysis.problems');
     expect(s.activePanels.bottom).toBe('bottom.code');
 
+    // Класса нет в дереве проекта — общий выбор класса не меняется, проблема остаётся выбранной.
     if (!item) throw new Error('нет узла Item');
     fireEvent.click(item);
-    await waitFor(() => expect(useAppStore.getState().selectedClass?.id).toBe('com.shop.Item'), { timeout: 3000 });
-    s = useAppStore.getState();
-    // span в UML/дереве нет — открывается файл узла без прокрутки.
-    expect(s.selectedClass).toEqual({ id: 'com.shop.Item', path: 'src/com/shop/Item.java', span: null });
-    expect(s.selectedIssueId).toBeNull();
+    await new Promise((r) => setTimeout(r, 800));
+    expect(useStructureStore.getState().selection).toBeNull();
+    expect(useAppStore.getState().selectedIssueId).toBe('ISSUE-7');
+  }, 20_000);
+
+  it('клик по узлу класса из дерева → общий выбор класса (дерево, «Свойства», код)', async () => {
+    useAppStore.getState().openProject('p-1', 1);
+    useTreeStore.setState({ projectId: 'p-1', state: { kind: 'ok', tree: treeJson as unknown as Schemas['ProjectTree'] } });
+    render(<DependenciesView client={client} />);
+    const nodes = await screen.findAllByTestId('dep-node', {}, { timeout: 10_000 });
+    const order = nodes.find((n) => n.dataset.classId === 'com.demo.service.OrderService');
+    if (!order) throw new Error('нет узла OrderService');
+    fireEvent.click(order);
+    await waitFor(() => expect(useStructureStore.getState().selection?.ref.name).toBe('OrderService'), { timeout: 3000 });
+    const s = useAppStore.getState();
+    expect(s.activePanels.right).toBe(STRUCTURE_PANEL_ID);
+    expect(s.activePanels.bottom).toBe('bottom.code');
+    await waitFor(() => expect(order.className).toContain(styles.cardSelected));
   }, 20_000);
 
   it('без циклов — «Циклических зависимостей нет»', async () => {

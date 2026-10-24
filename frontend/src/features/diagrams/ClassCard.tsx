@@ -20,7 +20,7 @@ export type CardState = 'normal' | 'dim' | 'active' | 'match';
 export interface ClassCardData extends Record<string, unknown> {
   cls: UmlClass;
   state: CardState;
-  /** Класс выбран (store.selectedClass). */
+  /** Класс выбран (общий выбор класса project-tree). */
   selected: boolean;
   /** Идёт «полёт» камеры к карточке перед переходом в редактор. */
   flying: boolean;

@@ -63,6 +63,23 @@ export function reloadProjectTree(): Promise<void> {
   return loadProjectTree(lastClient, projectId, true);
 }
 
+/** Клиент API последней загрузки дерева (формы структуры, команды палитры); дерево не загружалось — null. */
+export function getTreeClient(): ApiClient | null {
+  return lastClient;
+}
+
+/**
+ * Дерево из ответа правки (MutationResult.tree) — без повторного GET. Ответы ещё летящих GET отбрасываются.
+ * Версия — в общий store, если новее.
+ */
+export function applyTree(projectId: string, tree: Schemas['ProjectTree'], version: number): void {
+  const { seq, projectId: current } = useTreeStore.getState();
+  if (current !== projectId) return;
+  useTreeStore.setState({ seq: seq + 1, state: { kind: 'ok', tree } });
+  const app = useAppStore.getState();
+  if (app.version === null || version > app.version) app.setVersion(version);
+}
+
 /** Сброс (тесты). */
 export function resetTreeState(): void {
   lastClient = null;

@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { ApiClient, Schemas } from '../api';
 import { useAppStore } from '../../app/store';
 import { useProjectTree } from './useProjectTree';
+import { StructureDialog } from './structure/StructureDialog';
+import { openStructureDialog, selectStructure, useStructureStore } from './structure/structureStore';
 import styles from './ProjectTree.module.css';
 
 type ClassNode = Schemas['ClassNode'];
@@ -12,7 +14,10 @@ interface ProjectTreeProps {
   projectId: string;
 }
 
-/** Дерево проекта (только просмотр): пакеты → классы → поля, конструкторы, методы. Клик по методу выбирает его. */
+/**
+ * Дерево проекта: пакеты → классы → поля, конструкторы, методы. Клик по методу выбирает его (схема на холсте),
+ * по классу/полю — открывает его форму во вкладке «Свойства» (FE-10). «+» в шапке — новый класс.
+ */
 export function ProjectTree({ client, projectId }: ProjectTreeProps) {
   const state = useProjectTree(client, projectId);
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
@@ -31,7 +36,20 @@ export function ProjectTree({ client, projectId }: ProjectTreeProps) {
     <section className={styles.panel} aria-label="Проект">
       <div className={styles.header}>
         Проект
-        {fileCount !== null && <span className={styles.headerNote}>{filesLabel(fileCount)}</span>}
+        <span className={styles.headerTools}>
+          {fileCount !== null && <span className={styles.headerNote}>{filesLabel(fileCount)}</span>}
+          {state.kind === 'ok' && (
+            <button
+              type="button"
+              className={styles.headerBtn}
+              aria-label="Новый класс"
+              title="Новый класс"
+              onClick={() => openStructureDialog({ kind: 'new-class', pkg: null })}
+            >
+              +
+            </button>
+          )}
+        </span>
       </div>
       <div className={styles.body}>
         {state.kind === 'loading' && <p className={styles.note}>Загрузка дерева…</p>}
@@ -65,6 +83,7 @@ export function ProjectTree({ client, projectId }: ProjectTreeProps) {
                             <ClassItem
                               key={clsKey}
                               cls={cls}
+                              path={file.path}
                               open={!collapsed.has(clsKey)}
                               onToggle={() => toggle(clsKey)}
                             />
@@ -79,41 +98,69 @@ export function ProjectTree({ client, projectId }: ProjectTreeProps) {
           </ul>
         )}
       </div>
+      <StructureDialog />
     </section>
   );
 }
 
-function ClassItem({ cls, open, onToggle }: { cls: ClassNode; open: boolean; onToggle: () => void }) {
-  // Класс, выбранный в UML / графе зависимостей (store.selectedClass, FE-16): подсвечен и прокручен в видимую область.
-  const selected = useAppStore((s) => !!cls.fqn && s.selectedClass?.id === cls.fqn);
-  const selectSeq = useAppStore((s) => s.classSelectSeq);
-  const rowRef = useRef<HTMLButtonElement>(null);
+function ClassItem({ cls, path, open, onToggle }: { cls: ClassNode; path: string; open: boolean; onToggle: () => void }) {
+  const selection = useStructureStore((s) => s.selection);
+  const mine = selection !== null && selection.ref.path === path && selection.ref.name === cls.name;
+  const classSelected = mine && selection.kind === 'class';
+  const ref = { path, name: cls.name };
+  // Выбор класса из UML / графа / палитры (FE-16) — строка прокручивается в видимую область.
+  const selectSeq = useStructureStore((s) => s.selectSeq);
+  const rowRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (selected) rowRef.current?.scrollIntoView?.({ block: 'nearest' });
-  }, [selected, selectSeq]);
+    if (classSelected) rowRef.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [classSelected, selectSeq]);
   return (
     <li>
-      <button
+      <div
         ref={rowRef}
-        type="button"
-        className={`${styles.row} ${styles.depth1} ${selected ? styles.selected : ''}`}
-        aria-expanded={open}
+        className={`${styles.row} ${styles.depth1} ${styles.split} ${classSelected ? styles.selected : ''}`}
         data-class-id={cls.fqn}
-        onClick={onToggle}
       >
-        <span className={styles.caret}>{open ? '▾' : '▸'}</span>
-        <span>{cls.name}</span>
-        {cls.kind !== 'class' && <span className={styles.kind}>{cls.kind}</span>}
-        {hasIssues(cls) && <span className={styles.issueDot} aria-label="есть проблемы" />}
-      </button>
+        <button
+          type="button"
+          className={styles.caretBtn}
+          aria-expanded={open}
+          aria-label={`${open ? 'Свернуть' : 'Развернуть'} ${cls.name}`}
+          onClick={onToggle}
+        >
+          {open ? '▾' : '▸'}
+        </button>
+        <button
+          type="button"
+          className={styles.splitMain}
+          aria-pressed={classSelected}
+          title="Свойства класса"
+          onClick={() => selectStructure({ kind: 'class', ref })}
+        >
+          <span>{cls.name}</span>
+          {cls.kind !== 'class' && <span className={styles.kind}>{cls.kind}</span>}
+          {hasIssues(cls) && <span className={styles.issueDot} aria-label="есть проблемы" />}
+        </button>
+      </div>
       {open && (
         <ul className={styles.list}>
-          {cls.fields.map((f) => (
-            <li key={`f:${f.name}`} className={`${styles.row} ${styles.depth2} ${styles.field}`} title={f.type}>
-              <span className={styles.letter}>f</span>
-              {f.name}
-            </li>
-          ))}
+          {cls.fields.map((f) => {
+            const selected = mine && selection.kind === 'field' && selection.field === f.name;
+            return (
+              <li key={`f:${f.name}`}>
+                <button
+                  type="button"
+                  className={`${styles.row} ${styles.depth2} ${styles.field} ${selected ? styles.selected : ''}`}
+                  title={f.type}
+                  aria-pressed={selected}
+                  onClick={() => selectStructure({ kind: 'field', ref, field: f.name })}
+                >
+                  <span className={styles.letter}>f</span>
+                  {f.name}
+                </button>
+              </li>
+            );
+          })}
           {cls.constructors.map((m) => (
             <MethodItem key={m.id} method={m} letter="c" />
           ))}

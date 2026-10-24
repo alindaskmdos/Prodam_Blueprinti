@@ -1,12 +1,11 @@
 import { Background, BackgroundVariant, Controls, Handle, MiniMap, Panel, Position, ReactFlow, ReactFlowProvider, type NodeProps } from '@xyflow/react';
 import { useCallback, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { useAppStore } from '../../app/store';
 import { api, type ApiClient } from '../api';
 import { DiagramToolbar } from './DiagramToolbar';
 import { useDiagram } from './diagramsStore';
 import { cycleLabel, depsFlow, depsToGraph, SEVERITY_LABEL, type DepCycle, type DepFlowNode, type DepGraph, type DepNodeInfo } from './depsGraph';
 import { DiagramEdgeView, DiagramMarkers } from './edges';
-import { classLocation, goToClass, goToCycleIssue, useFitView, useFlyTo } from './navigation';
+import { goToClass, goToCycleIssue, useFitView, useFlyTo, useSelectedClassFqn } from './navigation';
 import { KIND_ICON, matchClasses } from './umlGraph';
 import { useLayout } from './useLayout';
 import styles from './Diagrams.module.css';
@@ -101,7 +100,7 @@ function DepsCanvas({ graph, stale }: { graph: DepGraph; stale: string | null })
   const [query, setQuery] = useState('');
   const [flyingId, setFlyingId] = useState<string | null>(null);
   const busy = useRef(false);
-  const selectedId = useAppStore((s) => s.selectedClass?.id ?? null);
+  const selectedId = useSelectedClassFqn();
   const fly = useFlyTo();
   const fitView = useFitView();
 
@@ -113,8 +112,7 @@ function DepsCanvas({ graph, stale }: { graph: DepGraph; stale: string | null })
       fly(info.id, () => {
         busy.current = false;
         setFlyingId(null);
-        const target = classLocation(info.id, info.path);
-        if (target) goToClass(target);
+        goToClass(info.id);
       });
     },
     [fly],

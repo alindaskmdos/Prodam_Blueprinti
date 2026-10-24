@@ -57,19 +57,19 @@ final class ProjectView {
 
     ProjectDto.TreeDto tree(int version) {
         Map<String, Integer> counts = new LinkedHashMap<>();
-        issues.forEach(i -> counts.merge(i.methodId(), 1, Integer::sum));
+        // находки уровня проекта (CyclicDependency) без methodId в issueCount методов не входят
+        issues.stream().filter(i -> i.methodId() != null).forEach(i -> counts.merge(i.methodId(), 1, Integer::sum));
         List<TreeBuilder.PackageNode> packages = TreeBuilder.build(project).stream().map(p -> new TreeBuilder.PackageNode(p.name(),
-                p.files().stream().map(f -> new TreeBuilder.FileNode(f.path(), f.classes().stream().map(c -> new TreeBuilder.ClassNode(
-                        c.name(), c.kind(), c.span(), c.fields(), methods(c.constructors(), counts), methods(c.methods(), counts)))
+                p.files().stream().map(f -> new TreeBuilder.FileNode(f.path(), f.classes().stream()
+                        .map(c -> c.withMembers(methods(c.constructors(), counts), methods(c.methods(), counts)))
                         .toList())).toList())).toList();
-        return new ProjectDto.TreeDto(version, packages);
+        return ProjectDto.tree(version, packages);
     }
 
     private List<TreeBuilder.Method> methods(List<TreeBuilder.Method> ms, Map<String, Integer> counts) {
         return ms.stream().map(m -> {
             MethodAnalysis a = analysis.method(m.id());
-            return new TreeBuilder.Method(m.id(), m.name(), m.signature(), a != null ? a.complexity().toString() : null,
-                    counts.getOrDefault(m.id(), 0));
+            return m.withAnalysis(a != null ? a.complexity().toString() : null, counts.getOrDefault(m.id(), 0));
         }).toList();
     }
 
@@ -78,7 +78,8 @@ final class ProjectView {
         Block root = tree(methodId);
         if (root == null) return null;
         Map<String, List<String>> byBlock = new LinkedHashMap<>();
-        issues.forEach(i -> byBlock.computeIfAbsent(i.blockId(), k -> new ArrayList<>()).add(i.id()));
+        issues.stream().filter(i -> i.blockId() != null)
+                .forEach(i -> byBlock.computeIfAbsent(i.blockId(), k -> new ArrayList<>()).add(i.id()));
         return new MethodView(methodId, root.fields().get("signature"),
                 analysis.method(methodId).complexity().toString(), withIssues(root, byBlock));
     }
@@ -91,6 +92,7 @@ final class ProjectView {
     }
 
     private Issue withBlockId(Issue i) {
+        if (i.methodId() == null) return i; // уровень класса/проекта: без blockId и фиксов (контракт)
         Block root = tree(i.methodId());
         String blockId = root == null || i.span() == null ? i.methodId() : innermost(root, i.span()).id();
         return new Issue(i.id(), i.rule(), i.severity(), i.confidence(), i.source(), i.span(), i.methodId(), blockId,

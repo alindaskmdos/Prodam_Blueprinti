@@ -1,12 +1,11 @@
 import { Background, BackgroundVariant, Controls, MiniMap, Panel, ReactFlow, ReactFlowProvider } from '@xyflow/react';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { useAppStore } from '../../app/store';
 import { api, type ApiClient, type Schemas } from '../api';
 import { ClassCard, type ClassCardNode } from './ClassCard';
 import { DiagramToolbar } from './DiagramToolbar';
 import { useDiagram } from './diagramsStore';
 import { DiagramEdgeView, DiagramMarkers } from './edges';
-import { goToClass, goToMethod, useFitView, useFlyTo } from './navigation';
+import { goToClass, goToMethod, useFitView, useFlyTo, useSelectedClassFqn } from './navigation';
 import { umlFlow } from './umlFlow';
 import { KIND_ICON, matchClasses, RELATION_STYLE, umlToGraph, type RelationKind, type UmlClass, type UmlMember } from './umlGraph';
 import { useLayout } from './useLayout';
@@ -49,7 +48,7 @@ function UmlCanvas({ diagram, stale }: { diagram: Schemas['UmlDiagram']; stale: 
   const [query, setQuery] = useState('');
   const [flyingId, setFlyingId] = useState<string | null>(null);
   const busy = useRef(false);
-  const selectedId = useAppStore((s) => s.selectedClass?.id ?? null);
+  const selectedId = useSelectedClassFqn();
   const fly = useFlyTo();
   const fitView = useFitView();
 
@@ -67,7 +66,7 @@ function UmlCanvas({ diagram, stale }: { diagram: Schemas['UmlDiagram']; stale: 
     [fly],
   );
   const onClassClick = useCallback(
-    (cls: UmlClass) => travel(cls.id, () => goToClass({ id: cls.id, path: cls.path, span: cls.span })),
+    (cls: UmlClass) => travel(cls.id, () => void goToClass(cls.id)),
     [travel],
   );
   const onMemberClick = useCallback((cls: UmlClass, m: UmlMember) => travel(cls.id, () => goToMethod(m.id)), [travel]);

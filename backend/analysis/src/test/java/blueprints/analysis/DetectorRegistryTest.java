@@ -29,6 +29,7 @@ class DetectorRegistryTest {
         assertTrue(DetectorRegistry.defaults().detectors().stream().anyMatch(d -> d instanceof LinearSearchInLoop));
         assertTrue(DetectorRegistry.defaults().detectors().stream().anyMatch(d -> d instanceof ExpensiveCallInLoop));
         assertTrue(DetectorRegistry.defaults().detectors().stream().anyMatch(d -> d instanceof StringConcatInLoop));
+        assertTrue(DetectorRegistry.defaults().detectors().stream().anyMatch(d -> d instanceof CyclicDependency));
     }
 
     @Test
