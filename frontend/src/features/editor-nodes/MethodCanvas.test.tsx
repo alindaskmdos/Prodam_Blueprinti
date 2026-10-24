@@ -211,6 +211,56 @@ describe('MethodCanvas — вставка, удаление, вверх/вниз
     expect(await screen.findByText((_, el) => el?.tagName === 'PRE' && el.textContent === 'log(merged)')).toBeInTheDocument();
   }, 20_000);
 
+  describe('палитра и drag (FE-09)', () => {
+    // Стрелки React Flow в jsdom не рисуются (нет измеренных нод), поэтому через холст проверяем drop на «+»
+    // в конце слота — это та же drop-цель, что и стрелка; сама стрелка — в FlowEdge.drop.test.tsx.
+    const dt = (kind?: string) => ({ types: [], getData: () => kind ?? '', setData: () => {}, dropEffect: '', effectAllowed: '' });
+    const item = (kind: string) => {
+      const el = document.querySelector(`[data-testid="palette"] [data-kind="${kind}"]`);
+      if (!(el instanceof HTMLElement)) throw new Error(`нет ${kind} в палитре`);
+      return el;
+    };
+
+    it('палитра с подписями; drop подсвечивает цель и вставляет блок в это место (PUT)', async () => {
+      const sent = bodies();
+      render(<MethodCanvas projectId="p-1" methodId={methodId} client={client} />);
+      await screen.findByTestId('node-method', {}, { timeout: 10_000 });
+      expect(item('while')).toHaveAttribute('aria-label', expect.stringContaining('Цикл while'));
+      expect(item('while')).toHaveAttribute('title');
+      expect(item('while')).toHaveAttribute('draggable', 'true');
+
+      fireEvent.dragStart(item('break'), { dataTransfer: dt() });
+      const target = plus('root/body/3');
+      fireEvent.dragOver(target, { dataTransfer: dt() });
+      expect(target).toHaveAttribute('data-over');
+      fireEvent.drop(target, { dataTransfer: dt('break') });
+      expect(target).not.toHaveAttribute('data-over');
+
+      await waitFor(() => expect(useAppStore.getState().version).toBe(8), { timeout: 10_000 });
+      expect(sent[0]?.root.slots.body?.[3]).toMatchObject({ id: '', kind: 'break' });
+    }, 20_000);
+
+    it('drop мимо цели и чужой drag ничего не вставляют', async () => {
+      const sent = bodies();
+      render(<MethodCanvas projectId="p-1" methodId={methodId} client={client} />);
+      await screen.findByTestId('node-method', {}, { timeout: 10_000 });
+      const nodes = screen.getAllByTestId('node-expr').length;
+
+      fireEvent.dragStart(item('break'), { dataTransfer: dt() });
+      fireEvent.drop(screen.getByTestId('node-method'), { dataTransfer: dt('break') });
+      fireEvent.dragEnd(item('break'));
+      // Чужой drag (файл, текст) цель не принимает и не подсвечивается.
+      const target = plus('root/body/3');
+      fireEvent.dragOver(target, { dataTransfer: dt() });
+      fireEvent.drop(target, { dataTransfer: dt() });
+      expect(target).not.toHaveAttribute('data-over');
+      await new Promise((r) => setTimeout(r, 100));
+      expect(sent).toHaveLength(0);
+      expect(screen.getAllByTestId('node-expr')).toHaveLength(nodes);
+      expect(screen.queryByTestId('node-editor')).not.toBeInTheDocument();
+    }, 20_000);
+  });
+
   it('Esc в меню закрывает его; Esc в редакторе новой ноды убирает её', async () => {
     const sent = bodies();
     render(<MethodCanvas projectId="p-1" methodId={methodId} client={client} />);

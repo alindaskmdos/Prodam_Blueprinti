@@ -9,20 +9,85 @@ import {
   type Node,
   type NodeProps,
 } from '@xyflow/react';
-import { useEffect, useRef, type MouseEvent as ReactMouseEvent } from 'react';
+import { useEffect, useRef, useState, type DragEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import type { GraphNodeData } from './blocksToGraph';
-import type { InsertOption, InsertPoint } from './blockTree';
+import { STATEMENT_OPTIONS, type InsertOption, type InsertPoint } from './blockTree';
 import { useNodeEdit } from './editContext';
+import type { BlockKind } from './kinds';
 import type { FlowEdgeData } from './toFlow';
 import styles from './MethodCanvas.module.css';
 
+/** Тип данных drag из палитры; kind дублируется в `draggedKind`, потому что на dragover getData недоступен. */
+const DRAG_MIME = 'application/x-jb-block';
+let draggedKind: BlockKind | null = null;
+
+/** Палитра типов блоков (FE-09): те же kind, что в меню «+»; тащится на стрелку схемы. Без drag — «+». */
+export function BlockPalette() {
+  const edit = useNodeEdit();
+  if (!edit) return null;
+  return (
+    <div className={`${styles.palette} nodrag nopan`} role="list" aria-label="Палитра блоков" data-testid="palette">
+      {STATEMENT_OPTIONS.map((o) => (
+        <div
+          key={o.kind}
+          role="listitem"
+          className={styles.paletteItem}
+          draggable={edit.structure}
+          aria-disabled={!edit.structure}
+          aria-label={`Перетащить на стрелку: ${o.label}`}
+          title={`${o.label} — перетащите на стрелку (или нажмите «+» на ней)`}
+          data-kind={o.kind}
+          onDragStart={(e) => {
+            draggedKind = o.kind;
+            e.dataTransfer.setData(DRAG_MIME, o.kind);
+            e.dataTransfer.effectAllowed = 'copy';
+          }}
+          onDragEnd={() => {
+            draggedKind = null;
+          }}
+        >
+          <span className={styles.menuSwatch} style={{ background: `var(--jb-node-${o.kind})` }} aria-hidden="true" />
+          {o.label}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Drop-цель палитры (FE-09): стрелка и «+» в конце слота. Подсвечивается, только если такой kind сюда можно вставить. */
+function useDropTarget(insert: InsertPoint | undefined) {
+  const edit = useNodeEdit();
+  const [over, setOver] = useState(false);
+  const drop = insert && {
+    onDragOver: (e: DragEvent) => {
+      if (draggedKind && edit?.canDrop(insert, draggedKind)) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+        setOver(true);
+      }
+    },
+    onDragLeave: () => setOver(false),
+    onDrop: (e: DragEvent) => {
+      setOver(false);
+      const kind = (e.dataTransfer.getData(DRAG_MIME) || draggedKind) as BlockKind | null;
+      draggedKind = null;
+      if (!kind || !edit?.canDrop(insert, kind)) return;
+      e.preventDefault();
+      edit.dropInsert(insert, kind);
+    },
+  };
+  return { over, drop };
+}
+
 /** Кнопка «+» (Editor.dc.html: круглая, цвет акцента). */
-function PlusButton({ point }: { point: InsertPoint }) {
+function PlusButton({ point, drop, over }: { point: InsertPoint; drop?: ReturnType<typeof useDropTarget>['drop']; over?: boolean }) {
   const edit = useNodeEdit();
   if (!edit) return null;
   return (
     <button
       type="button"
+      {...drop}
+      data-over={over || undefined}
       className={`${styles.plus} nodrag nopan`}
       aria-label="Вставить блок"
       title="Вставить блок"
@@ -49,21 +114,35 @@ export function FlowEdge(props: EdgeProps<Edge<FlowEdgeData>>) {
   const edit = useNodeEdit();
   const [path, labelX, labelY] = getSmoothStepPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
   const insert = edit ? data?.insert : undefined;
+  const { over, drop } = useDropTarget(insert);
   return (
     <>
       <BaseEdge
         id={id}
         path={path}
         {...(markerEnd ? { markerEnd } : {})}
-        {...(style ? { style } : {})}
+        {...(style || over ? { style: { ...style, ...(over ? { stroke: 'var(--jb-accent)', strokeWidth: 3 } : {}) } } : {})}
         {...(!insert && label !== undefined
           ? { label, labelX, labelY, ...(labelStyle ? { labelStyle } : {}), ...(labelBgPadding ? { labelBgPadding } : {}) }
           : {})}
       />
+      {insert && drop && (
+        <path
+          d={path}
+          fill="none"
+          stroke="transparent"
+          strokeWidth={28}
+          style={{ pointerEvents: 'stroke' }}
+          data-testid={`drop-${insert.parent}/${insert.slot}/${insert.index}`}
+          {...drop}
+        />
+      )}
       {insert && (
         <EdgeLabelRenderer>
           <div
+            {...drop}
             className={`${styles.wireLabel} nodrag nopan`}
+            data-over={over || undefined}
             style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)` }}
           >
             {label !== undefined && (
@@ -81,10 +160,11 @@ export function FlowEdge(props: EdgeProps<Edge<FlowEdgeData>>) {
 
 /** «+» в конце слота или в пустом слоте (if без else, пустое тело цикла). */
 export function InsertNode({ data }: NodeProps<Node<GraphNodeData>>) {
+  const { over, drop } = useDropTarget(data.insert);
   return (
     <div className={styles.insertNode} data-testid={`insert-${data.slotKey ?? ''}`}>
       <Handle type="target" position={Position.Top} isConnectable={false} className={styles.pin} />
-      {data.insert && <PlusButton point={data.insert} />}
+      {data.insert && <PlusButton point={data.insert} drop={drop} over={over} />}
     </div>
   );
 }

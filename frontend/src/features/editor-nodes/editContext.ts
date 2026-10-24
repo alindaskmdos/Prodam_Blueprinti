@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { BlockPath } from './blockEdit';
 import type { InsertPoint } from './blockTree';
+import type { BlockKind } from './kinds';
 
 /** Правка текста нод: ноды React Flow получают состояние и действия через контекст, а не через data. */
 export interface NodeEditApi {
@@ -24,6 +25,10 @@ export interface NodeEditApi {
   structure: boolean;
   /** «+» нажат: открыть меню выбора kind у кнопки anchor. */
   requestInsert: (point: InsertPoint, anchor: HTMLElement) => void;
+  /** Drag из палитры (FE-09): можно ли вставить kind в это место сейчас. */
+  canDrop: (point: InsertPoint, kind: BlockKind) => boolean;
+  /** Drop палитры на стрелку: то же, что «+» → выбор kind. */
+  dropInsert: (point: InsertPoint, kind: BlockKind) => void;
   /** Удалить блок (у контейнера с содержимым — с подтверждением). */
   remove: (path: BlockPath) => void;
   move: (path: BlockPath, delta: -1 | 1) => void;

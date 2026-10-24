@@ -33,7 +33,7 @@ import { FOCUS_ZOOM, flowNodeOfBlock, useFocusCenter, type FocusRequest } from '
 import { layoutGraph } from './layout';
 import { edgeTypes, nodeTypes } from './nodeTypes';
 import { kindMeta } from './kinds';
-import { InsertMenu } from './structureUi';
+import { BlockPalette, InsertMenu } from './structureUi';
 import { toFlow } from './toFlow';
 import { useBlockSync } from './useBlockSync';
 import { useCollapseOverrides, useEditorView } from './viewStore';
@@ -319,6 +319,11 @@ export function MethodGraph({
             zoomable
             ariaLabel="Мини-карта схемы"
           />
+          {edit && (
+            <Panel position="top-left">
+              <BlockPalette />
+            </Panel>
+          )}
           <Panel position="top-right">
             <div className={styles.viewBar} data-testid="view-bar">
               <label>
@@ -473,6 +478,14 @@ export function MethodCanvas({ projectId, methodId, client = api, version, onVer
         const r = anchor.getBoundingClientRect();
         setMenu({ point, options, x: r.left - host.left + r.width / 2, y: r.bottom - host.top + 6 });
       },
+      canDrop: (point, kind) => {
+        const owner = root && blockAt(root, point.parent);
+        return pending === null && !stale && !!owner && insertOptions(owner, point.slot).some((o) => o.kind === kind);
+      },
+      dropInsert: (point, kind) => {
+        forgetSlotOf(point.parent, point.slot);
+        void sync.insert(point, kind);
+      },
       remove: (path) => {
         const block = root && blockAt(root, path);
         if (!block) return;
@@ -488,7 +501,7 @@ export function MethodCanvas({ projectId, methodId, client = api, version, onVer
       },
       canMove: (path, delta) => (root ? canMove(root, path, delta, moveSkip) : false),
     }),
-    [sync, editing, status, stale, pending, root, moveSkip, forgetSlot],
+    [sync, editing, status, stale, pending, root, moveSkip, forgetSlot, forgetSlotOf],
   );
 
   useEffect(() => {
