@@ -17,10 +17,10 @@
 
 **Готово:** FE-01, FE-02, FE-03, FE-04, FE-07, FE-11, FE-15
 **В работе:** Также в работе (запущены 2026-10-24, исполнители в worktree `.claude/worktrees/agent-*`, ветки `worktree-agent-*` — смотреть `git worktree list`): FE-15 (upload, App.tsx выбор экрана, кнопки шапки, commands.ts, мок POST /projects). Если сессия прервалась: есть коммит FE-xx в ветке → verifier + reviewer; нет → перезапустить исполнителя на ту же ветку.
-FE-12 (tests-panel, вкладка «Тесты» в panels.ts, GET/PUT/DELETE tests с version, показ результатов) — в работе.
+FE-12 готов, на проверке (verifier+reviewer). FE-08 (editor-nodes: «+» на стрелке, удаление, вверх/вниз через blockSync) — в работе.
 FE-14 отложен: нужен Dockerfile бэка (зона бэкенда) и Docker-сокет хоста с одинаковым путём BLUEPRINTS_RUN_DIR — согласовать с бэкендом.
 Подключение холста и CodeEditor к экрану (доделка FE-02: canvas, bottom.code, мок GET files, перезагрузка tree/analysis после PUT files) — в работе.
-**Висящие ветки/worktree:** FE-02-подключение, FE-12 (см. выше). Локальный main впереди origin: FE-02, фикстура file.order-service.json, FE-04 — нужен push.
+**Висящие ветки/worktree:** FE-02-подключение, FE-12, FE-08 (см. выше). Локальный main впереди origin: FE-02, фикстура file.order-service.json, FE-04 — нужен push.
 **Заблокировано:** —
 **Следующие шаги:** интеграция (FE-03 влит): MethodCanvas в проп `canvas` у App (FE-02), CodeEditor в `bottom.code` в panels.ts, мок GET files по умолчанию из contract/fixtures/file.order-service.json (добавлена по разрешению человека 2026-10-24). Дальше FE-05, FE-06, FE-07, FE-11, FE-14. Агенты из `.claude/agents` подхватываются, только если сессия открыта из Prodam_Blueprinti/ (иначе general-purpose + путь к промпту роли).
 **Мелочи с ревью (на будущее):** FE-07 rebase: если ноды нет в новом дереве или версия выросла во время rebase — черновик теряется (показать текст в сообщении); fixture<T>() — просто `as T`, нет сверки фикстур со схемой; store.version приходит только из GET tree, selectedMethodId не сверяется после перезагрузки; panels.ts findPanel — мёртвый код; фичи импортируют app/store (обратная зависимость); fileSync: после сетевой ошибки/5xx нет повтора PUT; FE-04: fileText из ответа PUT в редактор не подставляется (намеренно, курсор).
