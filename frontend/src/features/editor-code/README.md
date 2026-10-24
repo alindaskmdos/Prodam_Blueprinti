@@ -13,3 +13,4 @@
 
 Тесты: `fileSync.test.ts` (fake timers + MSW), `CodeEditor.test.tsx` (MonacoView подменён textarea).
 Моки: PUT files по умолчанию в `src/mocks/handlers.ts`, `scenarios.conflictOnFile`; GET files по умолчанию нет — в фикстурах нет текста файлов.
+- `monaco.ts` — отдельная точка входа для других фич: `setupMonaco`, `GRAPHITE_THEME`, `CODE_FONT` (напр. JUnit-редактор tests-panel). В `index.ts` не реэкспортируется, чтобы monaco-editor не попал в основной чанк; импортировать `../editor-code/monaco` только из лениво загружаемых модулей.

@@ -7,6 +7,8 @@ const API = '*/api';
 
 type Health = paths['/health']['get']['responses']['200']['content']['application/json'];
 type PutFileBody = paths['/projects/{projectId}/files']['put']['requestBody']['content']['application/json'];
+type PutTestBody = paths['/projects/{projectId}/tests/{name}']['put']['requestBody']['content']['application/json'];
+type DeletedTest = paths['/projects/{projectId}/tests/{name}']['delete']['responses']['200']['content']['application/json'];
 type PutBlocksBody =
   paths['/projects/{projectId}/methods/{methodId}/blocks']['put']['requestBody']['content']['application/json'];
 
@@ -55,8 +57,20 @@ export const handlers = [
   // Фикстура одна (n = 10000): параметр n принимается, но числа ops в моке не пересчитываются.
   http.get(`${API}/projects/:projectId/analysis`, () => HttpResponse.json(fixtures.analysisMerge)),
   http.post(`${API}/projects/:projectId/issues/:issueId/fix`, () => HttpResponse.json(fixtures.fixApplied)),
-  http.get(`${API}/projects/:projectId/tests`, () => HttpResponse.json<Schemas['TestCase'][]>([fixtures.testJunit])),
+  // Список: IO-тесты из project.json + JUnit из test.junit.json.
+  http.get(`${API}/projects/:projectId/tests`, () =>
+    HttpResponse.json<Schemas['TestCase'][]>([...fixtures.project.tests, fixtures.testJunit]),
+  ),
   http.get(`${API}/projects/:projectId/tests/:name`, () => HttpResponse.json(fixtures.testJunit)),
+  // Для TestMutationResult фикстуры нет — версия +1, test = присланный тест без version.
+  http.put(`${API}/projects/:projectId/tests/:name`, async ({ request }) => {
+    const { version, ...test } = (await request.json()) as PutTestBody;
+    return HttpResponse.json<Schemas['TestMutationResult']>({ version: version + 1, test });
+  }),
+  http.delete(`${API}/projects/:projectId/tests/:name`, ({ request }) => {
+    const version = Number(new URL(request.url).searchParams.get('version'));
+    return HttpResponse.json<DeletedTest>({ version: version + 1 });
+  }),
   http.post(`${API}/projects/:projectId/run`, () => HttpResponse.json(fixtures.runOk)),
   http.post(`${API}/projects/:projectId/verify`, () => HttpResponse.json(fixtures.verifyGreen)),
   // Для MutationResult фикстуры нет — собираем из фикстур: версия +1, method — присланное дерево.
@@ -108,6 +122,19 @@ export const scenarios = {
   // Для 404 фикстуры нет — ответ по схеме Error контракта.
   analysisNotFound: http.get(`${API}/projects/:projectId/analysis`, () =>
     HttpResponse.json<Schemas['Error']>({ code: 'NOT_FOUND', message: 'Проект не найден' }, { status: 404 }),
+  ),
+  conflictOnTest: http.put(`${API}/projects/:projectId/tests/:name`, () =>
+    HttpResponse.json(fixtures.errorConflict, { status: 409 }),
+  ),
+  conflictOnTestDelete: http.delete(`${API}/projects/:projectId/tests/:name`, () =>
+    HttpResponse.json(fixtures.errorConflict, { status: 409 }),
+  ),
+  // Для 422 фикстуры нет — ответ по схеме Error контракта.
+  invalidTest: http.put(`${API}/projects/:projectId/tests/:name`, () =>
+    HttpResponse.json<Schemas['Error']>(
+      { code: 'INVALID_REQUEST', message: 'JUnit-текст не разбирается: строка 3' },
+      { status: 422 },
+    ),
   ),
   /** 422 PARSE_ERROR на первую изменённую относительно фикстуры ноду (blockId — её id). */
   parseErrorOnBlocks: http.put(`${API}/projects/:projectId/methods/:methodId/blocks`, async ({ request }) => {

@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react';
 import { stubPanel } from '../features/layout';
 import { MetricsTab, ProblemsTab, WarningsTab } from '../features/analysis-panel';
+import { TestsPanel } from '../features/tests-panel';
 import { SelectedMethodCode } from './methodViews';
 
 /** Зона экрана, где живёт вкладка: правая панель (анализ) или нижняя (код / консоль / тесты). */
@@ -24,12 +25,7 @@ export const panels: readonly PanelDef[] = [
   { id: 'analysis.metrics', title: 'Метрики', area: 'right', component: MetricsTab },
   { id: 'bottom.code', title: 'Код Java', area: 'bottom', component: SelectedMethodCode },
   { id: 'bottom.console', title: 'Консоль', area: 'bottom', component: stubPanel('Вывод запуска — появится в FE-13') },
-  {
-    id: 'bottom.tests',
-    title: 'Результат тестов',
-    area: 'bottom',
-    component: stubPanel('Результаты тестов — появятся в FE-12'),
-  },
+  { id: 'bottom.tests', title: 'Результат тестов', area: 'bottom', component: TestsPanel },
 ];
 
 export function panelsIn(area: PanelArea, list: readonly PanelDef[] = panels): PanelDef[] {
