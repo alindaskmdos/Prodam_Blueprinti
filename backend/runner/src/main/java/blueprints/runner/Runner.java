@@ -16,6 +16,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.function.ToLongFunction;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
@@ -65,9 +66,21 @@ public final class Runner {
      * Результат запуска. Если compiled=false — заполнен только diagnostics.
      * aborted=true — запуск пакета не выполнялся (песочница не отвечала / прогон прерван), причина в stderr;
      * это не таймаут программы.
+     * hits — счётчики нод инструментированного запуска ({@link Rewrite#trace()}): {@code hits[id]} для
+     * {@link Instrumenter.Probe} с этим индексом; null — запуск без трассировки или Trace не записал файл
+     * (убит, не стартовал). При timedOut счётчики неполные.
      */
     public record RunResult(boolean compiled, List<String> diagnostics, String stdout, String stderr,
-                            int exitCode, boolean timedOut, long millis, boolean truncated, boolean aborted) {
+                            int exitCode, boolean timedOut, long millis, boolean truncated, boolean aborted, long[] hits) {
+        public RunResult(boolean compiled, List<String> diagnostics, String stdout, String stderr,
+                         int exitCode, boolean timedOut, long millis, boolean truncated, boolean aborted) {
+            this(compiled, diagnostics, stdout, stderr, exitCode, timedOut, millis, truncated, aborted, null);
+        }
+
+        RunResult withHits(long[] h) {
+            return new RunResult(compiled, diagnostics, stdout, stderr, exitCode, timedOut, millis, truncated, aborted, h);
+        }
+
         public RunResult(boolean compiled, List<String> diagnostics, String stdout, String stderr,
                          int exitCode, boolean timedOut, long millis, boolean truncated) {
             this(compiled, diagnostics, stdout, stderr, exitCode, timedOut, millis, truncated, false);
@@ -112,12 +125,22 @@ public final class Runner {
         }
     }
 
-    /** Опции переписывания копии для запуска (§10.4). */
-    public record Rewrite(boolean seedRandom, boolean packagePrivate) {
+    /**
+     * Опции переписывания копии для запуска (§10.4).
+     *
+     * @param trace инструментация {@link Instrumenter} (§14а.6): счётчики нод в {@link RunResult#hits()}, таймаут ×3
+     */
+    public record Rewrite(boolean seedRandom, boolean packagePrivate, boolean trace) {
         public static final Rewrite RUN = new Rewrite(true, false);
         public static final Rewrite NONE = new Rewrite(false, false);
         /** Сборка с JUnit-тестами (§10.2): seed + {@code private} → package-private. */
         public static final Rewrite JUNIT = new Rewrite(true, true);
+        /** Покрытие нод: RUN + инструментация. */
+        public static final Rewrite TRACE = new Rewrite(true, false, true);
+
+        public Rewrite(boolean seedRandom, boolean packagePrivate) {
+            this(seedRandom, packagePrivate, false);
+        }
     }
 
     /** Папка классов программы {@code i} в контейнере пакетного запуска. */
@@ -264,6 +287,8 @@ public final class Runner {
      * @param stdin     текст для System.in
      */
     public RunResult run(Map<String, String> sources, String mainClass, String stdin, Rewrite rewrite) {
+        // счётчики Trace забираются из живого контейнера — только пакетным запуском
+        if (rewrite.trace()) return runBatch(List.of(new Program(sources, mainClass)), List.of(new Job(0, stdin)), rewrite).get(0);
         mainClass = resolveMain(sources, mainClass);
         String id = UUID.randomUUID().toString().substring(0, 8);
         Path work = config.baseDir().toAbsolutePath().resolve("run-" + id);
@@ -337,12 +362,20 @@ public final class Runner {
         try {
             List<Path> classes = new ArrayList<>();
             List<List<String>> errors = new ArrayList<>();
+            List<Integer> probes = new ArrayList<>(); // число нод инструментированной программы, -1 — без трассировки
             for (int i = 0; i < programs.size(); i++) {
                 Path c = work.resolve("p" + i).resolve("classes");
                 classes.add(c);
                 Program p = programs.get(i);
-                errors.add(prepare(p.sources(), p.rewrite() != null ? p.rewrite() : rewrite, p.classpath(),
-                        work.resolve("p" + i).resolve("src"), c));
+                Rewrite rw = p.rewrite() != null ? p.rewrite() : rewrite;
+                Map<String, String> src = p.sources();
+                probes.add(-1);
+                if (rw.trace()) {
+                    var ins = Instrumenter.instrument(src);
+                    src = ins.sources();
+                    probes.set(i, ins.probes().size());
+                }
+                errors.add(prepare(src, rw, p.classpath(), work.resolve("p" + i).resolve("src"), c));
             }
             if (jobs.stream().noneMatch(j -> errors.get(j.program()).isEmpty())) {
                 return jobs.stream().map(j -> compileFailed(errors.get(j.program()))).toList();
@@ -355,7 +388,7 @@ public final class Runner {
                 Files.copy(f.getValue(), copy);
                 extra.put(copy, f.getKey());
             }
-            return runBatchInDocker(classes, mains, errors, jobs, id, extra, work.resolve("jobs"));
+            return runBatchInDocker(classes, mains, errors, probes, jobs, id, extra, work.resolve("jobs"));
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         } finally {
@@ -426,15 +459,16 @@ public final class Runner {
     }
 
     private List<RunResult> runBatchInDocker(List<Path> classes, List<String> mains, List<List<String>> errors,
-                                             List<Job> jobs, String id, Map<Path, String> extraMounts, Path jobsDir)
-            throws IOException {
+                                             List<Integer> probes, List<Job> jobs, String id,
+                                             Map<Path, String> extraMounts, Path jobsDir) throws IOException {
         String name = "bp-batch-" + id;
-        long mainMs = config.timeout().toMillis();
-        long commandMs = config.commandTimeout().toMillis();
+        // таймаут запуска: main / command; у инструментированной программы ×3 (§14а.6)
+        ToLongFunction<Job> perRun = j -> (j.command() == null ? config.timeout() : config.commandTimeout()).toMillis()
+                * (probes.get(j.program()) >= 0 ? 3 : 1);
         // общий таймаут контейнера: каждый запуск (со своим таймаутом) + запас на старт JVM/exec; по нему контейнер
         // завершится и сам (sleep)
         long totalMs = jobs.stream().filter(j -> errors.get(j.program()).isEmpty())
-                .mapToLong(j -> (j.command() == null ? mainMs : commandMs) + execSlackMs).sum() + startTimeoutMs;
+                .mapToLong(j -> perRun.applyAsLong(j) + execSlackMs).sum() + startTimeoutMs;
         Files.createDirectories(jobsDir);
         for (int k = 0; k < jobs.size(); k++) {
             Job job = jobs.get(k);
@@ -443,7 +477,7 @@ public final class Runner {
             List<String> argv = job.command() != null ? job.command()
                     : List.of("java", "-Xmx" + heapFor(config.memory()), "-cp", programDir(i), mains.get(i));
             Files.writeString(jobsDir.resolve(k + ".sh"),
-                    jobScript((job.command() == null ? mainMs : commandMs) / 1000.0, argv), StandardCharsets.UTF_8);
+                    jobScript(perRun.applyAsLong(job) / 1000.0, argv), StandardCharsets.UTF_8);
         }
         Map<Path, String> mounts = new java.util.LinkedHashMap<>();
         for (int i = 0; i < classes.size(); i++) mounts.put(classes.get(i), programDir(i));
@@ -484,7 +518,7 @@ public final class Runner {
                     results.add(RunResult.aborted(abortReason));
                     continue;
                 }
-                long perRunMs = job.command() == null ? mainMs : commandMs;
+                long perRunMs = perRun.applyAsLong(job);
                 // скрипт запуска записан файлом до старта контейнера: в argv docker нет пробелов и кавычек
                 List<String> cmd = new ArrayList<>(List.of(docker, "exec", "-i"));
                 if (job.command() != null) cmd.addAll(List.of("-e", "JDK_JAVA_OPTIONS=-Xmx" + heapFor(config.memory())));
@@ -498,9 +532,15 @@ public final class Runner {
                     continue;
                 }
                 boolean killedByTimeout = (r.exitCode() == 124 || r.exitCode() == 137) && r.millis() >= perRunMs;
-                results.add(killedByTimeout
-                        ? new RunResult(true, List.of(), r.stdout(), r.stderr(), -1, true, r.millis(), r.truncated())
-                        : r);
+                if (killedByTimeout) r = new RunResult(true, List.of(), r.stdout(), r.stderr(), -1, true, r.millis(), r.truncated());
+                if (probes.get(i) >= 0) {
+                    // Trace пишет файл из shutdown-hook; /tmp чистится в начале следующего запуска
+                    RunResult t = execute(List.of(docker, "exec", name, "cat", Instrumenter.TRACE_FILE), "",
+                            execSlackMs * 2, name);
+                    if (t.timedOut()) abortReason = SANDBOX_DEAD;
+                    else if (t.exitCode() == 0) r = r.withHits(Instrumenter.parseHits(t.stdout(), probes.get(i)));
+                }
+                results.add(r);
             }
             return results;
         } catch (InterruptedException e) {
