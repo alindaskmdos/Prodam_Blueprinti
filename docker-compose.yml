@@ -1,0 +1,32 @@
+# Деплой через Coolify (build pack «Docker Compose»). Домен вешается в Coolify на frontend:80.
+# Порты наружу не публикуем — только expose.
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    # init: в образе перед exec java идёт фоновый docker pull — без init он остаётся зомби.
+    init: true
+    expose:
+      - "8080"
+    volumes:
+      # Запуск/тесты пользовательского кода идут в соседних контейнерах через docker.sock;
+      # рабочий каталог монтируется по одному и тому же пути на хосте и в контейнере.
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/blueprints-run:/var/lib/blueprints-run
+    environment:
+      BLUEPRINTS_RUN_DIR: /var/lib/blueprints-run
+      BLUEPRINTS_RUN_IMAGE: eclipse-temurin:21-jdk
+      LLM_API_KEY: ${LLM_API_KEY:-}
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    expose:
+      - "80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
