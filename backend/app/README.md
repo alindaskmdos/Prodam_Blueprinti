@@ -12,7 +12,7 @@ Spring Boot: REST по `contract/openapi.yaml`, хранение проекто�
 
 - GET blocks / analysis — те же представления `ProjectView`, что в MutationResult (снимок строится на каждый запрос, без кэша);
   неизвестный проект/метод/файл -> 404 NOT_FOUND. `GET analysis?n=` (по умолчанию 10 000) — ops проблем при этом n, оно же в поле `n`; n < 1 -> 400 INVALID_REQUEST.
-  `GET tree` — `ProjectView.tree` (complexity и issueCount методов).
+  `GET tree` — `ProjectView.tree` (complexity и issueCount методов) через `ProjectDto.ClassDto`/`MethodDto` (ключи extends/implements/throws).
 
 - `EditController` — правки через `ProjectStore.update`: PUT blocks = `NodeValidator` -> `BlocksToJava.replaceMethod` -> повторный разбор;
   неверная нода -> 422 PARSE_ERROR с blockId, версия не растёт; PUT files — разбор JavaParser, ошибка -> 422 PARSE_ERROR с line.

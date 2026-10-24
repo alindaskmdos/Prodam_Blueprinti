@@ -457,4 +457,31 @@ class ContractConformanceTest {
         graph.get("edges").forEach(e -> out.add(e.toString()));
         return out;
     }
+
+    /** GET tree на демо: поля форм FE-10 у OrderService (класс, поле orders, метод merge) — как в tree.json. */
+    @Test
+    void treeFormFieldsMatchFixture() throws IOException {
+        JsonNode tree = ok(rest.getForEntity(uploadDemo() + "/tree", String.class));
+        Contract.validate("ProjectTree", tree);
+        JsonNode expected = Contract.fixture("tree.json").at("/packages/0/files/0/classes/0");
+        JsonNode actual = null;
+        for (JsonNode cs : tree.findValues("classes")) for (JsonNode c : cs) if (c.get("name").asText().equals("OrderService")) actual = c;
+        for (java.util.Iterator<String> it = expected.fieldNames(); it.hasNext(); ) {
+            String f = it.next();
+            if (!List.of("fields", "constructors", "methods").contains(f)) assertEquals(expected.get(f), actual.get(f), f);
+        }
+        assertFalse(actual.has("extends") || actual.has("typeParams"), actual.toString());
+        JsonNode orders = null;
+        for (JsonNode f : actual.get("fields")) if (f.get("name").asText().equals("orders")) orders = f;
+        assertEquals(expected.at("/fields/0"), orders);
+        JsonNode merge = null;
+        for (JsonNode m : actual.get("methods")) if (m.get("name").asText().equals("merge")) merge = m;
+        // complexity/issueCount — результат анализа (на демо O(n²·m·k) и 2 проблемы), фикстура показывает пример
+        JsonNode expectedMerge = ((com.fasterxml.jackson.databind.node.ObjectNode) expected.at("/methods/0").deepCopy())
+                .without(List.of("complexity", "issueCount"));
+        assertEquals(expectedMerge, ((com.fasterxml.jackson.databind.node.ObjectNode) merge.deepCopy()).without(List.of("complexity", "issueCount")));
+        JsonNode ctor = actual.get("constructors").get(0);
+        assertFalse(ctor.has("returnType"), ctor.toString());
+        assertTrue(ctor.has("headerStart") && ctor.has("params") && ctor.has("throws"), ctor.toString());
+    }
 }
