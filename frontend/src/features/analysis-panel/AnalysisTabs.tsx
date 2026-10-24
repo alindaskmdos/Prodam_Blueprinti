@@ -68,6 +68,7 @@ function IssueList({
 }) {
   const selectedIssueId = useAppStore((s) => s.selectedIssueId);
   const selectIssue = useAppStore((s) => s.selectIssue);
+  const showPanel = useAppStore((s) => s.showPanel);
   const fixDisabledReason = useFixDisabledReason();
   if (issues.length === 0) return <div className={styles.state}>{empty}</div>;
   return (
@@ -78,7 +79,12 @@ function IssueList({
             issue={issue}
             selected={issue.id === selectedIssueId}
             analysisN={analysis.n}
-            onSelect={(i) => selectIssue({ issueId: i.id, methodId: i.methodId, blockId: i.blockId })}
+            onSelect={(i) => {
+              selectIssue({ issueId: i.id, methodId: i.methodId, blockId: i.blockId });
+              // Находка уровня класса/проекта (CyclicDependency: без methodId/blockId) — на холсте её нет,
+              // показываем код по span проблемы (вкладка «Код Java» открывает файл span, src/app/codeTarget.ts).
+              if (!i.methodId) showPanel('bottom', 'bottom.code');
+            }}
             fixDisabledReason={fixDisabledReason}
             onApplyFix={(i, fixId) => runCommand('fix.apply', { issueId: i.id, fixId })}
           />

@@ -137,6 +137,25 @@ describe('панель анализа', () => {
     expect(screen.getByTestId('issue-ops')).toHaveTextContent('операций при n = 1 000 000');
   });
 
+  it('CyclicDependency без methodId/blockId (analysis.cycle.json): карточка рисуется, клик → проблема выбрана, вкладка кода', async () => {
+    server.use(scenarios.analysisCycle);
+    useAppStore.getState().selectMethod('com.demo.Other.run~0');
+    render(<ProblemsTab client={client} />);
+    const cycle = fixtures.analysisCycle.issues[0];
+    if (!cycle) throw new Error('нет проблемы в analysis.cycle.json');
+    const text = await screen.findByText(cycle.message);
+    // Место — файл span (methodId нет).
+    expect(screen.getByText('Cart.java:5')).toBeInTheDocument();
+    const card = text.closest('button');
+    if (!card) throw new Error('карточка не кнопка');
+    fireEvent.click(card);
+    const s = useAppStore.getState();
+    expect(s.selectedIssueId).toBe('ISSUE-7');
+    expect(s.selectedBlockId).toBeNull();
+    expect(s.highlight).toMatchObject({ source: 'issue', blockId: null });
+    expect(s.activePanels.bottom).toBe('bottom.code');
+  });
+
   it('проблема без methodId: метод не меняется, blockId чужого метода не ставится', () => {
     useAppStore.getState().selectMethod('com.demo.Other.run~0');
     useAppStore.getState().selectIssue({ issueId: 'X', blockId: 'some/block' });

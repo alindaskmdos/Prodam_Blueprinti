@@ -8,6 +8,7 @@ import { resetAnalysisState, useAnalysisStore } from '../features/analysis-panel
 import type { MonacoViewProps } from '../features/editor-code/MonacoView';
 import { resetTreeState } from '../features/project-tree';
 import { server } from '../mocks/server';
+import { scenarios } from '../mocks/handlers';
 import { fixtures } from '../mocks/fixtures';
 import { App } from './App';
 import { resetAppState, useAppStore } from './store';
@@ -84,7 +85,7 @@ describe('App — каркас редактора на MSW', () => {
     // Вкладки: холст (схема метода + диаграммы), анализ, низ.
     expect(screen.getAllByRole('tablist')).toHaveLength(3);
     const canvasTabs = screen.getByRole('tablist', { name: 'Холст' });
-    expect(within(canvasTabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['Метод не выбран', 'UML']);
+    expect(within(canvasTabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['Метод не выбран', 'UML', 'Зависимости']);
     const right = screen.getByRole('tablist', { name: 'Анализ' });
     const bottom = screen.getByRole('tablist', { name: 'Код, консоль, тесты' });
     expect(within(right).getAllByRole('tab').map((t) => t.textContent)).toEqual([
@@ -155,6 +156,21 @@ describe('App — каркас редактора на MSW', () => {
     await waitFor(() => expect(screen.getByTestId('canvas-method')).toHaveAttribute('aria-selected', 'true'));
     expect(screen.queryAllByTestId('uml-class')).toHaveLength(0);
   }, 20_000);
+
+  it('Issue CyclicDependency без blockId: клик в панели анализа → код файла span проблемы, схема метода не ломается (FE-18)', async () => {
+    server.use(scenarios.analysisCycle);
+    render(<App client={client} projectId="p-1" />);
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(merge.name) }));
+    expect(await screen.findByRole('region', { name: `Код ${fileJson.path}` })).toBeInTheDocument();
+    const cycle = fixtures.analysisCycle.issues[0];
+    if (!cycle) throw new Error('нет проблемы в analysis.cycle.json');
+    const card = (await screen.findByText(cycle.message)).closest('button');
+    if (!card) throw new Error('карточка не кнопка');
+    fireEvent.click(card);
+    expect(await screen.findByRole('region', { name: `Код ${cycle.span.file}` })).toBeInTheDocument();
+    expect(useAppStore.getState().selectedMethodId).toBe(merge.id);
+    expect(screen.getByTestId('canvas-method')).toHaveTextContent('OrderService.merge');
+  });
 
   it('выбор класса (UML → редактор, FE-16): файл класса, прокрутка к span, класс выделен в дереве', async () => {
     render(<App client={client} projectId="p-1" />);

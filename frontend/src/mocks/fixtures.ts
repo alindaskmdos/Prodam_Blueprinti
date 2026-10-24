@@ -14,6 +14,9 @@ import verifyRedJson from '@contract/fixtures/verify.red.json';
 import errorConflictJson from '@contract/fixtures/error.conflict.json';
 import fileOrderServiceJson from '@contract/fixtures/file.order-service.json';
 import umlDemoJson from '@contract/fixtures/uml.demo.json';
+import dependenciesDemoJson from '@contract/fixtures/dependencies.demo.json';
+import dependenciesCycleJson from '@contract/fixtures/dependencies.cycle.json';
+import analysisCycleJson from '@contract/fixtures/analysis.cycle.json';
 
 function fixture<T>(json: unknown): T {
   return json as T;
@@ -33,4 +36,7 @@ export const fixtures = {
   errorConflict: fixture<Schemas['Error']>(errorConflictJson),
   fileOrderService: fixture<Schemas['FileText']>(fileOrderServiceJson),
   umlDemo: fixture<Schemas['UmlDiagram']>(umlDemoJson),
+  dependenciesDemo: fixture<Schemas['DependencyGraph']>(dependenciesDemoJson),
+  dependenciesCycle: fixture<Schemas['DependencyGraph']>(dependenciesCycleJson),
+  analysisCycle: fixture<Schemas['Analysis']>(analysisCycleJson),
 };

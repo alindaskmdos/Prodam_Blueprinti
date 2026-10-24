@@ -400,8 +400,10 @@
   border-radius: 10px;
   background: #141a22;
   border: 1px solid var(--jb-border-strong);
+  border-top: 3px solid var(--kind);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
   cursor: pointer;
+  outline: none;
   color: var(--jb-text);
   transition: opacity 180ms, box-shadow var(--jb-dur-hover), border-color var(--jb-dur-hover);
   animation: jb-rise var(--jb-dur-rise) var(--jb-ease-out) both;
@@ -409,6 +411,11 @@
 
 .depNode:hover {
   border-color: #4a5568;
+  border-top-color: var(--kind);
+}
+
+.depNode:focus-visible {
+  box-shadow: 0 0 0 2px var(--jb-accent);
 }
 
 .depCycle {

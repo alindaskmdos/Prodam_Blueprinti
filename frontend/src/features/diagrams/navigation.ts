@@ -28,6 +28,17 @@ export function goToMethod(methodId: string): void {
   app.showPanel('canvas', CANVAS_METHOD_TAB);
 }
 
+/**
+ * Цикл зависимостей → его Issue CyclicDependency (cycles[].issueId): выбор проблемы (без метода и blockId —
+ * схема не меняется), вкладка «Проблемы» и код по span проблемы.
+ */
+export function goToCycleIssue(issueId: string): void {
+  const app = useAppStore.getState();
+  app.selectIssue({ issueId });
+  app.showPanel('right', 'analysis.problems');
+  app.showPanel('bottom', CODE_TAB);
+}
+
 /** Классы дерева проекта (с вложенными, если они есть в файле). */
 function* treeClasses(tree: Schemas['ProjectTree']): Generator<{ cls: Schemas['ClassNode']; path: string }> {
   for (const pkg of tree.packages) for (const file of pkg.files) for (const cls of file.classes) yield { cls, path: file.path };

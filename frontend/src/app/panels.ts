@@ -2,7 +2,7 @@ import type { ComponentType } from 'react';
 import { stubPanel } from '../features/layout';
 import { MetricsTab, ProblemsTab, WarningsTab } from '../features/analysis-panel';
 import { TestsPanel } from '../features/tests-panel';
-import { UmlTab } from '../features/diagrams';
+import { DependenciesTab, UmlTab } from '../features/diagrams';
 import { SelectedMethodCode } from './methodViews';
 
 /**
@@ -32,6 +32,7 @@ export const panels: readonly PanelDef[] = [
   { id: 'bottom.tests', title: 'Результат тестов', area: 'bottom', component: TestsPanel },
   // Диаграммы — ленивый чанк (features/diagrams/lazyTabs.tsx), основной бандл не растёт.
   { id: 'canvas.uml', title: 'UML', area: 'canvas', component: UmlTab },
+  { id: 'canvas.deps', title: 'Зависимости', area: 'canvas', component: DependenciesTab },
 ];
 
 export function panelsIn(area: PanelArea, list: readonly PanelDef[] = panels): PanelDef[] {
