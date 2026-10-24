@@ -531,6 +531,15 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /** @description Песочница недоступна (нет Docker, контейнер не стартовал); code=INTERNAL, message — причина */
+        SandboxUnavailable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
         /** @description Изменение принято, версия увеличена */
         Mutation: {
             headers: {
@@ -753,7 +762,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    /** @description Версия проекта */
+                    /** @description Версия проекта, с которой работал фронт */
                     version: number;
                     root: components["schemas"]["Block"];
                 };
@@ -952,7 +961,10 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TestCase"];
+                "application/json": components["schemas"]["TestCase"] & {
+                    /** @description Версия проекта, с которой работал фронт */
+                    version: number;
+                };
             };
         };
         responses: {
@@ -966,6 +978,7 @@ export interface operations {
                 };
             };
             404: components["responses"]["Error"];
+            409: components["responses"]["Conflict"];
             /** @description Тест некорректен (пустое имя, name не совпадает с путём, JUnit-текст не разбирается) */
             422: {
                 headers: {
@@ -979,7 +992,10 @@ export interface operations {
     };
     deleteTest: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description Версия проекта, с которой работал фронт */
+                version: number;
+            };
             header?: never;
             path: {
                 projectId: components["parameters"]["ProjectId"];
@@ -1001,6 +1017,7 @@ export interface operations {
                 };
             };
             404: components["responses"]["Error"];
+            409: components["responses"]["Conflict"];
         };
     };
     runProject: {
@@ -1033,7 +1050,7 @@ export interface operations {
                 };
             };
             404: components["responses"]["Error"];
-            /** @description Несколько main без mainClass */
+            /** @description AMBIGUOUS_MAIN — несколько main без mainClass (details.mainClasses); INVALID_REQUEST — mainClass не найден или main нет */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -1042,6 +1059,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            503: components["responses"]["SandboxUnavailable"];
         };
     };
     verifyProject: {
@@ -1065,6 +1083,16 @@ export interface operations {
                 };
             };
             404: components["responses"]["Error"];
+            /** @description Только при IO-тестах: AMBIGUOUS_MAIN — несколько main (в текущей версии или оригинале, details.mainClasses); INVALID_REQUEST — main нет */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            503: components["responses"]["SandboxUnavailable"];
         };
     };
 }
