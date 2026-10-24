@@ -92,7 +92,9 @@ class ProjectsApiTest {
         assertEquals(17, p.get("files").size());
         assertEquals("com.demo.Main", p.get("mainClasses").get(0).asText());
         assertEquals(6, p.get("tests").size());
-        assertEquals("original", p.get("tests").get(0).get("mode").asText());
+        assertEquals("manual", p.get("tests").get(0).get("mode").asText()); // пара .in/.out — manual (решение человека)
+        assertEquals(new String(demo.get("demo/tests/basic.out"), java.nio.charset.StandardCharsets.UTF_8),
+                p.get("tests").get(0).get("expected").asText());
         String id = p.get("id").asText();
 
         JsonNode again = json(rest.getForObject("/api/projects/" + id, String.class));

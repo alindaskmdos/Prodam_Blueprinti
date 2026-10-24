@@ -243,16 +243,27 @@ paths:
       operationId: putTest
       requestBody:
         required: true
-        content: { application/json: { schema: { $ref: "#/components/schemas/TestCase" } } }
+        content:
+          application/json:
+            schema:
+              allOf:
+                - { $ref: "#/components/schemas/TestCase" }
+                - type: object
+                  required: [version]
+                  properties:
+                    version: { type: integer, description: "Версия проекта, с которой работал фронт" }
       responses:
         "200": { description: ok, content: { application/json: { schema: { $ref: "#/components/schemas/TestMutationResult" } } } }
         "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Conflict" }
         "422":
           description: Тест некорректен (пустое имя, name не совпадает с путём, JUnit-текст не разбирается)
           content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
     delete:
       summary: Удалить тест (меняет version проекта)
       operationId: deleteTest
+      parameters:
+        - { name: version, in: query, required: true, description: "Версия проекта, с которой работал фронт", schema: { type: integer } }
       responses:
         "200":
           description: deleted
@@ -264,6 +275,7 @@ paths:
                 properties:
                   version: { type: integer }
         "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Conflict" }
 
   /projects/{projectId}/run:
     parameters: [ { $ref: "#/components/parameters/ProjectId" } ]
@@ -282,8 +294,9 @@ paths:
         "200": { description: ok, content: { application/json: { schema: { $ref: "#/components/schemas/RunResult" } } } }
         "404": { $ref: "#/components/responses/Error" }
         "422":
-          description: Несколько main без mainClass
+          description: "AMBIGUOUS_MAIN — несколько main без mainClass (details.mainClasses); INVALID_REQUEST — mainClass не найден или main нет"
           content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+        "503": { $ref: "#/components/responses/SandboxUnavailable" }
 
   /projects/{projectId}/verify:
     parameters: [ { $ref: "#/components/parameters/ProjectId" } ]
@@ -294,6 +307,10 @@ paths:
       responses:
         "200": { description: ok, content: { application/json: { schema: { $ref: "#/components/schemas/VerifyResult" } } } }
         "404": { $ref: "#/components/responses/Error" }
+        "422":
+          description: "Только при IO-тестах: AMBIGUOUS_MAIN — несколько main (в текущей версии или оригинале, details.mainClasses); INVALID_REQUEST — main нет"
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+        "503": { $ref: "#/components/responses/SandboxUnavailable" }
 
 components:
   parameters:
@@ -312,6 +329,9 @@ components:
       content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
     Conflict:
       description: Версия устарела — фронт перезагружает состояние (GET /projects/{id})
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    SandboxUnavailable:
+      description: Песочница недоступна (нет Docker, контейнер не стартовал); code=INTERNAL, message — причина
       content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
     Mutation:
       description: Изменение принято, версия увеличена

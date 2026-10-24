@@ -136,4 +136,54 @@ class ContractConformanceTest {
         assertEquals(Contract.fixture("project.json"), actual);
         Contract.validate("Project", actual);
     }
+
+    /** Ошибки tests/run/verify (409 PUT/DELETE tests, 422 AMBIGUOUS_MAIN/INVALID_REQUEST, 503 песочница) — тело Error. */
+    @Test
+    void runVerifyTestErrorsMatchErrorSchema() {
+        var mapper = Contract.JSON.copy().setSerializationInclusion(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL);
+        var handler = new ApiErrorHandler();
+        for (ApiException e : List.of(
+                new ApiException(409, "VERSION_CONFLICT", "Версия проекта устарела: клиент 2, сервер 3",
+                        java.util.Map.of("clientVersion", 2, "serverVersion", 3)),
+                new ApiException(422, "AMBIGUOUS_MAIN", "несколько main-классов", java.util.Map.of("mainClasses", List.of("A", "B"))),
+                new ApiException(422, "INVALID_REQUEST", "IO-тестам нужен метод main"),
+                new ApiException(503, "INTERNAL", "Контейнер не запустился за 120 с"))) {
+            var r = handler.api(e);
+            assertEquals(e.status(), r.getStatusCode().value());
+            Contract.validate("Error", mapper.valueToTree(r.getBody()));
+        }
+    }
+
+    /** Фикстуры тестов/запуска валидны схемам, а DTO run/verify/tests сериализуются в их форму. */
+    @Test
+    void runVerifyTestDtosSerializeLikeFixtures() throws IOException {
+        Contract.validate("RunResult", Contract.fixture("run.ok.json"));
+        Contract.validate("TestCase", Contract.fixture("test.junit.json"));
+        Contract.validate("VerifyResult", Contract.fixture("verify.green.json"));
+        Contract.validate("VerifyResult", Contract.fixture("verify.red.json"));
+        var mapper = Contract.JSON.copy().setSerializationInclusion(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL);
+
+        var run = new RunController.RunDto("merged=2\n", "", 0, false, 820, List.of());
+        assertEquals(Contract.fixture("run.ok.json"), mapper.valueToTree(run));
+        Contract.validate("RunResult", mapper.valueToTree(new RunController.RunDto("", "", -1, false, 0,
+                List.of(RunController.compileError("Main.java:3: cannot find symbol", java.util.Map.of("src/Main.java", ""))))));
+
+        var red = new blueprints.testing.VerifyResult(blueprints.testing.VerifyResult.Status.RED, List.of(
+                new blueprints.testing.TestResult("merge", "io", blueprints.testing.TestStatus.FAILED, 655, null,
+                        "merged=2\n", "merged=1\n", List.of())), List.of());
+        var dto = new RunController.VerifyDto(red.status().wire(), red.results().stream().map(RunController::dto).toList(),
+                red.warnings());
+        JsonNode actual = mapper.valueToTree(dto);
+        Contract.validate("VerifyResult", actual);
+        JsonNode fx = Contract.fixture("verify.red.json");
+        assertEquals(fx.get("status"), actual.get("status"));
+        assertEquals(fx.get("results").get(1), actual.get("results").get(0));
+
+        JsonNode junit = Contract.fixture("test.junit.json");
+        var tc = new TestCaseDto("OrderServiceTest", "junit", null, null, null, null, junit.get("source").asText());
+        JsonNode tcJson = mapper.valueToTree(tc);
+        Contract.validate("TestCase", tcJson);
+        Contract.validate("TestMutationResult", mapper.valueToTree(new TestsController.TestMutation(3, tc)));
+        assertEquals(junit.get("source"), tcJson.get("source"));
+    }
 }

@@ -10,13 +10,14 @@ import org.springframework.stereotype.Component;
 /** Проекты в памяти. Любая мутация — через {@link #update}: сверка версии (409) и инкремент атомарно. */
 @Component
 public class ProjectStore {
-    public record Stored(String id, int version, LoadedProject content) {}
+    /** original — проект как загружен: эталон оригинала для POST /verify (§10.1). */
+    public record Stored(String id, int version, LoadedProject content, LoadedProject original) {}
 
     private final Map<String, Stored> projects = new ConcurrentHashMap<>();
     private final AtomicInteger seq = new AtomicInteger();
 
     public Stored create(LoadedProject content) {
-        Stored s = new Stored("p-" + seq.incrementAndGet(), 1, content);
+        Stored s = new Stored("p-" + seq.incrementAndGet(), 1, content, content);
         projects.put(s.id(), s);
         return s;
     }
@@ -39,7 +40,7 @@ public class ProjectStore {
                         "Версия проекта устарела: клиент " + clientVersion + ", сервер " + cur.version(),
                         Map.of("clientVersion", clientVersion, "serverVersion", cur.version()));
             }
-            return new Stored(id, cur.version() + 1, change.apply(cur.content()));
+            return new Stored(id, cur.version() + 1, change.apply(cur.content()), cur.original());
         });
     }
 }

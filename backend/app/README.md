@@ -17,11 +17,22 @@ Spring Boot: REST по `contract/openapi.yaml`, хранение проекто�
 - `ProjectView` — снимок для ответов: Analysis (`ProjectAnalysis` + `DetectorRegistry.defaults()`, n = 10 000; blockId проблемы —
   самый глубокий блок метода, чей span содержит span проблемы; metrics complexity/lines/maxNesting), ProjectTree с complexity и issueCount, MethodView с id проблем в блоках. Экспорт zip возвращает исходную структуру вместе с отрезанной обёрткой (`LoadedProject.root`).
 
+- `TestsController` — `GET /projects/{id}/tests`, `GET/PUT/DELETE /tests/{name}`: источник правды — файлы `tests/` проекта
+  (io — разбор `IoTestFiles`, пара .in/.out = manual, как её гоняет verify; junit — `tests/<имя>.java`). PUT io пишет
+  `tests/<имя>.json` (`IoTestFiles.toJson`), junit — `.java` (JavaParser, ошибка -> 422 PARSE_ERROR с line); файлы того же
+  имени с другими расширениями удаляются. Имя `[A-Za-z0-9_][A-Za-z0-9._-]*` без `..` (GET/PUT/DELETE), неверный тест / name не равен пути -> 422 INVALID_REQUEST.
+  `X.json` и `X.java` сразу (только из загрузки): в списке оба, GET X -> 422, PUT X оставляет один вид, DELETE X удаляет оба. PUT/DELETE -> version+1;
+  `version` обязателен (в теле PUT, `?version=` у DELETE): нет — 400 INVALID_REQUEST, старый — 409, как в PUT blocks/files.
+- `RunController` — `POST /run` (`Runner.run`, `Rewrite.RUN` — тот же seed, что у verify; несколько main без mainClass ->
+  422 AMBIGUOUS_MAIN с details.mainClasses, несуществующий mainClass -> 422 INVALID_REQUEST; compileErrors — путь файла из проекта по имени), `POST /verify`
+  (`BehaviorVerifier` на `ProjectStore.Stored.original` — проект как загружен — и текущей версии; адаптер `testing.TestResult` -> DTO).
+  У verify до запуска, только если есть IO-тесты (mainClass нужен лишь им): несколько main в текущей версии или оригинале -> 422 AMBIGUOUS_MAIN, main нет -> 422 INVALID_REQUEST. Сбой запуска вне кода пользователя (IllegalStateException/UncheckedIOException Runner'а: нет Docker, JDK, ошибка временной папки) -> 503 INTERNAL с сообщением Runner (responses/SandboxUnavailable; UI отключает кнопки по /health). Без тестов verify
+  контейнер не запускает.
 - `format=jar` пока заглушка: 501 INTERNAL, реализуется в BE-36.
 
 - `ProjectStore` — `ConcurrentHashMap`; любая мутация через `update(id, clientVersion, fn)`: старая версия -> `ApiException` 409 `VERSION_CONFLICT` (details clientVersion/serverVersion), иначе version+1. Использовать в BE-07 и далее.
 - `ApiException` + `ApiErrorHandler` — любая ошибка отдаётся телом `Error` контракта: `LoadException` из `source` -> 413/422/400 (DUPLICATE_FQN с `files`), `InvalidNodeException` из `blocks` -> 422 PARSE_ERROR (blockId), неверные параметры, битый JSON и битый multipart -> 400 INVALID_REQUEST, прочее -> 500 INTERNAL.
-- `ProjectDto` — DTO руками по контракту; `TestImporter` — `Project.tests` из `tests/*.json`, пар `*.in`/`*.out` (mode original, expected null) и `tests/*.java` (junit).
+- `ProjectDto` — DTO руками по контракту; `TestImporter` — `Project.tests` из `tests/*.json`, пар `*.in`/`*.out` (mode manual, expected = .out, как в IoTestFiles) и `tests/*.java` (junit).
 - В BE-09/BE-11 разбор тестов переедет из `TestImporter` в `TestSource` модуля `testing`.
 
-Запуск: `./gradlew :app:bootRun`. Тесты (RANDOM_PORT): `./gradlew :app:test`; `ContractConformanceTest` (в т.ч. GET blocks/files/analysis), `ProjectsApiTest` и `EditApiTest` валидируют ответы JSON Schema из `contract/openapi.yaml`.
+Запуск: `./gradlew :app:bootRun`. Тесты (RANDOM_PORT): `./gradlew :app:test`; `ContractConformanceTest` (в т.ч. GET blocks/files/analysis, run/verify/tests), `ProjectsApiTest`, `EditApiTest` и `TestsApiTest` (Docker-часть пропускается без `docker info`) валидируют ответы JSON Schema из `contract/openapi.yaml`.

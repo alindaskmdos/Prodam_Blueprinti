@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
-/** Импорт tests/: *.json (ТЗ §10.1), пары *.in/*.out (mode=original), *.java (JUnit). Только прямые дети tests/. */
+/** Импорт tests/: *.json (ТЗ §10.1), пары *.in/*.out (mode=manual, expected = .out — как IoTestFiles), *.java (JUnit). Только прямые дети tests/. */
 final class TestImporter {
     private static final ObjectMapper JSON = new ObjectMapper();
 
@@ -29,7 +29,8 @@ final class TestImporter {
                     // битый json не тест; сами байты остаются в проекте и уйдут в экспорт
                 }
             } else if (file.endsWith(".in") && sorted.containsKey("tests/" + file.substring(0, file.length() - 3) + ".out")) {
-                out.add(new TestCaseDto(file.substring(0, file.length() - 3), "io", text, "original", null, List.of(), null));
+                String expected = new String(sorted.get("tests/" + file.substring(0, file.length() - 3) + ".out"), StandardCharsets.UTF_8);
+                out.add(new TestCaseDto(file.substring(0, file.length() - 3), "io", text, "manual", expected, List.of(), null));
             } else if (file.endsWith(".java")) {
                 out.add(new TestCaseDto(file.substring(0, file.length() - 5), "junit", null, null, null, null, text));
             }
