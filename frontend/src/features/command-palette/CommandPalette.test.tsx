@@ -1,0 +1,197 @@
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import type { Schemas } from '../api';
+import { createApiClient } from '../api';
+import { resetAnalysisState, useAnalysisStore } from '../analysis-panel';
+import { resetTreeState, useTreeStore } from '../project-tree';
+import { fixtures } from '../../mocks/fixtures';
+import { resetAppState, useAppStore } from '../../app/store';
+import { CommandPalette } from './CommandPalette';
+import { isPaletteHotkey } from './hotkey';
+import { buildEntries, groupEntries, type PaletteCommand } from './entries';
+
+const client = createApiClient('http://localhost/api');
+const tree = fixtures.tree as Schemas['ProjectTree'];
+const analysis = fixtures.analysisMerge as Schemas['Analysis'];
+const mergeId = 'com.demo.service.OrderService.merge~0';
+
+function setup(commands: readonly PaletteCommand[]) {
+  const runCommand = vi.fn((id: string, args?: Readonly<Record<string, string>>) => {
+    void commands.find((c) => c.id === id)?.run(args);
+  });
+  render(<CommandPalette client={client} commands={commands} runCommand={runCommand} />);
+  return runCommand;
+}
+
+const openByHotkey = async () => {
+  fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+  return screen.findByPlaceholderText(/Класс, метод/);
+};
+
+// cmdk в jsdom требует ResizeObserver и scrollIntoView.
+beforeAll(() => {
+  globalThis.ResizeObserver ??= class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+  Element.prototype.scrollIntoView ??= () => undefined;
+});
+
+describe('CommandPalette', () => {
+  beforeEach(() => {
+    resetAppState();
+    resetTreeState();
+    resetAnalysisState();
+    useAppStore.getState().openProject('p-1', tree.version);
+    useTreeStore.setState({ projectId: 'p-1', state: { kind: 'ok', tree } });
+    useAnalysisStore.getState().setAnalysis('p-1', analysis);
+  });
+
+  it('хоткеи: Ctrl+K и Cmd+K открывают, Ctrl+Shift+P тоже, чужие сочетания — нет', async () => {
+    expect(isPaletteHotkey({ key: 'k', ctrlKey: true, metaKey: false, shiftKey: false, altKey: false })).toBe(true);
+    expect(isPaletteHotkey({ key: 'K', ctrlKey: false, metaKey: true, shiftKey: false, altKey: false })).toBe(true);
+    expect(isPaletteHotkey({ key: 'P', ctrlKey: true, metaKey: false, shiftKey: true, altKey: false })).toBe(true);
+    expect(isPaletteHotkey({ key: 'p', ctrlKey: true, metaKey: false, shiftKey: false, altKey: false })).toBe(false);
+    expect(isPaletteHotkey({ key: 'k', ctrlKey: false, metaKey: false, shiftKey: false, altKey: false })).toBe(false);
+
+    setup([]);
+    expect(screen.queryByPlaceholderText(/Класс, метод/)).not.toBeInTheDocument();
+    await openByHotkey();
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+    expect(screen.queryByPlaceholderText(/Класс, метод/)).not.toBeInTheDocument();
+    fireEvent.keyDown(window, { key: 'P', ctrlKey: true, shiftKey: true });
+    expect(await screen.findByPlaceholderText(/Класс, метод/)).toBeInTheDocument();
+  });
+
+  it('Escape закрывает палитру', async () => {
+    setup([]);
+    const input = await openByHotkey();
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(screen.queryByPlaceholderText(/Класс, метод/)).not.toBeInTheDocument();
+  });
+
+  it('поиск метода и выбор открывают его (как клик в дереве)', async () => {
+    setup([]);
+    const input = await openByHotkey();
+    fireEvent.change(input, { target: { value: 'merge' } });
+    const item = await screen.findByRole('option', { name: /OrderService\.merge/ });
+    fireEvent.click(item);
+    expect(useAppStore.getState().selectedMethodId).toBe(mergeId);
+    expect(screen.queryByPlaceholderText(/Класс, метод/)).not.toBeInTheDocument();
+  });
+
+  it('выбор проблемы — как клик по карточке: метод, блок и подсветка issue', async () => {
+    setup([]);
+    const input = await openByHotkey();
+    fireEvent.change(input, { target: { value: 'Вложенный цикл' } });
+    fireEvent.click(await screen.findByRole('option', { name: /^Вложенный цикл/ }));
+    const s = useAppStore.getState();
+    expect(s.selectedIssueId).toBe('ISSUE-1');
+    expect(s.selectedMethodId).toBe(mergeId);
+    expect(s.selectedBlockId).toBe(`${mergeId}/body/1/body/2`);
+    expect(s.highlight?.source).toBe('issue');
+  });
+
+  it('ноды выбранного метода: поиск по тексту и выбор подсвечивают блок', async () => {
+    useAppStore.getState().selectMethod(mergeId);
+    setup([]);
+    const input = await openByHotkey();
+    fireEvent.change(input, { target: { value: 'orders.size' } });
+    const [node] = await screen.findAllByRole('option', { name: /orders\.size\(\)/ });
+    if (!node) throw new Error('нет нод');
+    fireEvent.click(node);
+    const h = useAppStore.getState().highlight;
+    expect(h?.source).toBe('canvas');
+    expect(h?.blockId).toMatch(/^com\.demo\.service\.OrderService\.merge~0\/body\//);
+  });
+
+  it('команда из реестра выполняется; недоступная — нет; paletteHidden не показывается', async () => {
+    const run = vi.fn();
+    const blocked = vi.fn();
+    setup([
+      { id: 'test.run', title: 'Тестовая команда', group: 'Тест', shortcut: 'Ctrl+T', run },
+      { id: 'test.off', title: 'Выключенная команда', isEnabled: () => false, run: blocked },
+      { id: 'test.hidden', title: 'Скрытая команда', paletteHidden: true, run: vi.fn() },
+    ]);
+    await openByHotkey();
+    expect(screen.queryByText('Скрытая команда')).not.toBeInTheDocument();
+    expect(screen.getByText('Ctrl+T')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('option', { name: /Выключенная команда/ }));
+    expect(blocked).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('option', { name: /Тестовая команда/ }));
+    expect(run).toHaveBeenCalledOnce();
+    expect(screen.queryByPlaceholderText(/Класс, метод/)).not.toBeInTheDocument();
+  });
+
+  it('фикс проблемы запускает команду fix.apply с issueId и fixId', async () => {
+    const runCommand = setup([]);
+    const input = await openByHotkey();
+    fireEvent.change(input, { target: { value: 'index-by-id' } });
+    fireEvent.click(await screen.findByRole('option', { name: /Применить фикс «index-by-id»/ }));
+    expect(runCommand).toHaveBeenCalledWith('fix.apply', { issueId: 'ISSUE-1', fixId: 'index-by-id' });
+    await act(async () => undefined);
+  });
+
+  it('фикс неактивен, пока fix.apply недоступна (isEnabled false)', async () => {
+    const run = vi.fn();
+    const runCommand = setup([{ id: 'fix.apply', title: 'Фикс', paletteHidden: true, isEnabled: () => false, run }]);
+    const input = await openByHotkey();
+    fireEvent.change(input, { target: { value: 'index-by-id' } });
+    const item = await screen.findByRole('option', { name: /Применить фикс «index-by-id»/ });
+    expect(item).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(item);
+    expect(runCommand).not.toHaveBeenCalled();
+  });
+
+  it('Ctrl+K в поле ввода (Monaco, диалоги) не перехватывается; Ctrl+Shift+P — перехватывается', async () => {
+    setup([]);
+    const area = document.createElement('textarea');
+    document.body.append(area);
+    area.focus();
+    const ev = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true, cancelable: true });
+    area.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(false);
+    expect(screen.queryByPlaceholderText(/Класс, метод/)).not.toBeInTheDocument();
+
+    const shifted = new KeyboardEvent('keydown', { key: 'P', ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true });
+    area.dispatchEvent(shifted);
+    expect(shifted.defaultPrevented).toBe(true);
+    expect(await screen.findByPlaceholderText(/Класс, метод/)).toBeInTheDocument();
+    area.remove();
+  });
+
+  it('Ctrl+K в поле самой палитры закрывает её', async () => {
+    setup([]);
+    const input = await openByHotkey();
+    fireEvent.keyDown(input, { key: 'k', ctrlKey: true });
+    expect(screen.queryByPlaceholderText(/Класс, метод/)).not.toBeInTheDocument();
+  });
+
+  it('Esc в палитре не всплывает до модалки под ней', async () => {
+    setup([]);
+    const underlying = vi.fn();
+    window.addEventListener('keydown', underlying);
+    const input = await openByHotkey();
+    underlying.mockClear();
+    fireEvent.keyDown(input, { key: 'Escape' });
+    window.removeEventListener('keydown', underlying);
+    expect(underlying).not.toHaveBeenCalled();
+    expect(screen.queryByPlaceholderText(/Класс, метод/)).not.toBeInTheDocument();
+  });
+});
+
+describe('buildEntries / groupEntries', () => {
+  beforeEach(() => resetAppState());
+
+  it('без данных пустые группы не создаются', () => {
+    const entries = buildEntries({ tree: null, analysis: null, root: null, commands: [], runCommand: vi.fn() });
+    expect(entries).toEqual([]);
+    expect(groupEntries(entries)).toEqual([]);
+  });
+
+  it('из дерева — классы, поля и методы; из анализа — проблемы и фиксы', () => {
+    const entries = buildEntries({ tree, analysis, root: null, commands: [], runCommand: vi.fn() });
+    expect(groupEntries(entries).map((g) => g.group)).toEqual(['Исправления', 'Проблемы', 'Методы', 'Классы', 'Поля']);
+  });
+});
