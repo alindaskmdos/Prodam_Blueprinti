@@ -40,6 +40,7 @@
 - [x] BE-43 Долги fixes: List/ArrayList/LinkedList по простому имени в LinkedHashSetFix (как в IndexByIdFix), StringBuilderFix — отказ на `char[]` и сохранение комментария, QualityGate — закрыть StandardJavaFileManager, без системного компилятора отказ вместо NPE, Refactoring получает unmodifiable карту | fixes | BE-18…BE-21 | §9
 - [x] BE-44 Долги app: PUT files пересчитывает предупреждения загрузки/mainClasses/дубликаты FQN; verify не пропускает main при битых tests/*.json; ProjectsApiTest.javaJar ждёт/убивает процесс java | app | BE-07, BE-38, BE-36 | §11, §12
 - [x] BE-45 runner: `--release 21` в Runner.run (на JDK 22 demo приходит original_fails); Instrumenter — при отказе вставки/некомпилируемой копии файл без вставок, атомарная запись trace-файла, `docker exec cat` в общем бюджете времени; тесты на jar без инструментации и halt → hits null | runner | BE-27 | §11а, §14а.6
+- [ ] BE-46 `GET /health` по контракту: `docker` (реальная проверка доступности Docker, как у Runner) и `llm` (задан ли LLM_API_KEY); тест на схему ответа | app | BE-38 | §2, §11а
 
 ## Frontend
 
@@ -58,6 +59,7 @@
 - [x] FE-13 Кнопки: применить фикс, запуск, проверить поведение | analysis-panel, tests-panel | FE-11, FE-12 | §9, §10
 - [ ] FE-14 docker-compose, деплой | docker-compose.yml | FE-01 | §2
 - [x] FE-15 Экран загрузки: drag&drop файлов, .zip/.jar, папки целиком (`webkitdirectory`); показ предупреждений и ошибок загрузки; экспорт .zip с галочкой «настройки Java Blueprints» и .jar (неактивна с причиной, если не компилируется; подпись «требует Java 21+») | upload | FE-02 | §11
+- [ ] FE-29 Холст после правки: правка ноды / «+» / удаление не сбрасывают viewport на fitView всей схемы; switch с множеством case не раскладывается в одну широкую строку (читаемо при fitView) | editor-nodes | FE-09 | §6
 
 ## Если успеем (только после того, как обязательный путь работает целиком; по порядку)
 
