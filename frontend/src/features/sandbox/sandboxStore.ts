@@ -71,6 +71,7 @@ const initial = {
 };
 
 const TESTS_PANEL = { area: 'bottom', id: 'bottom.tests' } as const;
+const CONSOLE_PANEL = { area: 'bottom', id: 'bottom.console' } as const;
 
 let noticeSeq = 0;
 
@@ -87,6 +88,10 @@ export function ambiguousMainClasses(error: ApiError | undefined): string[] {
 
 function showTestsPanel(): void {
   useAppStore.getState().showPanel(TESTS_PANEL.area, TESTS_PANEL.id);
+}
+
+function showConsolePanel(): void {
+  useAppStore.getState().showPanel(CONSOLE_PANEL.area, CONSOLE_PANEL.id);
 }
 
 function failureText(status: number | null, error: ApiError | undefined): string {
@@ -147,7 +152,7 @@ export const useSandboxStore = create<SandboxState>()((set, get) => ({
       if (data) {
         set({ busy: null, runDialog: null });
         useTestsStore.getState().showRunResult(data);
-        showTestsPanel();
+        showConsolePanel();
         return;
       }
       const status = response.status;

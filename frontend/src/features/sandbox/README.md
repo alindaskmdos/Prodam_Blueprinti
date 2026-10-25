@@ -3,7 +3,7 @@
 «▶ Запуск» и «Проверить поведение» (ТЗ §10, §11а): состояние песочницы, диалог запуска, ошибки.
 
 - `useSandboxStore` (zustand, вне React — `getState()` из `src/app/commands.ts`): `init(client, projectId)` (хук `useSandbox` в экране редактора) — `GET /health` (`docker`) и `GET /projects/{id}` (`mainClasses`).
-- `run(mainClass, stdin)` → `POST run`. 200 → `useTestsStore.showRunResult` и вкладка «Результат тестов» (`showPanel('bottom', 'bottom.tests')`). 422 `AMBIGUOUS_MAIN` → диалог остаётся, выбор из `details.mainClasses`; 422 `INVALID_REQUEST` → текст в диалоге.
+- `run(mainClass, stdin)` → `POST run`. 200 → `useTestsStore.showRunResult` и вкладка «Консоль» (`showPanel('bottom', 'bottom.console')`); `verify` открывает «Результат тестов» (`bottom.tests`). 422 `AMBIGUOUS_MAIN` → диалог остаётся, выбор из `details.mainClasses`; 422 `INVALID_REQUEST` → текст в диалоге.
 - `verify()` → `POST verify`. 200 → `showVerifyResult` + вкладка тестов. 422 → тост «Проверка невозможна» (список main).
 - 503 (SandboxUnavailable) → `unavailable` = `Error.message`, тост «Песочница недоступна» с «Проверить снова» (`checkHealth`; docker=true снимает блокировку).
 - `sandboxDisabledReason(state)` — причина неактивности кнопок (нет проекта / docker=false / 503); `busy` ('run' | 'verify') — идёт прогон, кнопки заблокированы.

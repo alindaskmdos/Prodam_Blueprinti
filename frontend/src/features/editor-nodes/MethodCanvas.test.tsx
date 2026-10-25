@@ -141,7 +141,7 @@ describe('MethodCanvas — правка текста в ноде (FE-07)', () =>
     fireEvent.blur(init);
 
     expect(await screen.findByText('Проект изменился')).toBeInTheDocument();
-    expect(screen.getByText(/версии 2, сейчас 3/)).toBeInTheDocument();
+    expect(screen.getByText(/Проект изменился, пока вы правили/)).toBeInTheDocument();
     expect(await varNode()).toHaveTextContent('Order a = orders.get(i)');
   }, 15_000);
 

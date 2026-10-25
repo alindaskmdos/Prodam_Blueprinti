@@ -11,9 +11,12 @@ import blueprints.model.Span;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.CallableDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import javax.tools.ToolProvider;
 import org.junit.jupiter.api.Test;
 
 class AiTest {
@@ -94,6 +97,123 @@ class AiTest {
     void notJavaIsBadReply() {
         assertThrows(MethodPatch.BadReply.class, () -> new Ai(new Fake("не знаю")).edit(FILE, sum(FILE), null, "x"));
         assertThrows(MethodPatch.BadReply.class, () -> new Ai(new Fake("```java\nint x = 1;\n```")).edit(FILE, sum(FILE), null, "x"));
+    }
+
+    @Test
+    void fixWithPrivateHelperInsertsItAfterMethodAndCompiles() throws Exception {
+        Fake llm = new Fake("""
+                Исправил:
+                ```java
+                int sum(List<Integer> xs) {
+                    return total(xs);
+                }
+
+                private static int total(List<Integer> xs) {
+                    int s = 0;
+                    for (int x : xs) s += x;
+                    return s;
+                }
+                ```
+                Готово, вспомогательный метод вынесен.""");
+        String out = new Ai(llm).proposeFix(ISSUE, "A.java", FILE, sum(FILE)).apply(Map.of("A.java", FILE), ISSUE.id()).get("A.java");
+        String body = "        int s = 0;\n        for (int x : xs) s += x;\n        return s;\n    }\n";
+        assertEquals(FILE.replace(body, "        return total(xs);\n    }\n\n"
+                + "    private static int total(List<Integer> xs) {\n" + body), out);
+        assertTrue(llm.users.get(0).contains("ровно один метод"));
+        Path dir = Files.createTempDirectory("ai").resolve("p");
+        Files.createDirectories(dir);
+        Path src = Files.writeString(dir.resolve("A.java"), out);
+        assertEquals(0, ToolProvider.getSystemJavaCompiler().run(null, null, null, "-d", dir.getParent().toString(), src.toString()));
+    }
+
+    @Test
+    void wholeClassReplyTakesOnlyTheMethod() {
+        String out = new Ai(new Fake("""
+                ```java
+                package p;
+
+                import java.util.List;
+                import java.util.Objects;
+
+                class A {
+                    int keep(int x) { return x; }
+
+                    int sum(List<Integer> xs) {
+                        return Objects.requireNonNull(xs).size();
+                    }
+
+                    void other() {}
+                }
+                ```""")).edit(FILE, sum(FILE), null, "x");
+        assertEquals(FILE.replace("import java.util.List;\n", "import java.util.List;\nimport java.util.Objects;\n")
+                .replace("        int s = 0;\n        for (int x : xs) s += x;\n        return s;\n",
+                        "        return Objects.requireNonNull(xs).size();\n"), out);
+    }
+
+    @Test
+    void rewritingNeighbourMethodIsRejected() {
+        MethodPatch.BadReply e = assertThrows(MethodPatch.BadReply.class, () -> new Ai(new Fake("""
+                ```java
+                int sum(List<Integer> xs) { return 0; }
+
+                void other() { System.out.println(); }
+                ```""")).edit(FILE, sum(FILE), null, "x"));
+        assertTrue(e.getMessage().contains("ИИ изменил другой метод other"), e.getMessage());
+    }
+
+    @Test
+    void replyWithoutTheMethodIsRejected() {
+        MethodPatch.BadReply e = assertThrows(MethodPatch.BadReply.class,
+                () -> new Ai(new Fake("```java\nint total() { return 1; }\n```")).edit(FILE, sum(FILE), null, "x"));
+        assertEquals("ответ ИИ не содержит метод sum", e.getMessage());
+    }
+
+    static final String WITH_INIT = """
+            package p;
+
+            import java.util.HashMap;
+            import java.util.List;
+
+            class A {
+                static int n;
+                static { n = 1; }
+                java.util.Map<Integer, Integer> m = new HashMap<>();
+
+                int sum(List<Integer> xs) {
+                    int s = 0;
+                    for (int x : xs) s += x;
+                    return s;
+                }
+            }
+            """;
+
+    static String wholeClass(String init, String sum) {
+        return "```java\npackage p;\n\nimport java.util.HashMap;\nimport java.util.List;\n\nclass A {\n    static int n;\n    "
+                + init + "\n    java.util.Map<Integer, Integer> m = new HashMap<>();\n\n    " + sum + "\n}\n```";
+    }
+
+    @Test
+    void unchangedHashMapNeighboursDoNotCountAndInitializerIsNotDuplicated() {
+        String reply = wholeClass("static { n = 1; }", "int sum(List<Integer> xs) { return xs.size(); }");
+        Refactoring fix = new Ai(new Fake(reply)).proposeFix(ISSUE, "A.java", WITH_INIT, sum(WITH_INIT));
+        String out = fix.apply(Map.of("A.java", WITH_INIT), ISSUE.id()).get("A.java");
+        assertTrue(out.contains("    int sum(List<Integer> xs) { return xs.size(); }\n}\n"), out);
+        assertEquals(1, out.split("static \\{ n = 1; }", -1).length - 1, out);
+    }
+
+    @Test
+    void newInitializerIsRejected() {
+        String reply = wholeClass("static { n = 2; }", "int sum(List<Integer> xs) { return xs.size(); }");
+        MethodPatch.BadReply e = assertThrows(MethodPatch.BadReply.class,
+                () -> new Ai(new Fake(reply)).edit(WITH_INIT, sum(WITH_INIT), null, "x"));
+        assertTrue(e.getMessage().contains("блок инициализации"), e.getMessage());
+    }
+
+    @Test
+    void changedArityIsRejected() {
+        MethodPatch.BadReply e = assertThrows(MethodPatch.BadReply.class, () -> new Ai(new Fake(
+                "```java\nint sum(List<Integer> xs, int k) { return k; }\n```")).edit(FILE, sum(FILE), null, "x"));
+        assertTrue(e.getMessage().contains("число параметров метода sum"), e.getMessage());
     }
 
     @Test

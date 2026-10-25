@@ -334,7 +334,7 @@ export class BlockSync {
       return Promise.resolve();
     }
     if (version === null) {
-      this.set({ error: 'Версия проекта неизвестна — перезагрузите метод' });
+      this.set({ error: 'Состояние проекта неизвестно — перезагрузите метод' });
       return Promise.resolve();
     }
 

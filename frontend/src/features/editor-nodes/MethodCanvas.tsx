@@ -465,11 +465,8 @@ export interface MethodCanvasProps {
 }
 
 function conflictText(c: ConflictInfo): string {
-  const versions =
-    c.clientVersion !== undefined && c.serverVersion !== undefined
-      ? `Ваша правка относилась к версии ${c.clientVersion}, сейчас ${c.serverVersion}. `
-      : '';
-  return `${versions}Состояние перезагружено.`;
+  const stale = c.clientVersion !== undefined && c.serverVersion !== undefined ? 'Проект изменился, пока вы правили. ' : '';
+  return `${stale}Состояние перезагружено.`;
 }
 
 /** Как показывать метод с красной нодой: введённый текст на месте правки, ошибка на ноде из Error.blockId. */

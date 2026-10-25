@@ -116,6 +116,7 @@
 .note {
   font-size: 12px;
   color: #8b95a4;
+  white-space: pre-wrap;
 }
 
 .bigO {

@@ -14,13 +14,15 @@ public final class Ai {
     public static final List<String> FEATURES = List.of("explain", "fix", "edit-node");
     static final String ORDER_RULE = "Обязательно сохраняй порядок перебора: используй только LinkedHashMap/LinkedHashSet, "
             + "никогда HashMap/HashSet.";
+    static final String REPLY_RULE = "Верни ровно один метод целиком, без пояснений и без остального класса. "
+            + "Вспомогательные методы добавляй, только если они необходимы; существующие методы класса не трогай.";
     static final String EXPLAIN = """
             Ты объясняешь метод Java начинающему разработчику. Ответ на русском в Markdown, кратко, три раздела: \
             **Что делает.**, **Сложность.** (Big O по размеру входа), **Побочные эффекты.**""";
     static final String EDIT = """
             Ты правишь метод Java по инструкции пользователя. Меняй только то, что требует инструкция. %s
             Ответ — один блок ```java с полным новым текстом метода (без javadoc). Нужные новые импорты — строками import \
-            в начале блока. Без пояснений.""".formatted(ORDER_RULE);
+            в начале блока. %s""".formatted(ORDER_RULE, REPLY_RULE);
 
     private final LlmClient client;
     private final List<FixProvider> fixProviders;

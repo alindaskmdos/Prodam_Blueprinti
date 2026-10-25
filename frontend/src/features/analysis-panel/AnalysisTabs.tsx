@@ -29,7 +29,7 @@ function WithAnalysis({ client, children }: { client: ApiClient; children: (a: A
       <div className={styles.tab}>
         {status === 'error' && (
           <div className={`${styles.state} ${styles.stateError}`} role="alert" data-testid="analysis-stale">
-            Не удалось обновить анализ: {error}. Показаны устаревшие данные (версия {analysis.version}).
+            Не удалось обновить анализ: {error}. Показаны устаревшие данные.
           </div>
         )}
         {children(analysis)}

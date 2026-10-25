@@ -53,8 +53,7 @@ function GateBody({ gate }: { gate: FixGate }) {
               Фикс «{fixId}»
             </span>
             <span className={styles.muted}>
-              {issue.rule} · {fileName(issue.span.file)} · версия {gate.fromVersion}
-              {result?.applied && result.version !== gate.fromVersion && ` → ${result.version}`}
+              {issue.rule} · {fileName(issue.span.file)}
             </span>
           </div>
           <button type="button" className={styles.btn} onClick={close} disabled={running}>
@@ -173,8 +172,7 @@ function GateBody({ gate }: { gate: FixGate }) {
                   <span className={styles.verdictTitle}>Исправление подтверждено</span>
                 </span>
                 <span className={styles.verdictText}>
-                  Код компилируется, {passedSummary(result.verify)}, поведение совпадает с оригиналом. Создана версия{' '}
-                  {result.version}.
+                  Код компилируется, {passedSummary(result.verify)}, поведение совпадает с оригиналом. Изменения применены.
                 </span>
                 <div className={styles.actions}>
                   <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} onClick={close}>
@@ -191,7 +189,7 @@ function GateBody({ gate }: { gate: FixGate }) {
                   <span className={styles.verdictTitle}>Применено, проверка неполная</span>
                 </span>
                 <span className={styles.verdictText}>
-                  <span data-testid="fix-reason">{verdict.reason}</span> Создана версия {result.version}.
+                  <span data-testid="fix-reason">{verdict.reason}</span> Изменения применены.
                 </span>
                 <div className={styles.actions}>
                   <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} onClick={close}>
@@ -217,8 +215,7 @@ function GateBody({ gate }: { gate: FixGate }) {
                   <span className={styles.verdictTitle}>Исправление не подтверждено</span>
                 </span>
                 <span className={styles.verdictText}>
-                  <span data-testid="fix-reason">{verdict.reason}</span> Изменения откатаны, код остался в версии{' '}
-                  {result.version}.
+                  <span data-testid="fix-reason">{verdict.reason}</span> Изменения откатаны, код не изменён.
                 </span>
                 <div className={styles.actions}>
                   {result.verify && result.verify.results.length > 0 && (

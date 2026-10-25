@@ -9,15 +9,22 @@ import com.github.javaparser.ast.ImportDeclaration;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.BodyDeclaration;
 import com.github.javaparser.ast.body.CallableDeclaration;
+import com.github.javaparser.ast.body.FieldDeclaration;
+import com.github.javaparser.ast.body.InitializerDeclaration;
+import com.github.javaparser.ast.body.TypeDeclaration;
+import com.github.javaparser.ast.comments.Comment;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
  * Ответ модели «метод целиком» → новый текст файла: заменяется только диапазон объявления метода (остальное байт в байт),
- * недостающие import из начала ответа дописываются после последнего импорта. Результат обязан разбираться.
+ * новые вспомогательные члены из ответа вставляются сразу после него, недостающие import дописываются после последнего
+ * импорта. Ответ может быть в ограде ```java, телом класса или целым файлом. Результат обязан разбираться.
  */
 public final class MethodPatch {
     private static final Pattern FENCE = Pattern.compile("```[\\w+-]*[ \\t]*\\R(.*?)```", Pattern.DOTALL);
@@ -33,11 +40,14 @@ public final class MethodPatch {
         }
     }
 
-    /** imports — строки «import …;» из начала ответа, member — текст метода. */
-    record Reply(List<String> imports, String member) {
-        /** Сколько раз встречаются HashMap/HashSet (не Linked). */
-        int hashCollections() {
-            return count(String.join("\n", imports) + "\n" + member);
+    /** Член класса из ответа: разобранное объявление и его текст (без отступа). */
+    record Member(BodyDeclaration<?> decl, String text) {}
+
+    /** imports — строки «import …;» ответа, members — члены класса из ответа (метод и, возможно, вспомогательные). */
+    record Reply(List<String> imports, List<Member> members) {
+        /** Сколько раз HashMap/HashSet (не Linked) встречаются в членах, которые реально встанут на место {@code method}. */
+        int hashCollections(CallableDeclaration<?> method) {
+            return count(String.join("\n", split(method, this).stream().map(Member::text).toList()));
         }
     }
 
@@ -52,10 +62,20 @@ public final class MethodPatch {
         return n;
     }
 
-    /** Первый блок ```…``` (иначе весь ответ): ведущие import и пустые строки — imports, остальное — один метод. */
+    /**
+     * Первый блок ```…``` (иначе весь ответ). Целый файл/класс — берутся его import и члены первого типа; иначе ведущие
+     * import — imports, остальное разбирается как тело класса (метод и, возможно, вспомогательные члены).
+     */
     static Reply parse(String reply) {
         Matcher f = FENCE.matcher(reply);
-        List<String> lines = (f.find() ? f.group(1) : reply).lines().toList();
+        String code = f.find() ? f.group(1) : reply;
+        ParseResult<CompilationUnit> file = parser().parse(code);
+        if (file.isSuccessful() && !file.getResult().orElseThrow().getTypes().isEmpty()) {
+            CompilationUnit cu = file.getResult().orElseThrow();
+            List<String> imports = cu.getImports().stream().map(d -> d.toString().strip()).toList();
+            return new Reply(imports, members(code, cu.getType(0).getMembers()));
+        }
+        List<String> lines = code.lines().toList();
         List<String> imports = new ArrayList<>();
         int i = 0;
         for (; i < lines.size(); i++) {
@@ -63,13 +83,73 @@ public final class MethodPatch {
             if (IMPORT.matcher(l).matches()) imports.add(l.strip());
             else if (!l.isBlank()) break;
         }
-        String member = dedent(lines.subList(i, lines.size()));
-        ParseResult<BodyDeclaration<?>> r = parser().parseBodyDeclaration(member);
-        if (!r.isSuccessful() || !(r.getResult().orElseThrow() instanceof CallableDeclaration<?>)) {
+        String wrapped = "class __X {\n" + String.join("\n", lines.subList(i, lines.size())) + "\n}\n";
+        ParseResult<CompilationUnit> r = parser().parse(wrapped);
+        if (!r.isSuccessful()) {
             throw new BadReply("ответ ИИ не разбирается как метод Java"
                     + r.getProblems().stream().findFirst().map(p -> ": " + p.getMessage()).orElse(""));
         }
-        return new Reply(imports, member);
+        return new Reply(imports, members(wrapped, r.getResult().orElseThrow().getType(0).getMembers()));
+    }
+
+    private static List<Member> members(String code, List<BodyDeclaration<?>> decls) {
+        return decls.stream().map(d -> new Member(d, dedent(slice(code, d).lines().toList()))).toList();
+    }
+
+    /** Ключи совпадения с членами класса: метод — имя/арность, поле — имя каждой переменной, тип — имя. */
+    private static List<String> keys(BodyDeclaration<?> d) {
+        if (d instanceof CallableDeclaration<?> c) return List.of(c.getNameAsString() + "(" + c.getParameters().size() + ")");
+        if (d instanceof FieldDeclaration fd) return fd.getVariables().stream().map(v -> v.getNameAsString()).toList();
+        if (d instanceof TypeDeclaration<?> t) return List.of("class " + t.getNameAsString());
+        return List.of();
+    }
+
+    /** Объявление без комментариев — для сравнения «член не изменился». */
+    private static Node bare(Node n) {
+        Node c = n.clone();
+        c.getAllContainedComments().forEach(Comment::remove);
+        c.removeComment();
+        return c;
+    }
+
+    /**
+     * Целевой метод (то же имя, при нескольких — та же арность) и новые члены для вставки после него. Член, совпавший
+     * по ключу с существующим, пропускается, если не изменён, иначе — отказ.
+     */
+    static List<Member> split(CallableDeclaration<?> method, Reply reply) {
+        String name = method.getNameAsString();
+        List<Member> named = reply.members().stream()
+                .filter(m -> m.decl() instanceof CallableDeclaration<?> c && c.getNameAsString().equals(name)).toList();
+        if (named.isEmpty()) throw new BadReply("ответ ИИ не содержит метод " + name);
+        int arity = method.getParameters().size();
+        Member target = named.stream()
+                .filter(m -> ((CallableDeclaration<?>) m.decl()).getParameters().size() == arity)
+                .findFirst().orElseThrow(() -> new BadReply("ИИ изменил число параметров метода " + name
+                        + " (было " + arity + ") — правка отклонена"));
+        Map<String, BodyDeclaration<?>> existing = new LinkedHashMap<>();
+        List<Node> initializers = new ArrayList<>();
+        for (Node n : method.getParentNode().orElseThrow().getChildNodes()) {
+            if (n instanceof BodyDeclaration<?> b && n != method) for (String k : keys(b)) existing.put(k, b);
+            if (n instanceof InitializerDeclaration) initializers.add(bare(n));
+        }
+        String own = keys(method).get(0);
+        List<Member> out = new ArrayList<>();
+        out.add(target);
+        for (Member m : reply.members()) {
+            if (m == target) continue;
+            if (m.decl() instanceof InitializerDeclaration) {
+                if (initializers.contains(bare(m.decl()))) continue;
+                throw new BadReply("ИИ добавил или изменил блок инициализации класса — правка отклонена");
+            }
+            String clash = keys(m.decl()).stream()
+                    .filter(k -> existing.containsKey(k) || k.equals(own)).findFirst().orElse(null);
+            if (clash == null) out.add(m);
+            else if (existing.get(clash) == null || !bare(existing.get(clash)).equals(bare(m.decl()))) {
+                throw new BadReply((m.decl() instanceof CallableDeclaration<?> ? "ИИ изменил другой метод " : "ИИ изменил существующий член класса ")
+                        + clash + " — правка отклонена");
+            }
+        }
+        return out;
     }
 
     /** Текст объявления метода в файле. */
@@ -85,9 +165,14 @@ public final class MethodPatch {
         while (from > 0 && text.charAt(from - 1) != '\n' && text.charAt(from - 1) != '\r') from--;
         String indent = text.substring(from, start).isBlank() ? text.substring(from, start) : "";
         StringBuilder body = new StringBuilder();
-        for (String line : reply.member().split("\n", -1)) {
-            if (!body.isEmpty()) body.append(nl).append(line.isBlank() ? "" : indent);
-            body.append(line.isBlank() ? "" : line);
+        for (Member m : split(method, reply)) {
+            if (!body.isEmpty()) body.append(nl).append(nl).append(indent);
+            boolean first = true;
+            for (String line : m.text().split("\n", -1)) {
+                if (!first) body.append(nl).append(line.isBlank() ? "" : indent);
+                body.append(line.isBlank() ? "" : line);
+                first = false;
+            }
         }
         String out = text.substring(0, start) + body + text.substring(end);
 

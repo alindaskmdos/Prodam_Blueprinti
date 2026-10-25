@@ -188,9 +188,11 @@ public final class PmdDetector implements Detector {
             int n = seen.merge(id, 1, Integer::sum);
             if (n > 1) id += "#" + n;
             String url = v.getRule().getExternalInfoUrl();
+            PmdMessagesRu.Text text = PmdMessagesRu.translate(rule, v.getRule().getMessage(), v.getDescription(),
+                    "Правило PMD " + rule + (url == null || url.isBlank() ? "" : ": " + url));
             out.add(new Issue(id, rule, severity(v.getRule().getPriority().getPriority()), "high", SOURCE,
                     new Span(file, line, Math.max(line, v.getEndLine())), m != null ? m.id() : null, null,
-                    v.getDescription(), "Правило PMD " + rule + (url == null || url.isBlank() ? "" : ": " + url),
+                    text.message(), text.recommendation(),
                     null, List.of(), m == null ? List.of(c.id()) : null));
         }
         return out;

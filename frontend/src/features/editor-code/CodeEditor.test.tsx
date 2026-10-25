@@ -71,7 +71,7 @@ describe('<CodeEditor>', () => {
     fireEvent.change(area, { target: { value: 'class Main { int lost; }' } });
 
     const toast = await screen.findByText('Проект изменён');
-    expect(toast.parentElement).toHaveTextContent('Ваша правка относилась к версии 2, сейчас 3. Состояние перезагружено.');
+    expect(toast.parentElement).toHaveTextContent('Проект изменился, пока вы правили. Состояние перезагружено.');
     await waitFor(() => expect(area).toHaveValue('class Main { /* с сервера */ }'));
     expect(onConflict).toHaveBeenCalledTimes(1);
     // Черновик не потерян: плашка с тремя кнопками, редактор только для чтения.
