@@ -120,7 +120,9 @@ PMD (§14а.2): `PmdDetector` (уровень проекта, PMD 7 из `libs.v
 (CLI и тесты детекторов). `PmdDetector.DEFAULT_RULESET` — ресурс `blueprints/analysis/pmd-ruleset.xml`, текст равен
 `contract/fixtures/pmd-config.default.json` (выключены правила, дублирующие наши детекторы). Находка: source=PMD, rule — имя правила PMD,
 severity по приоритету (1–2 high, 3 medium, 4–5 low), confidence high, без fixes; id `PMD:<правило>:<methodId|FQN класса>:строка:колонка`
-(дубль — `#n`). Привязка по строке начала: самый вложенный метод файла → methodId (blockId подставляет app), иначе самый вложенный
+(дубль — `#n`). message/recommendation по-русски — словарь `PmdMessagesRu` по имени правила (весь стандартный набор и quickstart
+PMD 7, проверяет `PmdMessagesRuTest`); конкретика (имена, числа) берётся из сообщения PMD по шаблону правила, иначе — первое имя в
+кавычках; recommendation = русский совет + «Правило PMD <имя>: <url>». Правило вне словаря — английский текст PMD как есть. Привязка по строке начала: самый вложенный метод файла → methodId (blockId подставляет app), иначе самый вложенный
 класс → classIds (вне классов, напр. import, — первый класс файла; файл без классов — находка отбрасывается), span — строки нарушения. Порядок — файлы проекта, затем позиция. Кэш LRU на 32 снимка по SHA-256 ruleset+исходников
 (прогон ~1 с). Таймаут (защита от ReDoS в regex-свойствах и include/exclude-pattern): прогон PMD целиком и загрузка ruleset в `validate`
 идут в демон-потоках, не больше 2 одновременно на всё приложение (семафор `PERMITS`, без очереди), с ограничением `PmdDetector.DEFAULT_TIMEOUT` (15 с; первый прогон
