@@ -9,4 +9,4 @@ plugins {
 
 rootProject.name = "blueprints"
 
-include("model", "source", "blocks", "analysis", "runner", "testing", "fixes", "benchmark", "app", "cli")
+include("model", "source", "blocks", "analysis", "runner", "testing", "fixes", "benchmark", "ai", "app", "cli")

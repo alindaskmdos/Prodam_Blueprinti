@@ -115,6 +115,32 @@ class ContractConformanceTest {
         Contract.validate("DependencyGraph", Contract.fixture("dependencies.demo.json"));
         Contract.validate("DependencyGraph", Contract.fixture("dependencies.cycle.json"));
         Contract.validate("Analysis", Contract.fixture("analysis.cycle.json"));
+        Contract.validate("Capabilities", Contract.fixture("capabilities.on.json"));
+        Contract.validate("Capabilities", Contract.fixture("capabilities.off.json"));
+        Contract.validate("AiExplanation", Contract.fixture("explain.merge.json"));
+        Contract.validate("AiEditProposal", Contract.fixture("ai-edit.merge.json"));
+        Contract.validate("Error", Contract.fixture("error.rate-limited.json"));
+        Contract.validate("FixResult", Contract.fixture("fix.applied.json"));
+    }
+
+    /** Без LLM_API_KEY: capabilities как capabilities.off.json, ИИ-эндпоинты — 503 LLM_UNAVAILABLE. Иначе (ключ в env) — только схема. */
+    @Test
+    void capabilitiesAndAiEndpointsWithoutKey() throws IOException {
+        JsonNode caps = ok(rest.getForEntity("/api/capabilities", String.class));
+        Contract.validate("Capabilities", caps);
+        assumeTrue(!LlmConfig.fromEnv().enabled(), "задан LLM_API_KEY");
+        assertEquals(Contract.fixture("capabilities.off.json"), caps);
+        String base = uploadDemo();
+        HttpHeaders h = new HttpHeaders();
+        h.setContentType(MediaType.APPLICATION_JSON);
+        for (String path : List.of("/methods/com.demo.service.OrderService.merge~0/explain",
+                "/methods/com.demo.service.OrderService.merge~0/ai-edit", "/issues/x/ai-fix")) {
+            var r = rest.postForEntity(base + path, new HttpEntity<>("{\"version\":1,\"blockId\":\"b\",\"instruction\":\"i\"}", h), String.class);
+            assertEquals(503, r.getStatusCode().value(), r.getBody());
+            JsonNode err = Contract.JSON.readTree(r.getBody());
+            Contract.validate("Error", err);
+            assertEquals("LLM_UNAVAILABLE", err.get("code").asText());
+        }
     }
 
     /** Analysis / MethodView / ProjectTree из ProjectView на демо — по схемам; проблема merge — как в фикстуре. */

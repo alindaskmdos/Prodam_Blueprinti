@@ -52,6 +52,11 @@ class FixController {
         if (fix == null || !issue.fixes().contains(req.fixId())) {
             throw new ApiException(404, "NOT_FOUND", "фикс " + req.fixId() + " не предлагается для " + issueId);
         }
+        return gate(s, issueId, fix);
+    }
+
+    /** Quality Gate для фикса проблемы {@code issueId} версии {@code s}: применён — version+1 (и в ai-fix). */
+    FixDto gate(ProjectStore.Stored s, String issueId, Refactoring fix) {
         Map<String, String> current = RunController.texts(s.content());
         TestContext ctx = new TestContext(RunController.texts(s.original()), current, null);
         // у fix в контракте нет 422/503: несколько main / нет песочницы — Quality Gate не подтвердил, откат
@@ -66,7 +71,7 @@ class FixController {
         RunController.VerifyDto verify = r.verify() == null ? null : RunController.dto(r.verify());
         if (!r.applied()) return new FixDto(false, r.reason(), s.version(), null, null, verify);
 
-        var saved = store.update(id, req.version(), p -> withFiles(p, r.changed()));
+        var saved = store.update(s.id(), s.version(), p -> withFiles(p, r.changed()));
         StringBuilder diff = new StringBuilder();
         r.changed().forEach((path, text) -> diff.append(Diff.unified(path, current.get(path), text)));
         ProjectView view = new ProjectView(saved);

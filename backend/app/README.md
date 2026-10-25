@@ -45,6 +45,13 @@ includeSettings дописывает `<root>.blueprints/pmd-ruleset.xml`; при
   applied -> изменённые файлы (исходники и `tests/`) в проект, version+1, `diff` — unified diff (`Diff`, 3 строки контекста) по `changed`,
   `mutation` (fileText — первый изменённый файл); rejected -> версия та же, `reason`. В контракте у fix нет 422/503: несколько main,
   нет main для IO-тестов и недоступная песочница -> 200 `applied=false`, reason «исправление не подтверждено: <сообщение>».
+- `AiController` (модуль `ai`, §14а.10): `GET /capabilities` -> Capabilities (llm, features `explain|fix|edit-node` или пусто без ключа,
+  limits из `RateLimiter`); `POST /methods/{methodId}/explain` `{version}` -> AiExplanation; `POST /methods/{methodId}/ai-edit`
+  `{version, blockId, instruction}` -> AiEditProposal (новый текст файла + `Diff.unified`, проект не меняется; blockId = id метода —
+  правка всего метода; ответ модели не Java -> 422 PARSE_ERROR); `POST /issues/{issueId}/ai-fix` `{version}` -> FixResult через
+  `FixController.gate` (тот же Quality Gate, что у fix). Порядок: нет ИИ -> 503 LLM_UNAVAILABLE; version/проект/метод/нода/проблема ->
+  400/409/404; лимит -> 429 RATE_LIMITED с details.retryAfterSec; провайдер не ответил -> 503 LLM_UNAVAILABLE. Бины `Ai` и `RateLimiter`
+  — `AiController.Beans` из env (`LlmConfig`, `LLM_RATE_PER_MINUTE`/`LLM_RATE_PER_DAY`); `AiApiTest` подменяет их фейком (@Primary).
 - `Issue.fixes` (в `ProjectView`, т.е. во всех Analysis/MutationResult) — id фиксов `RefactoringRegistry.defaults()` с `canApply(файлы, issue.id)`; при confidence=low пусто.
 - Экспорт `format=jar` — `Runner.jar` на исходниках без `tests/` и `.blueprints/`, без seed; main — `RunController.chooseMain` (как у run:
   несколько без mainClass -> 422 AMBIGUOUS_MAIN, не найден / нет main -> 422 INVALID_REQUEST); не компилируется -> 422 COMPILE_ERROR,

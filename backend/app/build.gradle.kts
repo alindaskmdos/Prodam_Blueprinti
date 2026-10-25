@@ -8,6 +8,6 @@ dependencies {
     implementation(libs.spring.boot.starter.web)
     testImplementation(libs.spring.boot.starter.test)
     testImplementation(libs.json.schema.validator)
-    listOf("model", "source", "blocks", "analysis", "runner", "testing", "fixes", "benchmark")
+    listOf("model", "source", "blocks", "analysis", "runner", "testing", "fixes", "benchmark", "ai")
         .forEach { implementation(project(":$it")) }
 }
