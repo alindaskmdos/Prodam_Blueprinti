@@ -34,6 +34,22 @@ function firstChangedBlockId(root: Schemas['Block']): string {
   return find(root) ?? root.id;
 }
 
+/** fix.applied.json + mutation из фикстур (как у PUT blocks): версия = присланная + 1. */
+async function appliedFix({ request }: { request: Request }) {
+  const { version } = (await request.json()) as { version: number };
+  const next = version + 1;
+  return HttpResponse.json<Schemas['FixResult']>({
+    ...fixtures.fixApplied,
+    version: next,
+    mutation: {
+      version: next,
+      fileText: fixtures.fileOrderService.text,
+      tree: fixtures.tree,
+      analysis: { ...fixtures.analysisMerge, version: next },
+    },
+  });
+}
+
 /** Обработчики по умолчанию: «счастливый путь» на фикстурах contract/fixtures. */
 export const handlers = [
   // Для /health фикстуры нет — ответ по схеме контракта.
@@ -60,20 +76,19 @@ export const handlers = [
   // Фикстура одна (n = 10000): параметр n принимается, но числа ops в моке не пересчитываются.
   http.get(`${API}/projects/:projectId/analysis`, () => HttpResponse.json(fixtures.analysisMerge)),
   // fix.applied.json + mutation из фикстур (как у PUT blocks): версия = присланная + 1.
-  http.post(`${API}/projects/:projectId/issues/:issueId/fix`, async ({ request }) => {
-    const { version } = (await request.json()) as FixBody;
-    const next = version + 1;
-    return HttpResponse.json<Schemas['FixResult']>({
-      ...fixtures.fixApplied,
-      version: next,
-      mutation: {
-        version: next,
-        fileText: fixtures.fileOrderService.text,
-        tree: fixtures.tree,
-        analysis: { ...fixtures.analysisMerge, version: next },
-      },
-    });
+  http.post(`${API}/projects/:projectId/issues/:issueId/fix`, appliedFix),
+  // FE-24: ИИ-слой. По умолчанию ИИ включён (capabilities.on), чтобы кнопки были видны на моках.
+  http.get(`${API}/capabilities`, () => HttpResponse.json(fixtures.capabilitiesOn)),
+  http.post(`${API}/projects/:projectId/methods/:methodId/explain`, async ({ request }) => {
+    const { version } = (await request.json()) as { version: number };
+    return HttpResponse.json<Schemas['AiExplanation']>({ ...fixtures.explainMerge, version });
   }),
+  http.post(`${API}/projects/:projectId/methods/:methodId/ai-edit`, async ({ request }) => {
+    const { version } = (await request.json()) as { version: number };
+    return HttpResponse.json<Schemas['AiEditProposal']>({ ...fixtures.aiEditMerge, version });
+  }),
+  // ai-fix идёт тем же Quality Gate, что обычный фикс: fix.applied.json + mutation.
+  http.post(`${API}/projects/:projectId/issues/:issueId/ai-fix`, appliedFix),
   // Список: IO-тесты из project.json + JUnit из test.junit.json.
   http.get(`${API}/projects/:projectId/tests`, () =>
     HttpResponse.json<Schemas['TestCase'][]>([...fixtures.project.tests, fixtures.testJunit]),
@@ -150,6 +165,24 @@ export const scenarios = {
   // Для 404 фикстуры нет — ответ по схеме Error контракта.
   fixNotFound: http.post(`${API}/projects/:projectId/issues/:issueId/fix`, () =>
     HttpResponse.json<Schemas['Error']>({ code: 'NOT_FOUND', message: 'проблема ISSUE-1 не найдена' }, { status: 404 }),
+  ),
+  /** FE-24: ИИ выключен (llm=false) — кнопок ИИ нет. */
+  aiOff: http.get(`${API}/capabilities`, () => HttpResponse.json(fixtures.capabilitiesOff)),
+  /** 429 RATE_LIMITED на explain / ai-edit / ai-fix (error.rate-limited.json). */
+  aiRateLimited: [
+    http.post(`${API}/projects/:projectId/methods/:methodId/explain`, () =>
+      HttpResponse.json(fixtures.errorRateLimited, { status: 429 }),
+    ),
+    http.post(`${API}/projects/:projectId/methods/:methodId/ai-edit`, () =>
+      HttpResponse.json(fixtures.errorRateLimited, { status: 429 }),
+    ),
+    http.post(`${API}/projects/:projectId/issues/:issueId/ai-fix`, () =>
+      HttpResponse.json(fixtures.errorRateLimited, { status: 429 }),
+    ),
+  ],
+  /** 503 LLM_UNAVAILABLE на explain (для 503 фикстуры нет — по схеме Error). */
+  llmUnavailable: http.post(`${API}/projects/:projectId/methods/:methodId/explain`, () =>
+    HttpResponse.json<Schemas['Error']>({ code: 'LLM_UNAVAILABLE', message: 'ИИ недоступен: провайдер не ответил' }, { status: 503 }),
   ),
   verifyRed: http.post(`${API}/projects/:projectId/verify`, () => HttpResponse.json(fixtures.verifyRed)),
   // Для 503 / 422 run и verify фикстур нет — ответы по схеме Error контракта.

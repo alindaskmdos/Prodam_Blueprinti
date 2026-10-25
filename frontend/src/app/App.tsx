@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { api, type ApiClient, type Schemas } from '../features/api';
+import { AiDialog, useLoadCapabilities } from '../features/ai';
 import { FixConflictToast, isFixRunning, QualityGateDialog, useFixStore } from '../features/fix';
 import { CommandPalette } from '../features/command-palette';
 import { CANVAS_METHOD_TAB, CanvasSlot, EditorHeader, EditorLayout, PanelTabs } from '../features/layout';
@@ -85,6 +86,7 @@ function EditorScreen({ client, projectId, canvas, panels, saveFile }: EditorScr
   const projectName = useAppStore((s) => s.projectName);
   const rightTab = useAppStore((s) => s.activePanels.right);
   useSandbox(client, projectId);
+  useLoadCapabilities(client);
   useLayoutShortcuts();
   const entryPoint = useSandboxStore((s) => entryPointLabel(s.mainClasses));
   const sandboxBusy = useSandboxStore((s) => s.busy);
@@ -137,6 +139,7 @@ function EditorScreen({ client, projectId, canvas, panels, saveFile }: EditorScr
       <CommandPalette client={client} commands={commands} runCommand={runCommand} />
       <RunDialog />
       <QualityGateDialog />
+      <AiDialog />
       <SandboxNotice />
       <FixConflictToast />
       {exportOpen && (

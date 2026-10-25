@@ -18,6 +18,12 @@ import dependenciesDemoJson from '@contract/fixtures/dependencies.demo.json';
 import dependenciesCycleJson from '@contract/fixtures/dependencies.cycle.json';
 import analysisCycleJson from '@contract/fixtures/analysis.cycle.json';
 
+import capabilitiesOnJson from '@contract/fixtures/capabilities.on.json';
+import capabilitiesOffJson from '@contract/fixtures/capabilities.off.json';
+import explainMergeJson from '@contract/fixtures/explain.merge.json';
+import aiEditMergeJson from '@contract/fixtures/ai-edit.merge.json';
+import errorRateLimitedJson from '@contract/fixtures/error.rate-limited.json';
+
 function fixture<T>(json: unknown): T {
   return json as T;
 }
@@ -39,4 +45,9 @@ export const fixtures = {
   dependenciesDemo: fixture<Schemas['DependencyGraph']>(dependenciesDemoJson),
   dependenciesCycle: fixture<Schemas['DependencyGraph']>(dependenciesCycleJson),
   analysisCycle: fixture<Schemas['Analysis']>(analysisCycleJson),
+  capabilitiesOn: fixture<Schemas['Capabilities']>(capabilitiesOnJson),
+  capabilitiesOff: fixture<Schemas['Capabilities']>(capabilitiesOffJson),
+  explainMerge: fixture<Schemas['AiExplanation']>(explainMergeJson),
+  aiEditMerge: fixture<Schemas['AiEditProposal']>(aiEditMergeJson),
+  errorRateLimited: fixture<Schemas['Error']>(errorRateLimitedJson),
 };

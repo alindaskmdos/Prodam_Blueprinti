@@ -4,6 +4,7 @@ import { useAnalysisStore } from '../analysis-panel/analysisStore';
 import { reloadProjectTree } from '../project-tree';
 import { useTestsStore } from '../tests-panel';
 import { useAppStore } from '../../app/store';
+import { aiErrorText } from '../ai/aiError';
 
 type Issue = Schemas['Issue'];
 type FixResult = Schemas['FixResult'];
@@ -36,15 +37,20 @@ interface FixState {
    * applied → новая версия в store, анализ из ответа, перезагрузка дерева (холст и код подтянутся по version);
    * rejected → версия прежняя; 409 → тост и перезагрузка.
    */
-  apply: (client: ApiClient, projectId: string, issue: Issue, fixId: string, version: number) => Promise<void>;
+  apply: (client: ApiClient, projectId: string, issue: Issue, fixId: string, version: number, ai?: boolean) => Promise<void>;
+  /** «Предложить фикс (ИИ)»: POST /issues/{issueId}/ai-fix → тот же Quality Gate (диалог, applied/rejected, 409). */
+  applyAi: (client: ApiClient, projectId: string, issue: Issue, version: number) => Promise<void>;
   close: () => void;
   dismissConflict: () => void;
 }
 
 let conflictSeq = 0;
 
+/** Подпись фикса от ИИ в диалоге Quality Gate (вместо id из Issue.fixes). */
+export const AI_FIX_ID = 'ИИ';
+
 /** Перезагрузка после 409: версия (GET project) и дерево; анализ, холст и код перезагрузятся по version. */
-async function reloadAfterConflict(client: ApiClient, projectId: string): Promise<void> {
+export async function reloadAfterConflict(client: ApiClient, projectId: string): Promise<void> {
   try {
     const { data } = await client.GET('/projects/{projectId}', { params: { path: { projectId } } });
     if (data && useAppStore.getState().projectId === projectId) useAppStore.getState().setVersion(data.version);
@@ -58,16 +64,18 @@ export const useFixStore = create<FixState>()((set, get) => ({
   gate: null,
   conflict: null,
 
-  apply: async (client, projectId, issue, fixId, version) => {
+  applyAi: (client, projectId, issue, version) => get().apply(client, projectId, issue, AI_FIX_ID, version, true),
+
+  apply: async (client, projectId, issue, fixId, version, ai = false) => {
     if (isFixRunning(get().gate)) return;
     const n = useAnalysisStore.getState().analysis?.n ?? useAnalysisStore.getState().n;
     set({ gate: { issue, fixId, fromVersion: version, n, result: null, error: null } });
     const stillOpen = () => get().gate?.issue.id === issue.id && get().gate?.fixId === fixId;
     try {
-      const { data, error, response } = await client.POST('/projects/{projectId}/issues/{issueId}/fix', {
-        params: { path: { projectId, issueId: issue.id } },
-        body: { version, fixId },
-      });
+      const params = { path: { projectId, issueId: issue.id } };
+      const { data, error, response } = ai
+        ? await client.POST('/projects/{projectId}/issues/{issueId}/ai-fix', { params, body: { version } })
+        : await client.POST('/projects/{projectId}/issues/{issueId}/fix', { params, body: { version, fixId } });
       if (data) {
         if (data.applied) {
           const app = useAppStore.getState();
@@ -98,7 +106,7 @@ export const useFixStore = create<FixState>()((set, get) => ({
       const message =
         response.status === 404
           ? 'Проблема не найдена — анализ устарел. Обновите анализ и попробуйте снова.'
-          : (error?.message ?? `HTTP ${response.status}`);
+          : aiErrorText(error, response.status);
       if (stillOpen()) set((s) => ({ gate: s.gate && { ...s.gate, error: message } }));
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : String(e);

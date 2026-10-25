@@ -1,5 +1,6 @@
 import { useMemo, type ReactNode } from 'react';
 import { api, type ApiClient, type Schemas } from '../api';
+import { useAiFeature } from '../ai';
 import { shortMethodName } from '../layout';
 import { isFixRunning, useFixStore } from '../fix';
 import { sandboxDisabledReason, useSandboxStore } from '../sandbox';
@@ -70,6 +71,7 @@ function IssueList({
   const selectIssue = useAppStore((s) => s.selectIssue);
   const showPanel = useAppStore((s) => s.showPanel);
   const fixDisabledReason = useFixDisabledReason();
+  const aiFix = useAiFeature('fix');
   if (groups.length === 0) return <div className={styles.state}>{empty}</div>;
   return (
     <div className={styles.list} role="list">
@@ -90,6 +92,7 @@ function IssueList({
               }}
               fixDisabledReason={fixDisabledReason}
               onApplyFix={(i, fixId) => runCommand('fix.apply', { issueId: i.id, fixId })}
+              onAiFix={aiFix ? (i) => runCommand('ai.fix', { issueId: i.id }) : undefined}
             />
           </div>
         )),

@@ -1,0 +1,166 @@
+/* Диалоги ИИ: тот же Graphite-вид, что у Quality Gate. */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px 16px;
+  background: rgba(5, 7, 10, 0.72);
+  overflow: auto;
+}
+
+.dialog {
+  width: 100%;
+  max-width: 760px;
+  background: var(--jb-bg);
+  border: 1px solid var(--jb-border-strong);
+  border-radius: 16px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+  color: var(--jb-text);
+}
+
+.head {
+  padding: 14px 18px;
+  border-bottom: 1px solid #1a2029;
+  background: var(--jb-header);
+  border-radius: 16px 16px 0 0;
+}
+
+.title {
+  font: 700 16px var(--jb-font-ui);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+}
+
+.foot {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 0 18px 16px;
+}
+
+.para {
+  margin: 0 0 10px;
+  font: 400 14px/1.5 var(--jb-font-ui);
+  white-space: pre-wrap;
+}
+
+.para code {
+  font-family: var(--jb-font-code);
+  background: var(--jb-raised);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.muted {
+  font-size: 12.5px;
+  color: var(--jb-text-secondary);
+}
+
+.error {
+  font-size: 13px;
+  color: #ffb4ac;
+  background: #3a1e22;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font: 500 13px var(--jb-font-ui);
+}
+
+.input {
+  font: 400 13px var(--jb-font-ui);
+  color: var(--jb-text);
+  background: var(--jb-raised);
+  border: 1px solid var(--jb-border-strong);
+  border-radius: 8px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.diff {
+  overflow: auto;
+  max-height: 46vh;
+  padding: 8px 0;
+  background: var(--jb-raised);
+  border-radius: 8px;
+}
+
+.dl {
+  display: block;
+  font: 400 12.5px/21px var(--jb-font-code);
+  color: #d4dae3;
+  white-space: pre;
+  padding: 0 14px 0 0;
+}
+
+.add {
+  background: rgba(74, 222, 128, 0.1);
+  color: #bdf5cf;
+}
+
+.del {
+  background: rgba(248, 113, 113, 0.12);
+  color: #ffc2bc;
+}
+
+.hunk {
+  color: #7aa7ff;
+}
+
+.file {
+  color: #a3aebd;
+  font-weight: 600;
+  padding-left: 14px;
+}
+
+.sg {
+  display: inline-block;
+  width: 18px;
+  text-align: center;
+}
+
+.btn {
+  font: 500 13px var(--jb-font-ui);
+  color: #d7dee8;
+  background: var(--jb-raised);
+  border: 1px solid var(--jb-border-strong);
+  border-radius: 8px;
+  padding: 0 14px;
+  height: 34px;
+  cursor: pointer;
+}
+
+.btn:hover:not(:disabled) {
+  background: #1d2430;
+  color: #fff;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.primary {
+  background: var(--jb-accent);
+  border-color: var(--jb-accent);
+  color: var(--jb-bg);
+  font-weight: 600;
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--jb-accent);
+  color: var(--jb-bg);
+  filter: brightness(1.12);
+}

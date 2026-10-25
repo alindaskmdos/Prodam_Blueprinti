@@ -21,6 +21,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Что доступно фронту (CT-04). Без LLM_API_KEY — llm=false, features пустой, кнопок ИИ нет */
+        get: operations["getCapabilities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects": {
         parameters: {
             query?: never;
@@ -248,6 +265,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{projectId}/methods/{methodId}/explain": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                /** @description FQN класса + имя + ~ + индекс перегрузки, напр. com.demo.service.OrderService.merge~0. Конструктор — имя <init>: com.demo.model.Order.<init>~0. Вложенный класс — через $ (Outer$Inner.run~0), тогда как в ClassNode.fqn/UmlClass.id — через точку (Outer.Inner); перевод — заменой $ на . в части до последнего «.имяМетода~N». Анонимный/лямбда отдельного id не имеют (часть блоков метода-хозяина). Фронт кодирует id в пути через encodeURIComponent ($, <, > и т.п.). */
+                methodId: components["parameters"]["MethodId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** ИИ — «объясни метод» (CT-04). Проект не меняет */
+        post: operations["explainMethod"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/methods/{methodId}/ai-edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                /** @description FQN класса + имя + ~ + индекс перегрузки, напр. com.demo.service.OrderService.merge~0. Конструктор — имя <init>: com.demo.model.Order.<init>~0. Вложенный класс — через $ (Outer$Inner.run~0), тогда как в ClassNode.fqn/UmlClass.id — через точку (Outer.Inner); перевод — заменой $ на . в части до последнего «.имяМетода~N». Анонимный/лямбда отдельного id не имеют (часть блоков метода-хозяина). Фронт кодирует id в пути через encodeURIComponent ($, <, > и т.п.). */
+                methodId: components["parameters"]["MethodId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * ИИ — правка ноды текстом (CT-04). Только предложение, проект не меняет
+         * @description Возвращает новый полный текст файла и дифф. Применяется человеком по кнопке через PUT /files?path={path}
+         *     с text и version из ответа (409 при устаревшей версии). Quality Gate не участвует — правка намеренно меняет поведение.
+         */
+        post: operations["aiEditBlock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/issues/{issueId}/ai-fix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                issueId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * ИИ — предложить и применить фикс (LlmFixProvider) → тот же Quality Gate, что у applyFix (CT-04)
+         * @description issueId действителен только для version, с которой получен анализ; при расхождении — 409. Фикс обязан сохранять порядок перебора (LinkedHashMap/LinkedHashSet).
+         */
+        post: operations["applyAiFix"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{projectId}/tests": {
         parameters: {
             query?: never;
@@ -336,7 +422,7 @@ export interface components {
     schemas: {
         Error: {
             /** @enum {string} */
-            code: "VERSION_CONFLICT" | "NOT_FOUND" | "PARSE_ERROR" | "DUPLICATE_FQN" | "ZIP_SLIP" | "LIMIT_EXCEEDED" | "NO_SOURCES" | "COMPILE_ERROR" | "AMBIGUOUS_MAIN" | "INVALID_REQUEST" | "INVALID_RULESET" | "INTERNAL";
+            code: "VERSION_CONFLICT" | "NOT_FOUND" | "PARSE_ERROR" | "DUPLICATE_FQN" | "ZIP_SLIP" | "LIMIT_EXCEEDED" | "NO_SOURCES" | "COMPILE_ERROR" | "AMBIGUOUS_MAIN" | "INVALID_REQUEST" | "INVALID_RULESET" | "RATE_LIMITED" | "LLM_UNAVAILABLE" | "INTERNAL";
             message: string;
             /** @description PARSE_ERROR при PUT blocks */
             blockId?: string;
@@ -779,6 +865,34 @@ export interface components {
             /** @description Анализ с новым конфигом PMD */
             analysis: components["schemas"]["Analysis"];
         };
+        Capabilities: {
+            /** @description Задан ли LLM_API_KEY */
+            llm: boolean;
+            /** @description Доступные ИИ-функции; при llm=false — пустой */
+            features: ("explain" | "fix" | "edit-node")[];
+            limits: {
+                /** @description Запросов ИИ в минуту на сессию */
+                perMinute: number;
+                /** @description Общий дневной лимит запросов ИИ */
+                perDay: number;
+            };
+        };
+        AiExplanation: {
+            /** @description Версия, для которой дано объяснение */
+            version: number;
+            /** @description Markdown */
+            text: string;
+        };
+        AiEditProposal: {
+            /** @description Версия, от которой сделано предложение; её же передать в PUT /files */
+            version: number;
+            /** @description Файл, который меняется */
+            path: string;
+            /** @description Новый полный текст файла */
+            text: string;
+            /** @description Unified diff */
+            diff: string;
+        };
     };
     responses: {
         /** @description Ошибка */
@@ -815,6 +929,24 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["MutationResult"];
+            };
+        };
+        /** @description Превышен лимит ИИ (в минуту на сессию или дневной); code=RATE_LIMITED, message — понятный текст, details.retryAfterSec */
+        RateLimited: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description ИИ недоступен (нет LLM_API_KEY, провайдер не ответил); code=LLM_UNAVAILABLE, message — причина */
+        LlmUnavailable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
             };
         };
     };
@@ -854,6 +986,26 @@ export interface operations {
                         /** @description Задан ли LLM_API_KEY */
                         llm: boolean;
                     };
+                };
+            };
+        };
+    };
+    getCapabilities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Capabilities"];
                 };
             };
         };
@@ -1306,6 +1458,120 @@ export interface operations {
             };
             404: components["responses"]["Error"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    explainMethod: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                /** @description FQN класса + имя + ~ + индекс перегрузки, напр. com.demo.service.OrderService.merge~0. Конструктор — имя <init>: com.demo.model.Order.<init>~0. Вложенный класс — через $ (Outer$Inner.run~0), тогда как в ClassNode.fqn/UmlClass.id — через точку (Outer.Inner); перевод — заменой $ на . в части до последнего «.имяМетода~N». Анонимный/лямбда отдельного id не имеют (часть блоков метода-хозяина). Фронт кодирует id в пути через encodeURIComponent ($, <, > и т.п.). */
+                methodId: components["parameters"]["MethodId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiExplanation"];
+                };
+            };
+            404: components["responses"]["Error"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            503: components["responses"]["LlmUnavailable"];
+        };
+    };
+    aiEditBlock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                /** @description FQN класса + имя + ~ + индекс перегрузки, напр. com.demo.service.OrderService.merge~0. Конструктор — имя <init>: com.demo.model.Order.<init>~0. Вложенный класс — через $ (Outer$Inner.run~0), тогда как в ClassNode.fqn/UmlClass.id — через точку (Outer.Inner); перевод — заменой $ на . в части до последнего «.имяМетода~N». Анонимный/лямбда отдельного id не имеют (часть блоков метода-хозяина). Фронт кодирует id в пути через encodeURIComponent ($, <, > и т.п.). */
+                methodId: components["parameters"]["MethodId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    version: number;
+                    /** @description Block.id из MethodView той же version (в теле, т.к. содержит «/»); id метода — правка всего метода */
+                    blockId: string;
+                    /** @description Напр. «добавь проверку на null» */
+                    instruction: string;
+                };
+            };
+        };
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiEditProposal"];
+                };
+            };
+            404: components["responses"]["Error"];
+            409: components["responses"]["Conflict"];
+            /** @description Ответ модели не разобрался как Java; code=PARSE_ERROR, message */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            429: components["responses"]["RateLimited"];
+            503: components["responses"]["LlmUnavailable"];
+        };
+    };
+    applyAiFix: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                issueId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Фикс применён или отклонён Quality Gate (при отклонении версия не меняется) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FixResult"];
+                };
+            };
+            404: components["responses"]["Error"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            503: components["responses"]["LlmUnavailable"];
         };
     };
     listTests: {

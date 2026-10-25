@@ -1,5 +1,7 @@
 import { useAnalysisStore } from '../features/analysis-panel/analysisStore';
+import { hasAiFeature, useAiStore, useCapabilitiesStore, type AiFeature } from '../features/ai';
 import { isFixRunning, useFixStore } from '../features/fix';
+import { shortMethodName } from '../features/layout';
 import { sandboxDisabledReason, useSandboxStore } from '../features/sandbox';
 import { useUploadUi } from '../features/upload';
 import { currentClassRef, openStructureDialog, useTreeStore } from '../features/project-tree';
@@ -29,6 +31,17 @@ function treeReady(): boolean {
 function openMember(member: 'field' | 'constructor' | 'method'): void {
   const ref = currentClassRef();
   if (ref) openStructureDialog({ kind: 'new-member', member, ref });
+}
+
+/** ИИ-функция доступна по /capabilities, проект открыт, клиент API известен (кнопок без этого нет). */
+function aiReady(feature: AiFeature): boolean {
+  const { projectId, version } = useAppStore.getState();
+  return (
+    hasAiFeature(useCapabilitiesStore.getState().caps, feature) &&
+    projectId !== null &&
+    version !== null &&
+    useSandboxStore.getState().client !== null
+  );
 }
 
 /** Пользовательское действие: кнопка в UI и пункт командной палитры (Ctrl+K). */
@@ -170,6 +183,49 @@ export const commands: readonly CommandDef[] = [
       if (!analysis || !issue || !fixId || !issue.fixes.includes(fixId) || !projectId || !client) return;
       // Версия — анализа, из которого взят Issue: issueId действителен только для неё.
       return useFixStore.getState().apply(client, projectId, issue, fixId, analysis.version);
+    },
+  },
+  // FE-24: ИИ-слой. Команды работают только при /capabilities (llm=true и функция в features).
+  {
+    id: 'ai.explain',
+    title: 'Объяснить метод (ИИ)',
+    group: 'ИИ',
+    isEnabled: () => aiReady('explain') && useAppStore.getState().selectedMethodId !== null,
+    run: () => {
+      const { selectedMethodId } = useAppStore.getState();
+      const { client } = useSandboxStore.getState();
+      if (!selectedMethodId || !client) return;
+      return useAiStore.getState().explain(client, selectedMethodId, `Объяснение: ${shortMethodName(selectedMethodId)}`);
+    },
+  },
+  {
+    // «Изменить текстом (ИИ)» у ноды: args = { blockId } — Block.id ноды (id корня — правка всего метода).
+    id: 'ai.edit',
+    title: 'Изменить ноду текстом (ИИ)',
+    group: 'ИИ',
+    paletteHidden: true,
+    isEnabled: () => aiReady('edit-node') && useAppStore.getState().selectedMethodId !== null,
+    run: (args) => {
+      const { selectedMethodId } = useAppStore.getState();
+      const { client } = useSandboxStore.getState();
+      if (!selectedMethodId || !client || !args?.blockId) return;
+      useAiStore.getState().openEdit(client, selectedMethodId, args.blockId, `Изменить текстом (ИИ): ${shortMethodName(selectedMethodId)}`);
+    },
+  },
+  {
+    // «Предложить фикс (ИИ)» в карточке проблемы: args = { issueId }; дальше — тот же Quality Gate, что у fix.apply.
+    id: 'ai.fix',
+    title: 'Предложить фикс (ИИ)',
+    group: 'Анализ',
+    paletteHidden: true,
+    isEnabled: () => aiReady('fix') && sandboxReady(),
+    run: (args) => {
+      const { analysis } = useAnalysisStore.getState();
+      const { projectId } = useAppStore.getState();
+      const { client } = useSandboxStore.getState();
+      const issue = analysis?.issues.find((i) => i.id === args?.issueId);
+      if (!analysis || !issue || !projectId || !client) return;
+      return useFixStore.getState().applyAi(client, projectId, issue, analysis.version);
     },
   },
 ];

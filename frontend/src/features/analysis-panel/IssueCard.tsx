@@ -32,10 +32,12 @@ interface IssueCardProps {
   onApplyFix?: (issue: Issue, fixId: string) => void;
   /** Причина, по которой фиксы применить нельзя (нет Docker, идёт другой прогон); null — можно. */
   fixDisabledReason?: string | null;
+  /** «Предложить фикс (ИИ)» (FE-24); передаётся, только если /capabilities разрешает fix. Нет — кнопки нет. */
+  onAiFix?: (issue: Issue) => void;
 }
 
 /** Карточка проблемы/предупреждения: клик выбирает проблему, у каждого фикса — кнопка «Применить». */
-export function IssueCard({ issue, selected, onSelect, analysisN, onApplyFix, fixDisabledReason = null }: IssueCardProps) {
+export function IssueCard({ issue, selected, onSelect, analysisN, onApplyFix, fixDisabledReason = null, onAiFix }: IssueCardProps) {
   const { complexity, span } = issue;
   const hasOps = complexity?.opsBefore !== undefined && complexity.opsAfter !== undefined;
   const lines = span.startLine === span.endLine ? `${span.startLine}` : `${span.startLine}–${span.endLine}`;
@@ -97,6 +99,19 @@ export function IssueCard({ issue, selected, onSelect, analysisN, onApplyFix, fi
               </span>
             ),
           )}
+        </div>
+      )}
+      {onAiFix && (
+        <div className={styles.fixes}>
+          <button
+            type="button"
+            className={styles.fixApply}
+            disabled={fixDisabledReason !== null}
+            title={fixDisabledReason ?? 'ИИ предложит исправление; дальше тот же Quality Gate — компиляция и все тесты, иначе откат'}
+            onClick={() => onAiFix(issue)}
+          >
+            Предложить фикс (ИИ)
+          </button>
         </div>
       )}
     </div>

@@ -1,5 +1,7 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties, MouseEvent as ReactMouseEvent, ReactNode } from 'react';
+import { runCommand } from '../../app/commands';
+import { useAiFeature } from '../ai';
 import { useAnalysisStore } from '../analysis-panel/analysisStore';
 import { issueTooltip } from '../analysis-panel/format';
 import { editableFields } from './blockEdit';
@@ -105,6 +107,47 @@ function EditButton({ data }: { data: GraphNodeData }) {
 }
 
 /**
+ * ИИ-кнопки в заголовке (FE-24, по /capabilities; нет функции — кнопки нет): «Объясни метод» на ноде метода,
+ * «Изменить текстом (ИИ)» на ноде блока (на ноде метода — правка всего метода). Работают через команды ai.*.
+ */
+function AiTools({ data }: { data: GraphNodeData }) {
+  const edit = useNodeEdit();
+  const canExplain = useAiFeature('explain');
+  const canEdit = useAiFeature('edit-node');
+  if (!edit || edit.editing === data.path) return null;
+  const isMethod = data.path === 'root';
+  const stop = (fn: () => void) => (e: ReactMouseEvent) => {
+    e.stopPropagation();
+    fn();
+  };
+  return (
+    <span className={`${styles.tools} nodrag`}>
+      {isMethod && canExplain && (
+        <button
+          type="button"
+          aria-label="Объясни метод"
+          title="Объяснить метод (ИИ)"
+          onClick={stop(() => runCommand('ai.explain'))}
+        >
+          Объясни
+        </button>
+      )}
+      {canEdit && (
+        <button
+          type="button"
+          aria-label={`Изменить текстом (ИИ): ${data.title}`}
+          title="Изменить текстом (ИИ): опишите правку, сначала будет показан дифф"
+          disabled={edit.saving}
+          onClick={stop(() => runCommand('ai.edit', { blockId: data.blockId }))}
+        >
+          ИИ-правка
+        </button>
+      )}
+    </span>
+  );
+}
+
+/**
  * Тело ноды: текст (двойной клик — правка), инлайн-редактор или — для красной ноды — сообщение об ошибке.
  * view — как показывается текст без редактора.
  */
@@ -184,6 +227,7 @@ export function BlockNode({ data }: NodeProps<FlowNode>) {
         <IssueBadge issues={data.issues} />
         <CollapseToggle data={data} />
         <EditButton data={data} />
+        <AiTools data={data} />
         <NodeTools data={data} />
       </div>
       <EditableBody data={data} className={styles.body ?? ''} view={<JavaText text={data.text} />} />
@@ -210,6 +254,7 @@ export function RawNode({ data }: NodeProps<FlowNode>) {
         <IssueBadge issues={data.issues} />
         <CollapseToggle data={data} />
         <EditButton data={data} />
+        <AiTools data={data} />
         <NodeTools data={data} />
       </div>
       <EditableBody data={data} className={`${styles.body} ${styles.rawBody}`} view={data.text} />

@@ -15,3 +15,5 @@
 Моки: POST fix — `fix.applied.json` + mutation; `scenarios.fixRejected`, `fixIncomplete`, `fixConflict`, `fixNotFound`.
 
 Тесты: `gate.test.ts` (diff, шаги, вердикт), `src/app/sandboxActions.test.tsx` (applied/rejected/incomplete/409/нет Docker).
+
+FE-24: `applyAi(client, projectId, issue, version)` — POST `/issues/{issueId}/ai-fix` `{version}` и тот же поток, что у `apply` (`apply(..., ai=true)`; `AI_FIX_ID` = «ИИ» вместо id фикса); 429/503 — `message` (+ `retryAfterSec`) в диалоге. `reloadAfterConflict` экспортирован для `features/ai`.

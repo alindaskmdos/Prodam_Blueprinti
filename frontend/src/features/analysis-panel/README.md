@@ -15,3 +15,5 @@
 Моки: GET analysis — `contract/fixtures/analysis.merge.json` (числа не зависят от n), `scenarios.analysisNotFound` — 404.
 
 Тесты: `AnalysisPanel.test.tsx` — три вкладки на фикстуре, сортировка, клик → store, смена n → запрос с n, ошибка; `format`.
+
+FE-24: «Предложить фикс (ИИ)» — отдельная кнопка в карточке (`onAiFix`, пропс есть только при `features` ∋ `fix` в `/capabilities`; тот же `fixDisabledReason`) → команда `ai.fix` → `useFixStore.applyAi` → тот же Quality Gate-диалог (подпись «Фикс «ИИ»»), см. `features/ai`.
