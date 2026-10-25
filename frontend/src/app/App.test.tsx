@@ -152,6 +152,9 @@ describe('App — каркас редактора на MSW', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'UML' }));
     const cards = await screen.findAllByTestId('uml-class', {}, { timeout: 10_000 });
     expect(cards.length).toBeGreaterThan(0);
+    // Карточки свёрнуты по умолчанию (FE-44): методы видны после шеврона «Развернуть».
+    fireEvent.click(screen.getByRole('button', { name: 'Развернуть OrderService' }));
+    await waitFor(() => expect(document.querySelector('[data-member-id="com.demo.service.OrderService.merge~0"]')).not.toBeNull());
     const member = document.querySelector('[data-member-id="com.demo.service.OrderService.merge~0"]');
     if (!member) throw new Error('нет метода merge в UML');
     fireEvent.click(member);

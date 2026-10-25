@@ -104,9 +104,20 @@ describe('UmlView (MSW, uml.demo.json)', () => {
     const main = cards.find((c) => c.dataset.classId === 'com.demo.Main');
     if (!main) throw new Error('нет карточки Main');
     expect(within(main).getByText('Main')).toBeInTheDocument();
-    expect(within(main).getByText('catalog: Catalog')).toBeInTheDocument();
+    expect(within(main).getByText('com.demo')).toBeInTheDocument();
+    // По умолчанию карточка свёрнута: членов нет, стереотипа-текста нет.
+    expect(main.querySelector('[data-member-id]')).toBeNull();
+    expect(within(main).queryByText(/«/)).toBeNull();
+    // Шеврон разворачивает: методы `name()`, private скрыты до «ещё N private».
+    fireEvent.click(within(main).getByRole('button', { name: 'Развернуть Main' }));
+    await waitFor(() => expect(within(main).getByText('main()')).toBeInTheDocument());
+    expect(within(main).queryByText('catalog')).toBeNull();
+    expect(within(main).queryByText('handle()')).toBeNull();
+    fireEvent.click(within(main).getByRole('button', { name: /ещё \d+ private/ }));
+    await waitFor(() => expect(within(main).getByText('catalog')).toBeInTheDocument());
+    expect(within(main).getByText('handle()')).toBeInTheDocument();
     expect(within(main).getAllByLabelText('private').length).toBeGreaterThan(0);
-    // Рёбра (и подписи «эвристика») в jsdom не рисуются — нет размеров нод; их данные проверяет umlGraph.test.ts.
+    // Рёбра в jsdom не рисуются — нет размеров нод; их данные проверяет umlGraph.test.ts.
 
     const order = cards.find((c) => c.dataset.classId === ORDER_SERVICE);
     if (!order) throw new Error('нет карточки OrderService');
@@ -163,12 +174,56 @@ describe('UmlView (MSW, uml.demo.json)', () => {
     loadTree();
     render(<UmlView client={client} />);
     await screen.findAllByTestId('uml-class', {}, { timeout: 10_000 });
+    fireEvent.click(screen.getByRole('button', { name: 'Развернуть все' }));
+    await waitFor(() => expect(document.querySelector('[data-member-id="com.demo.service.OrderService.merge~0"]')).not.toBeNull());
     const method = document.querySelector('[data-member-id="com.demo.service.OrderService.merge~0"]');
     if (!method) throw new Error('нет метода merge');
     fireEvent.click(method);
     await waitFor(() => expect(blocksCalls).toBe(1), { timeout: 400 });
     expect(useAppStore.getState().selectedMethodId).toBeNull();
     await waitFor(() => expect(useAppStore.getState().selectedMethodId).toBe('com.demo.service.OrderService.merge~0'), { timeout: 3000 });
+  }, 20_000);
+
+  it('«Развернуть все» / «Свернуть все»: члены всех карточек, конструкторы не показываются', async () => {
+    useAppStore.getState().openProject('p-1', 1);
+    render(<UmlView client={client} />);
+    await screen.findAllByTestId('uml-class', {}, { timeout: 10_000 });
+    expect(document.querySelector('[data-member-id]')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Развернуть все' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Свернуть все' })).toBeInTheDocument());
+    await waitFor(() => expect(document.querySelectorAll('[data-member-id]').length).toBeGreaterThan(uml.classes.length));
+    expect(document.querySelector('[data-member-id*="<init>"]')).toBeNull();
+    expect(screen.getAllByRole('button', { name: /^Свернуть / }).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Свернуть все' }));
+    await waitFor(() => expect(document.querySelector('[data-member-id]')).toBeNull());
+    expect(screen.getByRole('button', { name: 'Развернуть все' })).toBeInTheDocument();
+  }, 20_000);
+
+  it('шеврон разворачивает только свою карточку; список членов прокручивается колесом (nowheel), не зумит холст', async () => {
+    useAppStore.getState().openProject('p-1', 1);
+    render(<UmlView client={client} />);
+    const cards = await screen.findAllByTestId('uml-class', {}, { timeout: 10_000 });
+    const order = cards.find((c) => c.dataset.classId === ORDER_SERVICE);
+    if (!order) throw new Error('нет карточки OrderService');
+    fireEvent.click(within(order).getByRole('button', { name: 'Развернуть OrderService' }));
+    const list = await within(order).findByTestId('uml-members');
+    expect(list.className).toContain('nowheel');
+    expect(list.className).toContain(styles.cardBody);
+    expect(screen.getAllByTestId('uml-members')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Развернуть все' })).toBeInTheDocument();
+  }, 20_000);
+
+  it('«Зависимости»: по умолчанию выключено, переключение не пересоздаёт холст', async () => {
+    useAppStore.getState().openProject('p-1', 1);
+    render(<UmlView client={client} />);
+    await screen.findAllByTestId('uml-class', {}, { timeout: 10_000 });
+    const canvas = screen.getByTestId('uml-canvas');
+    const toggle = screen.getByRole('button', { name: 'Зависимости' });
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    await waitFor(() => expect(screen.getAllByTestId('uml-class')).toHaveLength(uml.classes.length));
+    expect(screen.getByTestId('uml-canvas')).toBe(canvas);
   }, 20_000);
 
   it('поиск: число найденных; смена версии проекта перезагружает диаграмму', async () => {
