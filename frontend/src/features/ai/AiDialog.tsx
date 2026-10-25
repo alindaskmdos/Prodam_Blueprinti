@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { parseUnifiedDiff } from '../fix/gate';
 import { useAiStore, type EditDialog, type ExplainDialog } from './aiStore';
-import { renderMarkdown } from './markdown';
 import styles from './Ai.module.css';
+
+// react-markdown + remark-gfm — в отдельном чанке, грузятся при первом ответе «Объясни метод».
+const AiMarkdown = lazy(() => import('./AiMarkdown'));
 
 /** Диалоги ИИ: «Объясни метод» (текст) и «Изменить текстом (ИИ)» (инструкция → дифф → Применить / Отмена). */
 export function AiDialog() {
@@ -39,7 +41,11 @@ function ExplainBody({ d }: { d: ExplainDialog }) {
         ) : d.text === null ? (
           <span className={styles.muted}>ИИ анализирует метод…</span>
         ) : (
-          <div data-testid="ai-explanation">{renderMarkdown(d.text)}</div>
+          <div data-testid="ai-explanation">
+            <Suspense fallback={<span className={styles.muted}>…</span>}>
+              <AiMarkdown text={d.text} />
+            </Suspense>
+          </div>
         )}
       </div>
       <footer className={styles.foot}>

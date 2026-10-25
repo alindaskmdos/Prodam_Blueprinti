@@ -145,6 +145,57 @@ const ERROR_CHAR_W = 6.8;
 const ERROR_LINE_H = 16;
 const ERROR_SUFFIX = ' В код не попало.';
 
+// Заголовок ноды (Inter 600 12px, nodes.tsx): текст, бейджи и кнопки. Кнопки — квадраты HEADER_BTN
+// (MethodCanvas.module.css: .collapseBtn, .editBtn, .tools button), невидимые до наведения, но место занимают всегда — ширина не прыгает.
+const HEADER_CHAR_W = 7.5;
+const HEADER_PAD_X = 20;
+const HEADER_GAP = 6;
+const HEADER_BTN = 18;
+const TOOLS_GAP = 2;
+/** «!» — .issueBadge. */
+const ISSUE_W = 22;
+const BADGE_CHAR_W = 7;
+const BADGE_PAD_X = 16;
+/** Бейдж сложности сжимается с «…» (.badgeFit): резервируется не больше этого. */
+const BADGE_MAX = 64;
+const HEADER_SLACK = 6;
+
+/** Группа из n кнопок в одном span (.tools: ИИ, ↑ ↓ ✕). */
+function toolsWidth(n: number): number {
+  return n * HEADER_BTN + (n - 1) * TOOLS_GAP;
+}
+
+/**
+ * Минимальная ширина ноды, при которой весь заголовок помещается в её границы (FE-49): ✎, ИИ-кнопки
+ * и ↑ ↓ ✕ есть только в режиме правки (edit); ИИ-кнопки резервируются всегда — /capabilities тут не известны.
+ */
+export function headerWidth(data: GraphNodeData, edit: boolean): number {
+  const title = data.error !== undefined ? `${data.title} · ошибка` : data.title;
+  const items: number[] = [title.length * HEADER_CHAR_W];
+  if (data.badge) items.push(Math.min(BADGE_MAX, data.badge.length * BADGE_CHAR_W + BADGE_PAD_X));
+  if (data.collapse?.collapsed) items.push(blocksLabel(data.collapse.hidden ?? 0).length * BADGE_CHAR_W + BADGE_PAD_X);
+  if (data.issues.length > 0) items.push(ISSUE_W);
+  if (data.collapse) items.push(HEADER_BTN);
+  if (edit) {
+    const isMethod = data.path === 'root';
+    if (data.editable) items.push(HEADER_BTN);
+    items.push(toolsWidth(isMethod ? 2 : 1));
+    if (!isMethod) items.push(toolsWidth(3));
+  }
+  const sum = items.reduce((a, b) => a + b, 0);
+  return Math.ceil(sum + (items.length - 1) * HEADER_GAP + HEADER_PAD_X + HEADER_SLACK);
+}
+
+function withHeaderWidth(
+  size: { width: number; height: number },
+  type: GraphNodeType,
+  data: GraphNodeData,
+  edit: boolean,
+): { width: number; height: number } {
+  if (type === 'comment') return size;
+  return { width: Math.max(size.width, headerWidth(data, edit)), height: size.height };
+}
+
 function withErrorSize(size: { width: number; height: number }, error: string): { width: number; height: number } {
   const perLine = Math.max(1, Math.floor((size.width - 24) / ERROR_CHAR_W));
   const lines = Math.ceil((explainParseError(error).text.length + ERROR_SUFFIX.length) / perLine) + 1;
@@ -239,10 +290,12 @@ export function blocksToGraph(root: Block, options: ToGraphOptions = {}): Graph 
     parentId: string | undefined,
     type: GraphNodeType,
     badge?: string,
+    collapse?: GraphNodeData['collapse'],
   ) => {
     const data = dataOf(block, id, path);
     if (badge) data.badge = badge;
-    const size = estimateSize(type, data.title, data.text);
+    if (collapse) data.collapse = collapse;
+    const size = withHeaderWidth(estimateSize(type, data.title, data.text), type, data, insertable);
     nodes.push({
       id,
       type,
@@ -277,7 +330,12 @@ export function blocksToGraph(root: Block, options: ToGraphOptions = {}): Graph 
       const hidden = nestedCount(block);
       data.issues = subtreeIssues(block);
       data.collapse = { key, collapsed: true, locked: false, hidden };
-      const size = estimateSize(type, `${data.title}${COLLAPSED_EXTRA}${blocksLabel(hidden)}`, data.text);
+      const size = withHeaderWidth(
+        estimateSize(type, `${data.title}${COLLAPSED_EXTRA}${blocksLabel(hidden)}`, data.text),
+        type,
+        data,
+        insertable,
+      );
       nodes.push({
         id,
         type,
@@ -295,12 +353,11 @@ export function blocksToGraph(root: Block, options: ToGraphOptions = {}): Graph 
       data: { ...dataOf(block, id, path), editable: false },
     });
     const headId = `${id}${HEAD_SUFFIX}`;
-    pushLeaf(block, headId, path, id, isKnownKind(block.kind) ? 'block' : 'raw');
-    const head = nodes[nodes.length - 1];
-    if (head) {
-      head.data.collapse = { key, collapsed: false, locked: locked?.has(path) === true };
-      head.width = Math.max(head.width ?? 0, estimateSize('block', `${head.data.title}  ▾ `, '').width);
-    }
+    pushLeaf(block, headId, path, id, isKnownKind(block.kind) ? 'block' : 'raw', undefined, {
+      key,
+      collapsed: false,
+      locked: locked?.has(path) === true,
+    });
 
     // Ветки, где после скрытия комментариев ничего не осталось, не рисуются (как пустые).
     const slots = orderedSlots(block).filter((s) => visible(s.items, `${path}/${s.spec.key}`).length > 0);

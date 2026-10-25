@@ -60,10 +60,12 @@
   border-color: var(--jb-severity-high);
 }
 
+/* Ширина ноды считается с запасом под весь заголовок (blocksToGraph: headerWidth) — константы там же. */
 .header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  min-width: 0;
   padding: 6px 10px;
   border-radius: 9px 9px 0 0;
   background: var(--kind);
@@ -84,13 +86,19 @@
   font: 600 11px var(--jb-font-code);
 }
 
-/* Заголовок не сжимается; длинный бейдж сложности обрезается с «…» (полный текст — в title). */
+/*
+ * Заголовок не сжимается, пока есть что сжать: длинный бейдж сложности обрезается с «…» первым (полный текст — в title).
+ * Последний рубеж (оценка ширины ошиблась) — «…» у названия, но кнопки остаются в границах ноды.
+ */
 .headerTitle {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .badgeFit {
-  flex: 0 1 auto;
+  flex: 0 1000 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -109,6 +117,32 @@
 .badge + .issueBadge,
 .badge + .badge {
   margin-left: 0;
+}
+
+.header > .badge:not(.badgeFit),
+.issueBadge,
+.collapseBtn,
+.editBtn,
+.tools {
+  flex-shrink: 0;
+}
+
+/* Кнопки заголовка — одинаковые квадраты 18×18 (▾, ✎, ИИ, ↑ ↓ ✕): ширина заголовка предсказуема. */
+.header .collapseBtn,
+.header .editBtn,
+.header .tools button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+}
+
+.tools svg {
+  display: block;
+  width: 12px;
+  height: 12px;
 }
 
 /* ── Сворачивание контейнеров (FE-06, Kit.dc.html «свёрнутый контейнер») ── */

@@ -120,6 +120,7 @@ function AiTools({ data }: { data: GraphNodeData }) {
     e.stopPropagation();
     fn();
   };
+  if (!(isMethod && canExplain) && !canEdit) return null;
   return (
     <span className={`${styles.tools} nodrag`}>
       {isMethod && canExplain && (
@@ -129,7 +130,7 @@ function AiTools({ data }: { data: GraphNodeData }) {
           title="Объяснить метод (ИИ)"
           onClick={stop(() => runCommand('ai.explain'))}
         >
-          Объясни
+          <ExplainIcon />
         </button>
       )}
       {canEdit && (
@@ -140,10 +141,31 @@ function AiTools({ data }: { data: GraphNodeData }) {
           disabled={edit.saving}
           onClick={stop(() => runCommand('ai.edit', { blockId: data.blockId }))}
         >
-          ИИ-правка
+          <SparkIcon />
         </button>
       )}
     </span>
+  );
+}
+
+/** «Объясни метод»: облачко с «?» (12×12, цвет текста заголовка). */
+function ExplainIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+      <path d="M3 2.5h10a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5H8l-3 2.5v-2.5H3A1.5 1.5 0 0 1 1.5 10V4A1.5 1.5 0 0 1 3 2.5Z" strokeLinejoin="round" />
+      <path d="M6.4 5.6a1.6 1.6 0 1 1 2.2 1.5c-.4.2-.6.5-.6.9v.3" strokeLinecap="round" />
+      <circle cx="8" cy="9.6" r=".4" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+/** «Изменить текстом (ИИ)»: искра — общепринятый знак ИИ. */
+function SparkIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+      <path d="M8 1.5c.3 2.9 1.6 4.2 4.5 4.5-2.9.3-4.2 1.6-4.5 4.5-.3-2.9-1.6-4.2-4.5-4.5 2.9-.3 4.2-1.6 4.5-4.5Z" />
+      <path d="M12.5 9.5c.15 1.4.8 2.05 2 2.2-1.2.15-1.85.8-2 2.3-.15-1.5-.8-2.15-2-2.3 1.2-.15 1.85-.8 2-2.2Z" />
+    </svg>
   );
 }
 

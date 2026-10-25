@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { fixtures } from '../../mocks/fixtures';
 import { blockText } from './blockText';
-import { blocksToGraph, HEAD_SUFFIX, SLOT_SUFFIX, type Graph } from './blocksToGraph';
+import { blocksToGraph, HEAD_SUFFIX, headerWidth, SLOT_SUFFIX, type Graph } from './blocksToGraph';
 import { ALL_KINDS, type Block } from './kinds';
 import { allKindsMethod, b } from './testTree';
 
@@ -256,5 +256,28 @@ describe('blocksToGraph — места вставки (FE-08)', () => {
     const odd = { ...b('raw'), kind: 'labeled', slots: { body: [b('expr', { text: 'x()' })] } } as unknown as Block;
     const gu = blocksToGraph(b('method', {}, { body: [odd] }), { insertable: true });
     expect(gu.nodes.filter((n) => n.type === 'insert').map((n) => n.data.insert?.parent)).toEqual(['root']);
+  });
+});
+
+describe('FE-49: ширина ноды вмещает заголовок с кнопками', () => {
+  it('в режиме правки (✎, ИИ, ↑ ↓ ✕) и с «!» / ▾ каждая нода не уже своего заголовка', () => {
+    const root = allKindsMethod();
+    for (const n of collect(root)) if (n.kind === 'continue' || n.kind === 'if') n.issues = ['i-1'];
+    const g = blocksToGraph(root, { methodBadge: 'O(n²) · ≈10⁸ операций', insertable: true });
+    const leaves = g.nodes.filter((n) => n.type === 'block' || n.type === 'raw');
+    expect(leaves.length).toBeGreaterThan(5);
+    for (const n of leaves) expect(n.width ?? 0).toBeGreaterThanOrEqual(headerWidth(n.data, true));
+  });
+
+  it('кнопки правки и ИИ резервируют место только в режиме правки', () => {
+    const view = blocksToGraph(b('method', {}, { body: [b('continue')] })).nodes.find((n) => n.data.kind === 'continue');
+    if (!view) throw new Error('нет ноды continue');
+    expect(headerWidth(view.data, true)).toBeGreaterThan(headerWidth(view.data, false));
+    // «Переменная» в режиме правки: название + ✎ + ИИ + ↑ ↓ ✕ не влезают в минимальные 200px — нода шире.
+    const edit = blocksToGraph(b('method', {}, { body: [b('var', { text: 'int x' })] }), { insertable: true }).nodes.find(
+      (n) => n.data.kind === 'var',
+    );
+    expect(edit?.width).toBe(headerWidth(edit?.data ?? view.data, true));
+    expect(edit?.width).toBeGreaterThan(200);
   });
 });

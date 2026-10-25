@@ -119,12 +119,66 @@ describe('FE-24: кнопки ИИ по /capabilities', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Объясни метод' }));
 
     const text = await screen.findByTestId('ai-explanation');
-    expect(text).toHaveTextContent('Для каждого заказа ищет в списке');
+    // Markdown рендерится ленивым чанком — ждём его.
+    await waitFor(() => expect(text).toHaveTextContent('Для каждого заказа ищет в списке'));
     expect(text.querySelector('strong')).toHaveTextContent('Что делает.');
+    expect(text).not.toHaveTextContent('**');
     const explain = calls.find((c) => c.url.pathname.endsWith('/explain'));
     expect(explain?.body).toEqual({ version: useAppStore.getState().version });
     fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }));
     expect(screen.queryByTestId('ai-dialog')).not.toBeInTheDocument();
+  }, 20_000);
+
+  it('FE-49: ответ explain — markdown: заголовок, список, код, таблица, ссылка; сырой HTML не исполняется', async () => {
+    const md = [
+      '# Слияние заказов',
+      '',
+      'Метод **сливает** заказы.',
+      '',
+      '## Шаги',
+      '',
+      '- обходит `orders`',
+      '- ищет пару',
+      '',
+      '```java',
+      'for (Order a : orders) { merge(a); }',
+      '```',
+      '',
+      '| n | операций |',
+      '|---|---|',
+      '| 10 | 100 |',
+      '',
+      '> цитата',
+      '',
+      '[док](https://example.com/doc)',
+      '',
+      '<img src="x" onerror="alert(1)"><script>alert(2)</script>',
+    ].join('\n');
+    server.use(
+      http.post('*/api/projects/:projectId/methods/:methodId/explain', () =>
+        HttpResponse.json({ version: treeJson.version, text: md }),
+      ),
+    );
+    await openMergeMethod();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Объясни метод' }));
+
+    const box = await screen.findByTestId('ai-explanation');
+    const h1 = await within(box).findByRole('heading', { level: 1 });
+    expect(h1).toHaveTextContent('Слияние заказов');
+    expect(within(box).getByRole('heading', { level: 2 })).toHaveTextContent('Шаги');
+    expect(box).not.toHaveTextContent('#');
+    const items = within(box).getAllByRole('listitem');
+    expect(items).toHaveLength(2);
+    expect(box.querySelector('ul code')).toHaveTextContent('orders');
+    expect(box.querySelector('pre code')).toHaveTextContent('for (Order a : orders) { merge(a); }');
+    expect(box).not.toHaveTextContent('```');
+    expect(within(box).getByRole('table')).toBeInTheDocument();
+    expect(box.querySelector('blockquote')).toHaveTextContent('цитата');
+    const link = within(box).getByRole('link', { name: 'док' });
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(box.querySelector('img, script')).toBeNull();
   }, 20_000);
 
   it('429 RATE_LIMITED → показано message сервера', async () => {
