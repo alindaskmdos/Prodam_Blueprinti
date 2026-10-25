@@ -19,7 +19,7 @@ public final class LlmFixProvider implements FixProvider {
             Ты исправляешь проблему производительности или дефект в методе Java, не меняя его наблюдаемого поведения \
             (вывод, возвращаемые значения, исключения, порядок перебора). %s
             Ответ — один блок ```java с полным новым текстом метода (без javadoc). Нужные новые импорты — строками import \
-            в начале блока. Сигнатуру не меняй. Без пояснений.""".formatted(Ai.ORDER_RULE);
+            в начале блока. Сигнатуру не меняй. %s""".formatted(Ai.ORDER_RULE, Ai.REPLY_RULE);
 
     private final LlmClient client;
 
@@ -56,7 +56,7 @@ public final class LlmFixProvider implements FixProvider {
             @Override
             public Map<String, String> apply(Map<String, String> files, String target) {
                 MethodPatch.Reply r = MethodPatch.parse(reply);
-                if (r.hashCollections() > MethodPatch.count(old)) throw new IllegalStateException(ORDER_VIOLATION);
+                if (r.hashCollections(method) >MethodPatch.count(old)) throw new IllegalStateException(ORDER_VIOLATION);
                 String patched = MethodPatch.apply(text, method, r);
                 if (patched.equals(text)) throw new IllegalStateException("ИИ не предложил изменений");
                 Map<String, String> out = new LinkedHashMap<>();
