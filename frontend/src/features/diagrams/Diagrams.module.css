@@ -99,25 +99,36 @@
   100% { transform: scale(1); box-shadow: 0 0 0 2px var(--jb-accent), 0 14px 34px rgba(91, 155, 255, 0.3); }
 }
 
-/* 54 px */
+/* 56 px (CARD.header) = рамка .card 3 px сверху (полоса kind) + 52 px + 1 px снизу (box-sizing: border-box). */
 .cardHeader {
-  flex: 0 0 51px; /* 54 − 3 px верхней полосы kind */
+  flex: 0 0 52px;
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.cardHeaderOpen {
+  border-bottom: 1px solid var(--jb-border);
+}
+
+.headMain {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 12px;
-  border-bottom: 1px solid var(--jb-border);
+  gap: 8px;
+  padding: 0 0 0 12px;
   cursor: pointer;
   outline: none;
   transition: background var(--jb-dur-hover);
 }
 
-.cardHeader:hover,
-.cardHeader:focus-visible {
+.headMain:hover,
+.headMain:focus-visible {
   background: var(--jb-raised);
 }
 
-.cardHeader:focus-visible {
+.headMain:focus-visible {
   box-shadow: inset 0 0 0 2px var(--jb-accent);
 }
 
@@ -140,13 +151,9 @@
   min-width: 0;
 }
 
-.stereotype {
-  font: 500 10.5px/14px var(--jb-font-code);
-  color: var(--jb-text-secondary);
-}
-
+/* Имя — одной строкой, не переносится; не влезло (CARD.maxWidth) — многоточие, FQN в title. */
 .className {
-  font: 700 14px/18px var(--jb-font-ui);
+  font: 700 16px/20px var(--jb-font-ui);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -157,21 +164,75 @@
   color: var(--jb-text-secondary);
 }
 
-.section {
-  display: flex;
-  flex-direction: column;
+.packageName {
+  font: 10.5px/14px var(--jb-font-code);
+  color: var(--jb-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* 22 px */
-.sectionTitle {
-  height: 22px;
+.chevron {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 20px;
+  height: 20px;
+  margin: 0 8px 0 6px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--jb-text-secondary);
+  cursor: pointer;
+  transition: background var(--jb-dur-hover), color var(--jb-dur-hover);
+}
+
+.chevron svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 160ms var(--jb-ease-out);
+}
+
+.chevron[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+
+.chevron:hover,
+.chevron:focus-visible {
+  background: var(--jb-raised);
+  color: var(--jb-text);
+  outline: none;
+}
+
+/* Тело развёрнутой карточки: CARD.bodyPad сверху и снизу, строки по 20 px, разделитель 7 px. */
+/* Не выше CARD.maxBody (188 px = 4 + 9 строк + 4): длинный список прокручивается (колесо — список, не холст: nowheel). */
+.cardBody {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 188px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--jb-border-strong) transparent;
   display: flex;
-  align-items: flex-end;
-  padding: 0 12px 3px;
-  font: 600 10px var(--jb-font-ui);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #8b95a4;
+  flex-direction: column;
+  padding: 4px 0;
+}
+
+.cardBody > * {
+  flex-shrink: 0;
+}
+
+.separator {
+  flex: 0 0 7px;
+  margin: 0 12px;
+  background: linear-gradient(var(--jb-border), var(--jb-border)) center / 100% 1px no-repeat;
 }
 
 /* 20 px */
@@ -216,6 +277,22 @@
   background: var(--jb-raised);
   color: #fff;
   padding-left: 16px;
+  outline: none;
+}
+
+.privateToggle {
+  width: 100%;
+  border: 0;
+  background: none;
+  font: 11px var(--jb-font-ui);
+  color: var(--jb-text-secondary);
+  cursor: pointer;
+}
+
+.privateToggle:hover,
+.privateToggle:focus-visible {
+  color: var(--jb-text);
+  background: var(--jb-raised);
   outline: none;
 }
 
@@ -270,37 +347,46 @@
   opacity: 0.3;
 }
 
-/* ---------- Семантический зум: при отдалении карточка — только стереотип и имя, крупно ---------- */
+/* ---------- Отдаление: имя крупнее (nameScale, одно на диаграмму), переносы только по <wbr> (camelCase) ---------- */
 
-.cardCompact .section {
-  display: none;
+/* Карточка растёт по высоте симметрично вверх и вниз от бокса раскладки (translate, не transform — тот занят анимацией). */
+.cardScaled {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: auto;
+  min-height: 100%;
+  translate: 0 -50%;
 }
 
-.cardCompact .cardHeader {
-  flex: 1 1 auto;
-  align-items: flex-start;
-  gap: calc(10px * var(--sem));
-  padding: calc(8px * var(--sem)) calc(12px * var(--sem)) 0;
+.cardScaled .cardHeader {
+  flex: 1 0 auto;
   border-bottom: 0;
 }
 
-.cardCompact .kindIcon {
-  width: calc(22px * var(--sem));
-  height: calc(22px * var(--sem));
-  border-radius: calc(5px * var(--sem));
-  font-size: calc(11px * var(--sem));
+.cardScaled .headMain {
+  padding: 6px 8px 6px 12px;
 }
 
-.cardCompact .stereotype {
-  font-size: calc(10.5px * var(--sem));
-  line-height: 1.3;
-}
-
-.cardCompact .className {
-  font-size: calc(14px * var(--sem));
-  line-height: 1.25;
+.cardScaled .className {
+  font-size: calc(16px * var(--name-scale));
+  line-height: 1.15;
   white-space: normal;
-  overflow-wrap: anywhere;
+  overflow: visible;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+.cardScaled .packageName,
+.cardScaled .typeParams,
+.cardScaled .chevron {
+  display: none;
+}
+
+/* Эвристическая связь (агрегация/композиция по полям): тоньше и бледнее; подписи на ребре нет — она в title и легенде. */
+.heuristic {
+  stroke-width: 1 !important;
+  stroke-opacity: 0.7;
 }
 
 .edgeCycle {
@@ -323,13 +409,6 @@
   opacity: 0.15;
 }
 
-.badgeLabel {
-  font: italic 500 9.5px var(--jb-font-ui);
-  color: var(--jb-severity-maybe);
-  border: 1px dashed rgba(169, 198, 255, 0.45);
-  padding: 0 5px;
-}
-
 /* ---------- Панели ---------- */
 
 .toolbar {
@@ -344,7 +423,7 @@
 }
 
 .search {
-  width: 200px;
+  width: 150px;
   height: 30px;
   border-radius: 7px;
   border: 1px solid var(--jb-border-strong);
@@ -462,10 +541,6 @@
 
 .legendItem svg {
   overflow: visible;
-}
-
-.legendBadge {
-  position: static;
 }
 
 .minimap {

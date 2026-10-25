@@ -29,25 +29,6 @@ export function polylinePath(points: readonly Point[]): string {
   return points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
 }
 
-/** Точка ломаной на доле `t` (0…1) её длины. */
-export function polylineAt(points: readonly Point[], t = 0.5): Point {
-  const segments = points.slice(1).map((b, i) => {
-    const a = points[i] ?? b;
-    return { a, b, len: Math.hypot(b.x - a.x, b.y - a.y) };
-  });
-  let rest = segments.reduce((n, s) => n + s.len, 0) * t;
-  for (const { a, b, len } of segments) {
-    if (rest <= len && len > 0) return { x: a.x + ((b.x - a.x) * rest) / len, y: a.y + ((b.y - a.y) * rest) / len };
-    rest -= len;
-  }
-  return points[points.length - 1] ?? { x: 0, y: 0 };
-}
-
-/** Середина ломаной по длине. */
-export function polylineMid(points: readonly Point[]): Point {
-  return polylineAt(points, 0.5);
-}
-
 /** Точка у конца ломаной: `back` назад по последнему отрезку и `side` вбок (для подписи кратности). */
 export function nearEnd(points: readonly Point[], back = 20, side = 10): Point {
   const end = points[points.length - 1] ?? { x: 0, y: 0 };
@@ -63,13 +44,28 @@ function onBox(p: Point, hw: number, hh: number, boxes: readonly Box[]): boolean
   return boxes.some((b) => p.x + hw > b.x && p.x - hw < b.x + b.width && p.y + hh > b.y && p.y - hh < b.y + b.height);
 }
 
-/** Место подписи «эвристика» на ребре: первая из долей длины, где подпись не ложится на карточки; нет — null. */
-export function badgeSpot(points: readonly Point[], boxes: readonly Box[]): Point | null {
-  for (const t of [0.5, 0.38, 0.62, 0.26, 0.74]) {
-    const p = polylineAt(points, t);
-    if (!onBox(p, 34, 9, boxes)) return p;
-  }
-  return null;
+/** Точка выхода луча из центра `box` в сторону (dx, dy) через его границу. */
+function exitPoint(box: Box, dx: number, dy: number): Point {
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  const tx = dx === 0 ? Infinity : box.width / 2 / Math.abs(dx);
+  const ty = dy === 0 ? Infinity : box.height / 2 / Math.abs(dy);
+  const t = Math.min(tx, ty);
+  return { x: cx + dx * t, y: cy + dy * t };
+}
+
+/**
+ * Прямая между карточками от границы до границы (по линии центров) — для рёбер вне раскладки ELK
+ * (зависимость наведённой карточки при скрытых зависимостях). Карточки пересекаются — null.
+ */
+export function straightRoute(from: Box, to: Box): Point[] | null {
+  const dx = to.x + to.width / 2 - (from.x + from.width / 2);
+  const dy = to.y + to.height / 2 - (from.y + from.height / 2);
+  if (dx === 0 && dy === 0) return null;
+  const a = exitPoint(from, dx, dy);
+  const b = exitPoint(to, -dx, -dy);
+  if ((b.x - a.x) * dx + (b.y - a.y) * dy <= 0) return null;
+  return [a, b];
 }
 
 /** Место кратности у конца ребра: вплотную, затем дальше назад по ребру; на карточки подпись не ложится. */

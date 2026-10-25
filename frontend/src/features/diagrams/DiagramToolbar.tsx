@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import styles from './Diagrams.module.css';
 
 interface ToolbarProps {
@@ -14,10 +15,12 @@ interface ToolbarProps {
   placeholder: string;
   /** Ошибка перезагрузки при показанной старой диаграмме. */
   stale?: string | null;
+  /** Дополнительные кнопки после «Карта» (UML: «Развернуть все»). */
+  children?: ReactNode;
 }
 
 /** Панель диаграммы: поиск класса, число совпадений, Fit View, мини-карта. */
-export function DiagramToolbar({ query, onQuery, onEnter, found, onFit, minimap, onMinimap, placeholder, stale }: ToolbarProps) {
+export function DiagramToolbar({ query, onQuery, onEnter, found, onFit, minimap, onMinimap, placeholder, stale, children }: ToolbarProps) {
   return (
     <div className={styles.toolbar}>
       <input
@@ -43,6 +46,7 @@ export function DiagramToolbar({ query, onQuery, onEnter, found, onFit, minimap,
       <button type="button" className={styles.toolButton} aria-pressed={minimap} onClick={onMinimap} title="Показать или скрыть мини-карту">
         Карта
       </button>
+      {children}
       {stale && (
         <span className={styles.stale} title={stale}>
           устаревшие данные

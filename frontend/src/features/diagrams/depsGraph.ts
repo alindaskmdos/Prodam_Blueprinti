@@ -84,6 +84,9 @@ export function depsFlow(model: DepsModel, layout: DiagramLayout, ui: DepsIntera
       position: layout.positions.get(n.id) ?? { x: 0, y: 0 },
       width: n.width,
       height: n.height,
+      // Размер известен из раскладки: без measured пересозданная нода (наведение, поиск) считается неизмеренной,
+      // и Fit View React Flow ждёт замера, которого не будет (размер в DOM не меняется).
+      measured: { width: n.width, height: n.height },
       style: { width: n.width, height: n.height },
       draggable: false,
       connectable: false,

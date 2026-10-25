@@ -1,21 +1,28 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import umlJson from '@contract/fixtures/uml.demo.json';
 import type { Schemas } from '../api';
-import { fromElk, toElk } from './diagramLayout';
-import { badgeSpot, multiplicitySpot, nearEnd, polylineAt, polylineMid, polylinePath, selfLoopPoints } from './edgeGeometry';
+import { fromElk, layoutDiagram, toElk } from './diagramLayout';
+import { multiplicitySpot, nearEnd, polylinePath, selfLoopPoints, straightRoute } from './edgeGeometry';
 import { flyTarget } from './navigation';
 import { anchorOnTop } from './startView';
 import { umlFlow } from './umlFlow';
 import {
-  cardSections,
+  cardMembers,
   cardSize,
   CARD,
+  EXPANDED_SCALE_ZOOM,
+  FAR_NAME_SCALE,
   hubSources,
+  layoutModel,
   matchClasses,
-  memberText,
+  nameFit,
+  nameScale,
+  nameSegments,
   neighborsOf,
-  semanticScale,
-  stereotypeOf,
+  READABLE_NAME_PX,
+  SCALED_TEXT_CHROME,
+  titleWidth,
   umlToGraph,
   visibilityOf,
   type UmlClass,
@@ -89,36 +96,101 @@ describe('umlToGraph — ответ GET uml → ноды и рёбра', () => {
     ]);
   });
 
-  it('размер карточки растёт с числом членов и длиной сигнатур', () => {
-    const empty = cardSize(cls({ id: 'E' }));
-    expect(empty.height).toBe(CARD.header + CARD.bottomPad);
-    const full = cls({
-      id: 'F',
-      fields: [{ name: 'x', type: 'int', modifiers: ['private'] }],
-      methods: [{ id: 'F.m~0', name: 'm', signature: 'public void m()', modifiers: ['public'] }],
-    });
-    expect(cardSize(full).height).toBe(CARD.header + 2 * CARD.sectionTitle + 2 * CARD.row + CARD.bottomPad);
-    expect(cardSections(full).map((s) => s.key)).toEqual(['fields', 'methods']);
-    const wide = cls({
-      id: 'W',
-      methods: [{ id: 'W.m~0', name: 'm', signature: `public void m(${'int a, '.repeat(10)}int z)`, modifiers: ['public'] }],
-    });
-    expect(cardSize(wide).width).toBeGreaterThan(empty.width);
+  it('свёрнутые карточки одной высоты, ширина — от длины имени (пакет её не задаёт)', () => {
+    const g = umlToGraph(uml);
+    expect(new Set(g.nodes.map((n) => n.height))).toEqual(new Set([CARD.header]));
+    expect(g.nodes.every((n) => n.level === 'compact')).toBe(true);
+    const short = cardSize(cls({ id: 'A', package: 'com.example.very.long.package.name' }));
+    expect(short.width).toBe(CARD.minWidth);
+    const long = cardSize(cls({ id: 'InventoryService' }));
+    expect(long.width).toBeGreaterThanOrEqual(Math.round(titleWidth('InventoryService') + CARD.headerChrome));
+    expect(cardSize(cls({ id: 'X'.repeat(80) })).width).toBe(CARD.maxWidth);
   });
 
-  it('видимость значком, стереотип и текст члена', () => {
+  it('размеры CARD совпадают с CSS (border-box): заголовок + рамки карточки = CARD.header, max-height списка = CARD.maxBody', () => {
+    // Исходник CSS (не модуль: vitest отдаёт вместо него прокси классов).
+    const diagramsCss = readFileSync(`${__dirname}/Diagrams.module.css`, 'utf8');
+    const rule = (sel: string) => new RegExp(`\\n\\${sel} \\{([^}]*)\\}`).exec(diagramsCss)?.[1] ?? '';
+    const px = (block: string, prop: string) => Number(new RegExp(`(?:^|\\s)${prop}:\\s*(?:0 0 )?([\\d.]+)px`).exec(block)?.[1]);
+    const card = rule('.card');
+    const header = px(rule('.cardHeader'), 'flex');
+    expect(px(card, 'border-top') + header + px(card, 'border')).toBe(CARD.header);
+    expect(px(rule('.cardBody'), 'max-height')).toBe(CARD.maxBody);
+    expect(px(rule('.row'), 'height')).toBe(CARD.row);
+    expect(px(rule('.separator'), 'flex')).toBe(CARD.separator);
+  });
+
+  it('оценка ширины имени не меньше замера Inter 700 16 px в Chromium (имя не обрезается)', () => {
+    // Замер canvas.measureText в Chromium: «Command» 81 px, «Validator.» 74 px, «Summary» 76 px, «WWW» 51 px.
+    expect(titleWidth('Command')).toBeGreaterThanOrEqual(81);
+    expect(titleWidth('Validator.')).toBeGreaterThanOrEqual(74);
+    expect(titleWidth('Summary')).toBeGreaterThanOrEqual(76);
+    expect(titleWidth('WWW')).toBeGreaterThanOrEqual(51);
+  });
+
+  it('ширина свёрнутой карточки — с запасом под крупное имя при отдалении: короткие имена не упираются в ширину', () => {
+    for (const name of ['Order', 'Main', 'Texts', 'Validator', 'CommandLine']) {
+      const { width } = cardSize(cls({ id: name }));
+      const longest = Math.max(...nameSegments(name).map(titleWidth));
+      expect(width - SCALED_TEXT_CHROME).toBeGreaterThanOrEqual(longest * FAR_NAME_SCALE - 1);
+    }
+  });
+
+  it('развёрнутая карточка: поля `name`, методы `name()`, без конструкторов; private — по уровню all', () => {
+    const c = cls({
+      id: 'F',
+      fields: [
+        { name: 'x', type: 'int', modifiers: ['private'] },
+        { name: 'LIMIT', type: 'int', modifiers: ['public', 'static', 'final'] },
+      ],
+      constructors: [{ id: 'F.<init>~0', name: 'F', signature: 'public F(int x)', modifiers: ['public'] }],
+      methods: [
+        { id: 'F.run~0', name: 'run', signature: 'public void run(List<String> args)', modifiers: ['public'] },
+        { id: 'F.help~0', name: 'help', signature: 'private int help()', modifiers: ['private'] },
+      ],
+    });
+    const open = cardMembers(c, 'expanded');
+    expect(open.fields.map((r) => r.label)).toEqual(['LIMIT']);
+    expect(open.methods.map((r) => [r.label, r.method?.id])).toEqual([['run()', 'F.run~0']]);
+    expect(open.methods[0]?.title).toContain('public void run(List<String> args)');
+    expect(open.privateCount).toBe(2);
+    const all = cardMembers(c, 'all');
+    expect(all.fields.map((r) => r.label)).toEqual(['x', 'LIMIT']);
+    expect(all.methods.map((r) => r.label)).toEqual(['run()', 'help()']);
+    // Размер = заголовок + отступы + строки (поля, разделитель, методы, строка «ещё N private»).
+    expect(cardSize(c, 'expanded').height).toBe(CARD.header + 2 * CARD.bodyPad + 3 * CARD.row + CARD.separator);
+    expect(cardSize(c, 'all').height).toBe(CARD.header + 2 * CARD.bodyPad + 5 * CARD.row + CARD.separator);
+    expect(cardSize(c, 'compact').height).toBe(CARD.header);
+    // Длинный список: высота не больше CARD.maxBody (внутри — прокрутка), раскладка получает ту же высоту.
+    const big = cls({
+      id: 'Big',
+      methods: Array.from({ length: 30 }, (_, i) => ({ id: `Big.m${i}~0`, name: `m${i}`, signature: `public void m${i}()`, modifiers: ['public'] })),
+    });
+    expect(cardSize(big, 'expanded').height).toBe(CARD.header + CARD.maxBody);
+    // Только конструкторы — разворачивать нечего, карточка остаётся свёрнутой.
+    const ctorOnly = cls({ id: 'K', constructors: c.constructors });
+    expect(cardSize(ctorOnly, 'expanded')).toEqual(cardSize(ctorOnly));
+    // Компоненты record (private final) видны и без уровня all.
+    const rec = cls({ id: 'R', kind: 'record', fields: [{ name: 'id', type: 'int', modifiers: ['private', 'final'] }] });
+    expect(cardMembers(rec, 'expanded')).toMatchObject({ fields: [{ label: 'id' }], privateCount: 0 });
+  });
+
+  it('umlToGraph: уровень карточки из levels меняет её размер', () => {
+    const main = uml.classes.find((c) => c.id === 'com.demo.Main');
+    if (!main) throw new Error('нет Main');
+    const g = umlToGraph(uml, new Map([['com.demo.Main', 'expanded']]));
+    const node = g.nodes.find((n) => n.id === main.id);
+    expect(node?.level).toBe('expanded');
+    expect(node?.height).toBeGreaterThan(CARD.header);
+    expect(g.nodes.filter((n) => n.height === CARD.header)).toHaveLength(uml.classes.length - 1);
+  });
+
+  it('видимость значком', () => {
     expect(visibilityOf(['public', 'static'])).toBe('public');
     expect(visibilityOf(['private', 'final'])).toBe('private');
     expect(visibilityOf(['protected'])).toBe('protected');
     expect(visibilityOf([])).toBe('package');
     expect(visibilityOf([], 'interface')).toBe('public');
-    expect(stereotypeOf({ kind: 'interface', modifiers: [] })).toBe('«interface»');
-    expect(stereotypeOf({ kind: 'class', modifiers: ['public', 'abstract'] })).toBe('«abstract»');
-    expect(stereotypeOf({ kind: 'class', modifiers: ['public'] })).toBeNull();
-    expect(memberText('public static void main(String[] args) throws IOException')).toBe(
-      'void main(String[] args) throws IOException',
-    );
-    expect(memberText('@Override public String toString()')).toBe('String toString()');
   });
 
   it('поиск и соседи', () => {
@@ -149,10 +221,19 @@ describe('umlFlow — ноды/рёбра React Flow', () => {
     ]),
     routes: new Map([['B->A:extends', [{ x: 10, y: 200 }, { x: 10, y: 60 }]]]),
   };
-  const ui = { hovered: null, matches: null, selectedId: null, flyingId: null, onClassClick: () => undefined, onMemberClick: () => undefined };
+  const ui: Parameters<typeof umlFlow>[2] = {
+    hovered: null,
+    matches: null,
+    selectedId: null,
+    flyingId: null,
+    showDependencies: false,
+    onClassClick: () => undefined,
+    onMemberClick: () => undefined,
+    onLevel: () => undefined,
+  };
 
-  it('UML-нотация по kind: треугольник, ромб у целого, пунктир, кратность и «эвристика»', () => {
-    const { nodes, edges } = umlFlow(model, layout, ui);
+  it('UML-нотация по kind: треугольник, ромб у целого, пунктир; эвристика — стилем, без подписи на ребре', () => {
+    const { nodes, edges } = umlFlow(model, layout, { ...ui, showDependencies: true });
     expect(nodes.map((n) => [n.id, n.position])).toEqual([
       ['A', { x: 0, y: 0 }],
       ['B', { x: 0, y: 200 }],
@@ -161,13 +242,41 @@ describe('umlFlow — ноды/рёбра React Flow', () => {
     const byId = new Map(edges.map((e) => [e.id, e.data]));
     expect(byId.get('B->A:extends')).toMatchObject({ end: 'triangle', start: null, dashed: false, tone: 'base' });
     expect(byId.get('B->A:extends')?.points).toEqual([{ x: 10, y: 200 }, { x: 10, y: 60 }]);
-    expect(byId.get('A->C:aggregation')).toMatchObject({ start: 'diamond', end: null, multiplicity: '*', badge: 'эвристика' });
-    expect(byId.get('B->C:dependency')).toMatchObject({ end: 'arrow', dashed: true, points: null });
-    expect(byId.get('B->C:dependency')?.badge).toBeUndefined();
+    expect(byId.get('A->C:aggregation')).toMatchObject({ start: 'diamond', end: null, heuristic: true });
+    expect(byId.get('A->C:aggregation')).not.toHaveProperty('badge');
+    expect(edges.find((e) => e.id === 'A->C:aggregation')?.data?.title).toContain('эвристика');
+    // Ребра нет в раскладке — прямая между карточками, от границы до границы.
+    expect(byId.get('B->C:dependency')).toMatchObject({ end: 'arrow', dashed: true });
+    expect(byId.get('B->C:dependency')?.points).toHaveLength(2);
+    expect(byId.get('B->C:dependency')?.heuristic).toBeUndefined();
+  });
+
+  it('зависимости по умолчанию скрыты; видны у наведённой карточки и по переключателю', () => {
+    const ids = (u: typeof ui) => umlFlow(model, layout, u).edges.map((e) => e.id);
+    expect(ids(ui)).toEqual(['B->A:extends', 'A->C:aggregation']);
+    expect(ids({ ...ui, hovered: 'B' })).toContain('B->C:dependency');
+    expect(ids({ ...ui, hovered: 'A' })).not.toContain('B->C:dependency');
+    expect(ids({ ...ui, showDependencies: true })).toContain('B->C:dependency');
+    // Прямая зависимость наведённой карточки — под карточками.
+    expect(umlFlow(model, layout, { ...ui, hovered: 'B' }).edges.find((e) => e.id === 'B->C:dependency')?.zIndex).toBe(0);
+  });
+
+  it('кратность — только у связей наведённой или выбранной карточки', () => {
+    const mult = (u: typeof ui) => umlFlow(model, layout, u).edges.find((e) => e.id === 'A->C:aggregation')?.data?.multiplicity;
+    expect(mult(ui)).toBeUndefined();
+    expect(mult({ ...ui, hovered: 'B' })).toBeUndefined();
+    expect(mult({ ...ui, hovered: 'C' })).toBe('*');
+    expect(mult({ ...ui, selectedId: 'A' })).toBe('*');
+  });
+
+  it('раскладка без скрытых зависимостей: ELK получает только структурные связи', () => {
+    expect(layoutModel(model, false).edges.map((e) => e.id)).toEqual(['B->A:extends', 'A->C:aggregation']);
+    expect(layoutModel(model, true).edges).toHaveLength(3);
+    expect(layoutModel(model, false).full).toBe(model);
   });
 
   it('наведение: связи класса подсвечены, остальное приглушено; поиск приглушает несовпавшие', () => {
-    const hovered = umlFlow(model, layout, { ...ui, hovered: 'A' });
+    const hovered = umlFlow(model, layout, { ...ui, showDependencies: true, hovered: 'A' });
     expect(Object.fromEntries(hovered.nodes.map((n) => [n.id, n.data.state]))).toEqual({ A: 'active', B: 'normal', C: 'normal' });
     expect(Object.fromEntries(hovered.edges.map((e) => [e.id, e.data?.tone]))).toEqual({
       'B->A:extends': 'active',
@@ -177,7 +286,7 @@ describe('umlFlow — ноды/рёбра React Flow', () => {
     const searched = umlFlow(model, layout, { ...ui, matches: new Set(['C']) });
     expect(Object.fromEntries(searched.nodes.map((n) => [n.id, n.data.state]))).toEqual({ A: 'dim', B: 'dim', C: 'match' });
     const selected = umlFlow(model, layout, { ...ui, selectedId: 'B', flyingId: 'B' });
-    expect(selected.nodes.find((n) => n.id === 'B')?.data).toMatchObject({ selected: true, flying: true });
+    expect(selected.nodes.find((n) => n.id === 'B')?.data).toMatchObject({ selected: true, flying: true, level: 'compact' });
   });
 });
 
@@ -187,8 +296,10 @@ describe('umlFlow — петли, хабы, подписи', () => {
     matches: null,
     selectedId: null,
     flyingId: null,
+    showDependencies: false,
     onClassClick: () => undefined,
     onMemberClick: () => undefined,
+    onLevel: () => undefined,
   };
   const targets = [...'abcdefg'];
   const diagram: Schemas['UmlDiagram'] = {
@@ -213,17 +324,20 @@ describe('umlFlow — петли, хабы, подписи', () => {
     expect(composition[0]?.y).toBeGreaterThan(association[association.length - 1]?.y ?? 0);
   });
 
-  it('слабые связи хаба бледные, пока нет наведения/поиска; наведение их возвращает', () => {
+  it('слабые связи хаба (при показанных зависимостях) бледные, пока нет наведения/поиска; наведение их возвращает', () => {
     const tones = (ui2: typeof ui) => umlFlow(model, layout, ui2).edges.filter((e) => e.target !== 'M').map((e) => e.data?.tone);
-    expect(tones(ui)).toEqual(Array(7).fill('faint'));
-    expect(tones({ ...ui, hovered: 'a' })).toEqual(['active', ...Array(6).fill('dim')]);
-    expect(tones({ ...ui, matches: new Set(['M']) })).toEqual(Array(7).fill('base'));
+    const deps = { ...ui, showDependencies: true };
+    expect(tones(deps)).toEqual(Array(7).fill('faint'));
+    expect(tones({ ...deps, hovered: 'a' })).toEqual(['active', ...Array(6).fill('dim')]);
+    expect(tones({ ...deps, matches: new Set(['M']) })).toEqual(Array(7).fill('base'));
+    // Зависимости скрыты: у наведённого хаба видны все его зависимости.
+    expect(tones({ ...ui, hovered: 'M' })).toEqual(Array(7).fill('active'));
     // Ассоциация и композиция хаба остаются обычными.
     const base = umlFlow(model, layout, ui).edges.filter((e) => e.source === 'M' && e.target === 'M').map((e) => e.data?.tone);
     expect(base).toEqual(['base', 'base']);
   });
 
-  it('подписи рёбер получают место вне карточек', () => {
+  it('кратность получает место вне карточек', () => {
     const d: Schemas['UmlDiagram'] = {
       version: 1,
       classes: [cls({ id: 'A' }), cls({ id: 'B' })],
@@ -234,13 +348,11 @@ describe('umlFlow — петли, хабы, подписи', () => {
       positions: new Map([['A', { x: 0, y: 0 }], ['B', { x: 0, y: 400 }]]),
       routes: new Map([['A->B:aggregation', [{ x: 50, y: 60 }, { x: 50, y: 400 }]]]),
     };
-    const data = umlFlow(m, lay, ui).edges[0]?.data;
-    expect(data?.badgeAt).not.toBeNull();
+    const data = umlFlow(m, lay, { ...ui, hovered: 'A' }).edges[0]?.data;
     expect(data?.multiplicityAt).not.toBeNull();
     const boxes = m.nodes.map((n) => ({ ...(lay.positions.get(n.id) ?? { x: 0, y: 0 }), width: n.width, height: n.height }));
-    for (const p of [data?.badgeAt, data?.multiplicityAt]) {
-      expect(boxes.some((b) => (p?.y ?? 0) > b.y && (p?.y ?? 0) < b.y + b.height)).toBe(false);
-    }
+    const p = data?.multiplicityAt;
+    expect(boxes.some((b) => (p?.y ?? 0) > b.y && (p?.y ?? 0) < b.y + b.height)).toBe(false);
   });
 });
 
@@ -265,10 +377,9 @@ describe('раскладка и геометрия рёбер', () => {
     expect(out.routes.get('up')).toEqual([{ x: 5, y: 5 }, { x: 0, y: 5 }, { x: 0, y: 0 }]);
   });
 
-  it('путь, середина и точка у конца ломаной', () => {
+  it('путь и точка у конца ломаной', () => {
     const pts = [{ x: 0, y: 0 }, { x: 0, y: 10 }, { x: 10, y: 10 }];
     expect(polylinePath(pts)).toBe('M 0 0 L 0 10 L 10 10');
-    expect(polylineMid(pts)).toEqual({ x: 0, y: 10 });
     expect(nearEnd([{ x: 0, y: 0 }, { x: 100, y: 0 }], 20, 10)).toEqual({ x: 80, y: 10 });
   });
   it('toElk не отдаёт ELK самосвязи (петлю строит umlFlow)', () => {
@@ -282,20 +393,15 @@ describe('раскладка и геометрия рёбер', () => {
     expect(elk.edges?.map((e) => e.id)).toEqual(['down']);
   });
 
-  it('polylineAt: доля длины ломаной', () => {
-    const pts = [{ x: 0, y: 0 }, { x: 0, y: 10 }, { x: 10, y: 10 }];
-    expect(polylineAt(pts, 0)).toEqual({ x: 0, y: 0 });
-    expect(polylineAt(pts, 0.25)).toEqual({ x: 0, y: 5 });
-    expect(polylineAt(pts, 1)).toEqual({ x: 10, y: 10 });
+  it('прямая между карточками — от границы до границы; перекрытые карточки — null', () => {
+    const a = { x: 0, y: 0, width: 100, height: 50 };
+    expect(straightRoute(a, { x: 0, y: 200, width: 100, height: 50 })).toEqual([{ x: 50, y: 50 }, { x: 50, y: 200 }]);
+    expect(straightRoute(a, { x: 300, y: 0, width: 100, height: 50 })).toEqual([{ x: 100, y: 25 }, { x: 300, y: 25 }]);
+    expect(straightRoute(a, { x: 10, y: 10, width: 100, height: 50 })).toBeNull();
   });
 
-  it('подписи не ложатся на карточки: «эвристика» сдвигается по ребру, нет места — null', () => {
+  it('кратность не ложится на карточки', () => {
     const line = [{ x: 0, y: 0 }, { x: 0, y: 200 }];
-    // Середина (0, 100) под карточкой — берётся другая доля длины.
-    const spot = badgeSpot(line, [{ x: -50, y: 80, width: 100, height: 40 }]);
-    expect(spot).not.toBeNull();
-    expect(Math.abs((spot?.y ?? 100) - 100)).toBeGreaterThan(10);
-    expect(badgeSpot(line, [{ x: -50, y: -10, width: 100, height: 220 }])).toBeNull();
     // Кратность: вплотную к концу занято — отходит назад по ребру.
     const near = multiplicitySpot(line, [{ x: -30, y: 170, width: 100, height: 40 }]);
     expect(near).not.toBeNull();
@@ -321,13 +427,46 @@ describe('раскладка и геометрия рёбер', () => {
     expect(tall.y).toBeCloseTo((278 - 64) / 1.15);
   });
 
-  it('семантический зум: обычная карточка от 0,45, ниже — крупный заголовок', () => {
-    expect(semanticScale(1)).toBe(0);
-    expect(semanticScale(0.45)).toBe(0);
-    expect(semanticScale(0.44)).toBe(2);
-    expect(semanticScale(0.25)).toBe(3);
-    expect(semanticScale(0.08)).toBe(4);
+  it('имя при отдалении: переносы по camelCase и точке, один размер на экране у всех карточек', () => {
+    expect(nameSegments('InventoryService')).toEqual(['Inventory', 'Service']);
+    expect(nameSegments('PricingService.Rule')).toEqual(['Pricing', 'Service.', 'Rule']);
+    expect(nameSegments('Main')).toEqual(['Main']);
+    const g = umlToGraph(uml);
+    const fit = nameFit(g.nodes);
+    // Самая длинная часть имени каждой карточки при общем увеличении помещается в её ширину.
+    expect(fit).toBeGreaterThanOrEqual(FAR_NAME_SCALE - 0.05);
+    for (const n of g.nodes) {
+      const longest = Math.max(...nameSegments(n.cls.name).map(titleWidth));
+      expect(longest * fit).toBeLessThanOrEqual(n.width - SCALED_TEXT_CHROME + 0.01);
+    }
+    expect(nameScale(1, fit)).toBe(1);
+    expect(nameScale(READABLE_NAME_PX / 16, fit)).toBe(1);
+    // Масштаб «Fit View» ~0,33: имя на экране не меньше 11 px (READABLE_NAME_PX с шагом 0,05).
+    for (const zoom of [0.6, 0.45, 0.33]) expect(16 * nameScale(zoom, fit) * zoom).toBeGreaterThanOrEqual(11);
+    // Сильнее отдалено — рост упирается в общий предел, а не в ширину отдельной карточки.
+    expect(nameScale(0.1, fit)).toBeLessThanOrEqual(fit);
+    expect(nameScale(0.1, 0.5)).toBe(1);
+    // Развёрнутая карточка увеличивает имя только ниже EXPANDED_SCALE_ZOOM (иначе видны члены).
+    expect(nameScale(EXPANDED_SCALE_ZOOM + 0.05, fit, true)).toBe(1);
+    expect(nameScale(EXPANDED_SCALE_ZOOM - 0.05, fit, true)).toBeGreaterThan(1);
   });
+
+  it('несколько развёрнутых соседних карточек не перекрываются (раскладка по фактическому размеру)', async () => {
+    const levels = new Map<string, 'expanded' | 'all'>([
+      ['com.demo.service.OrderService', 'all'],
+      ['com.demo.service.InventoryService', 'expanded'],
+      ['com.demo.service.Catalog', 'expanded'],
+    ]);
+    const g = layoutModel(umlToGraph(uml, levels), false);
+    const layout = await layoutDiagram(g.nodes, g.edges);
+    const boxes = g.nodes.map((n) => ({ ...n, ...(layout.positions.get(n.id) ?? { x: NaN, y: NaN }) }));
+    for (const a of boxes) {
+      for (const b of boxes) {
+        if (a === b) continue;
+        expect(a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height).toBe(false);
+      }
+    }
+  }, 15_000);
 
   it('начальный вид: центр на самом верхнем (при равенстве — левом) узле, под панелью поиска', () => {
     const nodes = [

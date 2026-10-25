@@ -1,4 +1,4 @@
-import { BaseEdge, EdgeLabelRenderer, useStore, type Edge, type EdgeProps } from '@xyflow/react';
+import { BaseEdge, EdgeLabelRenderer, type Edge, type EdgeProps } from '@xyflow/react';
 import type { Point } from './diagramLayout';
 import { MARKER_COLOR, markerId, polylinePath, type EdgeTone, type EndMarker, type StartMarker } from './edgeGeometry';
 import styles from './Diagrams.module.css';
@@ -10,12 +10,14 @@ export interface DiagramEdgeData extends Record<string, unknown> {
   end: EndMarker;
   start: StartMarker;
   tone: EdgeTone;
-  /** Кратность у конца `to` («1» / «*») и её место (вне карточек; нет места — подпись не рисуется). */
+  /** Эвристическая связь (UML: агрегация/композиция по полям) — штрих-пунктир, подписи на ребре нет. */
+  heuristic?: boolean;
+  /**
+   * Кратность у конца `to` («1» / «*») и её место (вне карточек; нет места — не рисуется). Передаётся только
+   * для связей наведённой/выбранной карточки — на остальных рёбрах подписей нет.
+   */
   multiplicity?: string;
   multiplicityAt?: Point | null;
-  /** Подпись на ребре (напр. «эвристика») и её место (вне карточек). */
-  badge?: string;
-  badgeAt?: Point | null;
   /** Всплывающая подсказка ребра. */
   title?: string;
 }
@@ -30,20 +32,13 @@ const TONE_CLASS: Record<EdgeTone, string | undefined> = {
   cycle: styles.edgeCycle,
 };
 
-/** Масштаб, с которого видны подписи рёбер. */
-const LABEL_ZOOM = 0.6;
-
-/** Ребро диаграммы: ломаная ELK, UML-маркеры на концах, подписи кратности и «эвристика». */
+/** Ребро диаграммы: ломаная ELK, UML-маркеры на концах, кратность (если передана). */
 export function DiagramEdgeView({ id, data, sourceX, sourceY, targetX, targetY }: EdgeProps<DiagramEdge>) {
-  const zoomedIn = useStore((s) => s.transform[2] >= LABEL_ZOOM);
   if (!data) return null;
   const points = data.points && data.points.length >= 2 ? data.points : [{ x: sourceX, y: sourceY }, { x: targetX, y: targetY }];
-  const className = [styles.edgePath, data.dashed ? styles.dashed : '', TONE_CLASS[data.tone] ?? ''].filter(Boolean).join(' ');
+  const className = [styles.edgePath, data.dashed ? styles.dashed : '', data.heuristic ? styles.heuristic : '', TONE_CLASS[data.tone] ?? ''].filter(Boolean).join(' ');
   const labelCls = [styles.edgeLabel, data.tone === 'dim' ? styles.labelDim : ''].filter(Boolean).join(' ');
-  // Мелкие подписи при отдалении не читаются и только мусорят — видны от масштаба LABEL_ZOOM или у связей наведённого класса.
-  const showLabels = zoomedIn || data.tone === 'active';
-  const mult = showLabels && data.multiplicity ? (data.multiplicityAt ?? null) : null;
-  const mid = showLabels && data.badge ? (data.badgeAt ?? null) : null;
+  const mult = data.multiplicity ? (data.multiplicityAt ?? null) : null;
   return (
     <>
       <BaseEdge
@@ -59,22 +54,11 @@ export function DiagramEdgeView({ id, data, sourceX, sourceY, targetX, targetY }
           <title>{data.title}</title>
         </path>
       )}
-      {(mult || mid) && (
+      {mult && (
         <EdgeLabelRenderer>
-          {mult && (
-            <div className={labelCls} style={{ transform: `translate(-50%, -50%) translate(${mult.x}px, ${mult.y}px)` }}>
-              {data.multiplicity}
-            </div>
-          )}
-          {mid && (
-            <div
-              className={`${labelCls} ${styles.badgeLabel}`}
-              style={{ transform: `translate(-50%, -50%) translate(${mid.x}px, ${mid.y}px)` }}
-              data-testid="edge-badge"
-            >
-              {data.badge}
-            </div>
-          )}
+          <div className={labelCls} style={{ transform: `translate(-50%, -50%) translate(${mult.x}px, ${mult.y}px)` }}>
+            {data.multiplicity}
+          </div>
         </EdgeLabelRenderer>
       )}
     </>
