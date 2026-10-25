@@ -175,7 +175,7 @@ export function VerifySummary({ verify, staleVersion, onCreateStub }: VerifySumm
           </span>
         ))}
         {staleVersion != null && (
-          <span className={styles.verifyText}>Результаты получены на версии {staleVersion}, проект с тех пор изменён.</span>
+          <span className={styles.verifyText}>Результаты устарели — код изменён.</span>
         )}
       </div>
       {total > 0 && (

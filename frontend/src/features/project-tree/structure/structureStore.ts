@@ -143,7 +143,7 @@ export async function saveFileEdit(
       tree = currentTree();
     }
     if (!tree || tree.version !== file.version) {
-      return failWith({ message: 'Дерево проекта и текст файла разных версий — повторите' });
+      return failWith({ message: 'Дерево проекта и текст файла рассинхронизированы — повторите' });
     }
     const edit = transform(file.text, tree);
     if (!edit.ok) return failWith({ message: edit.reason });

@@ -78,7 +78,6 @@ export function ExportDialog({ client, projectId, version, onClose, save = downl
             <span id="jb-export-title" className={styles.title}>
               Экспорт {projectId}
             </span>
-            {version !== null && <span className={styles.muted}>версия {version}</span>}
           </div>
           <button type="button" className={`${styles.btn} ${styles.btnIcon}`} aria-label="Закрыть" onClick={onClose}>
             ✕

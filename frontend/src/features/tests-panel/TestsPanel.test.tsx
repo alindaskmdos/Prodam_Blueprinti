@@ -99,7 +99,7 @@ describe('панель тестов', () => {
     fireEvent.click(within(form).getByRole('button', { name: 'Сохранить' }));
 
     const toast = await screen.findByText('Проект изменён');
-    expect(toast.parentElement).toHaveTextContent('Ваша правка относилась к версии 2, сейчас 3. Состояние перезагружено.');
+    expect(toast.parentElement).toHaveTextContent('Проект изменился, пока вы правили. Состояние перезагружено.');
     // GET /projects/{id} (фикстура project.json, version 1) — версия взята с сервера.
     await waitFor(() => expect(useAppStore.getState().version).toBe(1));
     await waitFor(() => expect(listCalls).toBe(2));

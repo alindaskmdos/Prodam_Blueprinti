@@ -13,12 +13,9 @@ type TestResult = Schemas['TestResult'];
 const TOAST_MS = 6000;
 
 function conflictText(c: TestsConflict): string {
-  const versions =
-    c.clientVersion !== undefined && c.serverVersion !== undefined
-      ? `Ваша правка относилась к версии ${c.clientVersion}, сейчас ${c.serverVersion}. `
-      : '';
+  const stale = c.clientVersion !== undefined && c.serverVersion !== undefined ? 'Проект изменился, пока вы правили. ' : '';
   const lost = c.draft ? ' Ваша правка не сохранена.' : '';
-  return `${versions}Состояние перезагружено.${lost}`;
+  return `${stale}Состояние перезагружено.${lost}`;
 }
 
 function copyText(text: string): void {

@@ -208,7 +208,7 @@ describe('FE-13: применить фикс (Quality Gate)', () => {
 });
 
 describe('FE-13: запуск и проверка поведения', () => {
-  it('запуск: один main — stdin уходит в POST run, результат в панели тестов', async () => {
+  it('запуск: один main — stdin уходит в POST run, вывод во вкладке «Консоль»', async () => {
     const t = track();
     renderApp();
     await sandboxReady();
@@ -221,8 +221,8 @@ describe('FE-13: запуск и проверка поведения', () => {
     await waitFor(() => expect(useTestsStore.getState().run).toEqual(fixtures.runOk));
     expect(t.runBodies).toEqual([{ mainClass: 'com.demo.Main', stdin: '2\n' }]);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(useAppStore.getState().activePanels.bottom).toBe('bottom.tests');
-    const tab = screen.getByRole('tab', { name: 'Результат тестов' });
+    expect(useAppStore.getState().activePanels.bottom).toBe('bottom.console');
+    const tab = screen.getByRole('tab', { name: 'Консоль' });
     expect(tab).toHaveAttribute('aria-selected', 'true');
   });
 
