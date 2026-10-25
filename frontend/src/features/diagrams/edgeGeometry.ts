@@ -1,7 +1,7 @@
 import type { Point } from './diagramLayout';
 
-/** Тон ребра: обычное, связь наведённого класса, приглушённое, слабое (связь «хаба» до наведения), в цикле зависимостей (красное). */
-export type EdgeTone = 'base' | 'active' | 'dim' | 'faint' | 'cycle';
+/** Тон ребра: обычное, связь наведённого класса, приглушённое, слабое (связь «хаба» до наведения). */
+export type EdgeTone = 'base' | 'active' | 'dim' | 'faint';
 
 export type EndMarker = 'triangle' | 'arrow' | null;
 export type StartMarker = 'diamond' | 'diamondFilled' | null;
@@ -12,9 +12,12 @@ export const MARKER_COLOR: Record<'base' | 'active' | 'cycle', string> = {
   cycle: 'var(--jb-severity-high)',
 };
 
-/** id SVG-маркера: форма + тон (у приглушённых — обычный маркер, прозрачность у всего ребра). */
-export function markerId(shape: string, tone: EdgeTone): string {
-  return `jb-dg-${shape}-${tone === 'dim' || tone === 'faint' ? 'base' : tone}`;
+/**
+ * id SVG-маркера: форма + тон (у приглушённых — обычный маркер, прозрачность у всего ребра); у ребра цикла
+ * зависимостей маркер всегда красный.
+ */
+export function markerId(shape: string, tone: EdgeTone | 'cycle', cycle = false): string {
+  return `jb-dg-${shape}-${cycle ? 'cycle' : tone === 'dim' || tone === 'faint' ? 'base' : tone}`;
 }
 
 export interface Box {

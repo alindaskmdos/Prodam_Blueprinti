@@ -1,4 +1,5 @@
 import { setupWorker } from 'msw/browser';
-import { handlers } from './handlers';
+import { handlers, scenarioHandlers } from './handlers';
 
-export const worker = setupWorker(...handlers);
+// `?scenarios=a,b` — альтернативные сценарии (handlers.ts) поверх обычных обработчиков.
+export const worker = setupWorker(...scenarioHandlers(window.location.search), ...handlers);

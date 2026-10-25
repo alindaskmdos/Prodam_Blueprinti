@@ -89,7 +89,7 @@ describe('App — каркас редактора на MSW', () => {
     // Вкладки: холст (схема метода + диаграммы), анализ, низ.
     expect(screen.getAllByRole('tablist')).toHaveLength(3);
     const canvasTabs = screen.getByRole('tablist', { name: 'Холст' });
-    expect(within(canvasTabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['Метод не выбран', 'UML', 'Зависимости']);
+    expect(within(canvasTabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['Метод не выбран', 'UML']);
     const right = screen.getByRole('tablist', { name: 'Анализ' });
     const bottom = screen.getByRole('tablist', { name: 'Код, консоль, тесты' });
     expect(within(right).getAllByRole('tab').map((t) => t.textContent)).toEqual([
@@ -165,7 +165,7 @@ describe('App — каркас редактора на MSW', () => {
     expect(screen.queryAllByTestId('uml-class')).toHaveLength(0);
   }, 20_000);
 
-  it.each(['UML', 'Зависимости'])('проблема с blockId при открытой вкладке «%s» → схема метода (FE-16)', async (tab) => {
+  it.each(['UML'])('проблема с blockId при открытой вкладке «%s» → схема метода (FE-16)', async (tab) => {
     render(<App client={client} projectId="p-1" />);
     fireEvent.click(screen.getByRole('tab', { name: tab }));
     await waitFor(() => expect(screen.getByRole('tab', { name: tab })).toHaveAttribute('aria-selected', 'true'));
@@ -176,6 +176,26 @@ describe('App — каркас редактора на MSW', () => {
     act(() => useAppStore.getState().selectIssue({ issueId: 'ISSUE-2' }));
     expect(screen.getByRole('tab', { name: tab })).toHaveAttribute('aria-selected', 'true');
   });
+
+  it('Issue CyclicDependency при открытой UML: вкладка UML остаётся, классы цикла подсвечены (FE-48)', async () => {
+    server.use(scenarios.analysisCycle, scenarios.dependenciesCycle, scenarios.umlCycle);
+    render(<App client={client} projectId="p-1" />);
+    fireEvent.click(screen.getByRole('tab', { name: 'UML' }));
+    expect(await screen.findAllByTestId('uml-class', {}, { timeout: 10_000 })).toHaveLength(3);
+    await screen.findByTestId('cycle-list', {}, { timeout: 10_000 });
+    const cycle = fixtures.analysisCycle.issues[0];
+    if (!cycle) throw new Error('нет проблемы в analysis.cycle.json');
+    const card = (await screen.findByText(cycle.message)).closest('button');
+    if (!card) throw new Error('карточка не кнопка');
+    fireEvent.click(card);
+    expect(useAppStore.getState().selectedIssueId).toBe(cycle.id);
+    expect(screen.getByRole('tab', { name: 'UML' })).toHaveAttribute('aria-selected', 'true');
+    const byId = (id: string) => document.querySelector(`[data-testid="uml-class"][data-class-id="${id}"]`);
+    await waitFor(() => expect(byId('com.shop.Cart')?.className).toMatch(/cardMatch/));
+    expect(byId('com.shop.Pricing')?.className).toMatch(/cardMatch/);
+    expect(byId('com.shop.Item')?.className).toMatch(/cardDim/);
+    expect(within(screen.getByTestId('cycle-list')).getByRole('button', { current: true })).toHaveTextContent('Cart → Pricing → Cart');
+  }, 20_000);
 
   it('Issue CyclicDependency без blockId: клик в панели анализа → код файла span проблемы, схема метода не ломается (FE-18)', async () => {
     server.use(scenarios.analysisCycle);
@@ -192,7 +212,7 @@ describe('App — каркас редактора на MSW', () => {
     expect(screen.getByTestId('canvas-method')).toHaveTextContent('OrderService.merge');
   });
 
-  it('общий выбор класса (UML/граф/палитра → selectClass): дерево, «Свойства», код класса с прокруткой к span (FE-16)', async () => {
+  it('общий выбор класса (UML/палитра → selectClass): дерево, «Свойства», код класса с прокруткой к span (FE-16)', async () => {
     render(<App client={client} projectId="p-1" />);
     // Сначала выбран метод: выбор класса новее — код показывает класс.
     fireEvent.click(await screen.findByRole('button', { name: new RegExp(merge.name) }));

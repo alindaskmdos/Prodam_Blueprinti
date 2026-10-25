@@ -11,7 +11,7 @@ describe('реестр вкладок panels.ts', () => {
     expect(new Set(panels.map((p) => p.id)).size).toBe(panels.length);
     expect(panelsIn('right').map((p) => p.id)).toEqual(['analysis.problems', 'analysis.warnings', 'analysis.metrics', 'structure.props']);
     expect(panelsIn('bottom').map((p) => p.id)).toEqual(['bottom.code', 'bottom.console', 'bottom.tests']);
-    expect(panelsIn('canvas').map((p) => p.id)).toEqual(['canvas.uml', 'canvas.deps']);
+    expect(panelsIn('canvas').map((p) => p.id)).toEqual(['canvas.uml']);
   });
 
   it('PanelTabs отрисовывает вкладки из списка и переключает содержимое', () => {

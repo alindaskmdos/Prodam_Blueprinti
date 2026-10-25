@@ -5,6 +5,7 @@ import umlJson from '@contract/fixtures/uml.demo.json';
 import treeJson from '@contract/fixtures/tree.json';
 import { resetAppState, useAppStore } from '../../app/store';
 import { fixtures } from '../../mocks/fixtures';
+import { scenarios } from '../../mocks/handlers';
 import { server } from '../../mocks/server';
 import { createApiClient, resetMethodBlocks, type Schemas } from '../api';
 import { CANVAS_METHOD_TAB } from '../layout';
@@ -213,12 +214,13 @@ describe('UmlView (MSW, uml.demo.json)', () => {
     expect(screen.getByRole('button', { name: 'Развернуть все' })).toBeInTheDocument();
   }, 20_000);
 
-  it('«Зависимости»: по умолчанию выключено, переключение не пересоздаёт холст', async () => {
+  it('«Все связи»: по умолчанию выключено, переключение не пересоздаёт холст', async () => {
     useAppStore.getState().openProject('p-1', 1);
     render(<UmlView client={client} />);
     await screen.findAllByTestId('uml-class', {}, { timeout: 10_000 });
     const canvas = screen.getByTestId('uml-canvas');
-    const toggle = screen.getByRole('button', { name: 'Зависимости' });
+    const toggle = screen.getByRole('button', { name: 'Все связи' });
+    expect(toggle).toHaveAttribute('title', 'Показать слабые связи „использует“');
     expect(toggle).toHaveAttribute('aria-pressed', 'false');
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute('aria-pressed', 'true');
@@ -247,10 +249,79 @@ describe('UmlView (MSW, uml.demo.json)', () => {
     expect(screen.getAllByTestId('uml-class')).toHaveLength(uml.classes.length);
   }, 20_000);
 
+  it('демо без циклов: панели циклов нет, карточки не красные', async () => {
+    useAppStore.getState().openProject('p-1', 1);
+    render(<UmlView client={client} />);
+    await screen.findAllByTestId('uml-class', {}, { timeout: 10_000 });
+    // Граф зависимостей грузится параллельно: дождаться ответа, затем проверить.
+    await new Promise((r) => setTimeout(r, 200));
+    expect(screen.queryByTestId('cycle-list')).toBeNull();
+    expect(document.querySelector('[data-in-cycle]')).toBeNull();
+  }, 20_000);
+
   it('ошибка загрузки — сообщение', async () => {
     server.use(http.get('*/api/projects/:projectId/uml', () => HttpResponse.json({ code: 'NOT_FOUND', message: 'нет проекта' }, { status: 404 })));
     useAppStore.getState().openProject('p-1', 1);
     render(<UmlView client={client} />);
     expect(await screen.findByRole('alert')).toHaveTextContent('нет проекта');
   });
+});
+
+describe('UmlView — циклы зависимостей (dependencies.cycle.json, FE-48)', () => {
+  const CART = 'com.shop.Cart';
+  const PRICING = 'com.shop.Pricing';
+  const ITEM = 'com.shop.Item';
+  const card = (id: string) => document.querySelector<HTMLElement>(`[data-testid="uml-class"][data-class-id="${id}"]`);
+
+  it('классы цикла красные, панель «Циклы (N)»: наведение выделяет цикл, клик → Issue и подсветка цикла', async () => {
+    server.use(scenarios.umlCycle, scenarios.dependenciesCycle);
+    useAppStore.getState().openProject('p-1', 2);
+    render(<UmlView client={client} />);
+    const list = await screen.findByTestId('cycle-list', {}, { timeout: 10_000 });
+    expect(screen.getAllByTestId('uml-class')).toHaveLength(3);
+    await waitFor(() => expect(card(CART)?.className).toContain(styles.cardCycle));
+    expect(card(PRICING)?.className).toContain(styles.cardCycle);
+    expect(card(PRICING)).toHaveAttribute('data-in-cycle', 'true');
+    expect(card(ITEM)?.className).not.toContain(styles.cardCycle);
+
+    expect(screen.getByRole('button', { name: 'Все связи' })).toHaveAttribute('aria-pressed', 'false');
+    // Ассоциация Cart → Pricing — та же связь, но красная; зависимость Pricing → Cart (обычно скрыта) — видна и красная.
+    expect(screen.getByRole('button', { name: 'Все связи' })).toHaveAttribute('aria-pressed', 'false');
+    // Рёбра в jsdom не рисуются (нет замера handle): цвет и видимость рёбер цикла — в umlGraph.test.ts.
+
+    // Панель «Циклы (N)»: наведение выделяет классы цикла, клик → Issue CyclicDependency.
+    expect(within(list).getByText('Циклы (1)')).toBeInTheDocument();
+    const item = within(list).getByRole('button', { name: /Cart → Pricing → Cart/ });
+    fireEvent.mouseEnter(item);
+    expect(card(CART)?.className).toContain(styles.cardMatch);
+    expect(card(ITEM)?.className).toContain(styles.cardDim);
+    fireEvent.mouseLeave(item);
+    expect(card(ITEM)?.className).not.toContain(styles.cardDim);
+    fireEvent.click(item);
+    const s = useAppStore.getState();
+    expect(s.selectedIssueId).toBe('ISSUE-7');
+    expect(s.selectedBlockId).toBeNull();
+    expect(s.activePanels.right).toBe('analysis.problems');
+    expect(s.activePanels.bottom).toBe('bottom.code');
+    // Цикл выбранной проблемы подсвечен, пункт панели отмечен.
+    await waitFor(() => expect(card(ITEM)?.className).toContain(styles.cardDim));
+    expect(item).toHaveAttribute('aria-current', 'true');
+    // Снятие выбора проблемы снимает подсветку.
+    act(() => useAppStore.getState().selectIssue(null));
+    await waitFor(() => expect(card(ITEM)?.className).not.toContain(styles.cardDim));
+  }, 20_000);
+
+  it('граф зависимостей не загрузился — UML без циклов', async () => {
+    server.use(
+      scenarios.umlCycle,
+      http.get('*/api/projects/:projectId/dependencies', () => HttpResponse.json({ code: 'INTERNAL', message: 'сбой' }, { status: 500 })),
+    );
+    useAppStore.getState().openProject('p-1', 2);
+    render(<UmlView client={client} />);
+    await screen.findAllByTestId('uml-class', {}, { timeout: 10_000 });
+    await new Promise((r) => setTimeout(r, 200));
+    expect(screen.queryByTestId('cycle-list')).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(document.querySelector('[data-in-cycle]')).toBeNull();
+  }, 20_000);
 });

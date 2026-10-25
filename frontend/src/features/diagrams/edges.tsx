@@ -10,6 +10,8 @@ export interface DiagramEdgeData extends Record<string, unknown> {
   end: EndMarker;
   start: StartMarker;
   tone: EdgeTone;
+  /** Ребро цикла зависимостей: красное при любом тоне (тон — только яркость). */
+  cycle?: boolean;
   /** Эвристическая связь (UML: агрегация/композиция по полям) — штрих-пунктир, подписи на ребре нет. */
   heuristic?: boolean;
   /**
@@ -29,14 +31,13 @@ const TONE_CLASS: Record<EdgeTone, string | undefined> = {
   active: styles.edgeActive,
   dim: styles.edgeDim,
   faint: styles.edgeFaint,
-  cycle: styles.edgeCycle,
 };
 
 /** Ребро диаграммы: ломаная ELK, UML-маркеры на концах, кратность (если передана). */
 export function DiagramEdgeView({ id, data, sourceX, sourceY, targetX, targetY }: EdgeProps<DiagramEdge>) {
   if (!data) return null;
   const points = data.points && data.points.length >= 2 ? data.points : [{ x: sourceX, y: sourceY }, { x: targetX, y: targetY }];
-  const className = [styles.edgePath, data.dashed ? styles.dashed : '', data.heuristic ? styles.heuristic : '', TONE_CLASS[data.tone] ?? ''].filter(Boolean).join(' ');
+  const className = [styles.edgePath, data.dashed ? styles.dashed : '', data.heuristic ? styles.heuristic : '', TONE_CLASS[data.tone] ?? '', data.cycle ? styles.edgeCycle : ''].filter(Boolean).join(' ');
   const labelCls = [styles.edgeLabel, data.tone === 'dim' ? styles.labelDim : ''].filter(Boolean).join(' ');
   const mult = data.multiplicity ? (data.multiplicityAt ?? null) : null;
   return (
@@ -45,8 +46,8 @@ export function DiagramEdgeView({ id, data, sourceX, sourceY, targetX, targetY }
         id={id}
         path={polylinePath(points)}
         className={className}
-        markerEnd={data.end ? `url(#${markerId(data.end, data.tone)})` : undefined}
-        markerStart={data.start ? `url(#${markerId(data.start, data.tone)})` : undefined}
+        markerEnd={data.end ? `url(#${markerId(data.end, data.tone, data.cycle)})` : undefined}
+        markerStart={data.start ? `url(#${markerId(data.start, data.tone, data.cycle)})` : undefined}
         interactionWidth={12}
       />
       {data.title && (

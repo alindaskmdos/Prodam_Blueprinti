@@ -1,12 +1,14 @@
 import { Background, BackgroundVariant, Controls, MiniMap, Panel, ReactFlow, ReactFlowProvider, useReactFlow } from '@xyflow/react';
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../../app/store';
 import { api, prefetchMethodBlocks, type ApiClient, type Schemas } from '../api';
+import { SEVERITY_LABEL } from '../analysis-panel';
 import { ClassCard, type ClassCardNode } from './ClassCard';
+import { cycleInfo, cycleLabel, type DepCycle, type DepGraph } from './cycles';
 import { DiagramToolbar } from './DiagramToolbar';
 import { useDiagram } from './diagramsStore';
 import { DiagramEdgeView, DiagramMarkers } from './edges';
-import { FIT_PADDING, goToClass, goToMethod, useFitView, useFlyTo, useSelectedClassFqn } from './navigation';
+import { FIT_PADDING, goToClass, goToCycleIssue, goToMethod, useFitView, useFlyTo, useSelectedClassFqn } from './navigation';
 import { umlFlow } from './umlFlow';
 import {
   hasMembers,
@@ -31,9 +33,13 @@ interface Props {
   client?: ApiClient;
 }
 
-/** Вкладка «UML» (FE-16): GET uml → карточки классов и связи в UML-нотации; клик → редактор. */
+/**
+ * Вкладка «UML» (FE-16): GET uml → карточки классов и связи в UML-нотации; клик → редактор. Циклы — из
+ * GET dependencies (FE-48): классы и рёбра циклов красные, панель «Циклы (N)»; граф не загрузился — UML без циклов.
+ */
 export function UmlView({ client = api }: Props) {
   const remote = useDiagram('uml', client);
+  const deps = useDiagram('deps', client);
   if (!remote.data) {
     if (remote.status === 'error') {
       return (
@@ -47,7 +53,7 @@ export function UmlView({ client = api }: Props) {
   if (remote.data.classes.length === 0) return <div className={styles.status}>В проекте нет классов</div>;
   return (
     <ReactFlowProvider>
-      <UmlCanvas client={client} diagram={remote.data} stale={remote.status === 'error' ? remote.message : null} />
+      <UmlCanvas client={client} diagram={remote.data} deps={deps.data} stale={remote.status === 'error' ? remote.message : null} />
     </ReactFlowProvider>
   );
 }
@@ -57,12 +63,24 @@ export default UmlView;
 /** Масштаб, с которого карточки UML читаются (текст 12 px): ниже начальный вид — верх диаграммы, не весь граф. */
 const READABLE_ZOOM = 0.6;
 
-function UmlCanvas({ client, diagram, stale }: { client: ApiClient; diagram: Schemas['UmlDiagram']; stale: string | null }) {
+interface CanvasProps {
+  client: ApiClient;
+  diagram: Schemas['UmlDiagram'];
+  /** Граф зависимостей той же версии (циклы); null — ещё нет или ошибка. */
+  deps: DepGraph | null;
+  stale: string | null;
+}
+
+function UmlCanvas({ client, diagram, deps, stale }: CanvasProps) {
   // Развёрнутые карточки (нет в карте — свёрнута). Уровень меняет размер карточки → новая раскладка ELK.
   const [levels, setLevels] = useState<ReadonlyMap<string, CardLevel>>(() => new Map());
-  // Зависимости по умолчанию скрыты и не идут в раскладку; переключатель — новая раскладка без сброса viewport.
+  // Зависимости по умолчанию скрыты и не идут в раскладку (кроме рёбер циклов); «Все связи» — новая раскладка без сброса viewport.
   const [showDependencies, setShowDependencies] = useState(false);
-  const model = useMemo(() => layoutModel(umlToGraph(diagram, levels), showDependencies), [diagram, levels, showDependencies]);
+  const cycles = useMemo(() => cycleInfo(deps), [deps]);
+  const model = useMemo(
+    () => layoutModel(umlToGraph(diagram, levels, cycles), showDependencies),
+    [diagram, levels, cycles, showDependencies],
+  );
   const layout = useLayout(model);
   const rf = useReactFlow();
   // Карточка, которую развернули/свернули: после перераскладки viewport сдвигается так, чтобы она осталась на месте экрана.
@@ -141,7 +159,31 @@ function UmlCanvas({ client, diagram, stale }: { client: ApiClient; diagram: Sch
     void rf.setViewport({ ...vp, x: vp.x - (pos.x - a.x) * vp.zoom, y: vp.y - (pos.y - a.y) * vp.zoom });
   }, [layout, model, rf]);
 
-  const matches = useMemo(() => matchClasses(diagram.classes, query), [diagram.classes, query]);
+  // Наведённый в панели цикл и цикл выбранной проблемы CyclicDependency выделяют свои классы.
+  const [hoveredCycle, setHoveredCycle] = useState<DepCycle | null>(null);
+  const [issueCycle, setIssueCycle] = useState<DepCycle | null>(null);
+  const selectedIssueId = useAppStore((s) => s.selectedIssueId);
+  const focusedCycle = issueCycle && issueCycle.issueId === selectedIssueId ? issueCycle : null;
+  // Выбор проблемы без блока (панель анализа, палитра, панель циклов) при открытой UML: цикл подсвечен,
+  // камера летит к его первому классу; холст не переключается. Выбор до открытия вкладки не в счёт.
+  const issueSeq = useAppStore((s) => (s.highlight?.source === 'issue' && !s.highlight.blockId ? s.highlight.seq : null));
+  const seenIssueSeq = useRef(issueSeq);
+  useEffect(() => {
+    if (issueSeq === null || issueSeq === seenIssueSeq.current || layout.status !== 'ready') return;
+    seenIssueSeq.current = issueSeq;
+    const issueId = useAppStore.getState().selectedIssueId;
+    const cycle = deps?.cycles.find((c) => c.issueId === issueId);
+    if (!cycle) return;
+    setIssueCycle(cycle);
+    const first = cycle.classes.find((id) => layout.layout.positions.has(id));
+    if (first && !busy.current) fly(first, () => undefined);
+  }, [issueSeq, deps, layout, fly]);
+
+  const searched = useMemo(() => matchClasses(diagram.classes, query), [diagram.classes, query]);
+  const matches = useMemo(() => {
+    const cycle = hoveredCycle ?? (searched ? null : focusedCycle);
+    return cycle ? new Set(cycle.classes) : searched;
+  }, [hoveredCycle, searched, focusedCycle]);
   const flow = useMemo(
     () =>
       layout.status === 'ready'
@@ -160,7 +202,7 @@ function UmlCanvas({ client, diagram, stale }: { client: ApiClient; diagram: Sch
   );
 
   const onSearchEnter = () => {
-    const first = diagram.classes.find((c) => matches?.has(c.id));
+    const first = diagram.classes.find((c) => searched?.has(c.id));
     // Enter не перебивает идущий полёт с переходом в редактор.
     if (first && !busy.current) fly(first.id, () => undefined);
   };
@@ -193,7 +235,10 @@ function UmlCanvas({ client, diagram, stale }: { client: ApiClient; diagram: Sch
         edgeTypes={edgeTypes}
         onNodeMouseEnter={(_, n) => setHovered(n.id)}
         onNodeMouseLeave={() => setHovered(null)}
-        onPaneClick={() => setHovered(null)}
+        onPaneClick={() => {
+          setHovered(null);
+          setIssueCycle(null);
+        }}
         nodesDraggable={false}
         nodesConnectable={false}
         edgesFocusable={false}
@@ -213,7 +258,10 @@ function UmlCanvas({ client, diagram, stale }: { client: ApiClient; diagram: Sch
           <MiniMap
             className={styles.minimap}
             style={{ width: 150, height: 96 }}
-            nodeColor={(n) => KIND_ICON[(n.data as { cls: UmlClass }).cls.kind].color}
+            nodeColor={(n) => {
+              const d = n.data as { cls: UmlClass; inCycle: boolean };
+              return d.inCycle ? 'var(--jb-severity-high)' : KIND_ICON[d.cls.kind].color;
+            }}
             nodeBorderRadius={4}
             bgColor="var(--jb-panel)"
             maskColor="rgba(11, 14, 19, 0.6)"
@@ -227,7 +275,7 @@ function UmlCanvas({ client, diagram, stale }: { client: ApiClient; diagram: Sch
             query={query}
             onQuery={setQuery}
             onEnter={onSearchEnter}
-            found={matches ? matches.size : null}
+            found={searched ? searched.size : null}
             onFit={fitView}
             minimap={minimap}
             onMinimap={() => setMinimap((v) => !v)}
@@ -239,9 +287,9 @@ function UmlCanvas({ client, diagram, stale }: { client: ApiClient; diagram: Sch
               className={styles.toolButton}
               aria-pressed={showDependencies}
               onClick={() => setShowDependencies((v) => !v)}
-              title="Показать или скрыть связи-зависимости (у наведённого класса они видны всегда)"
+              title="Показать слабые связи „использует“"
             >
-              Зависимости
+              Все связи
             </button>
             {expandable.length > 0 && (
               <button
@@ -257,9 +305,55 @@ function UmlCanvas({ client, diagram, stale }: { client: ApiClient; diagram: Sch
           </DiagramToolbar>
         </Panel>
         <Panel position="top-right">
-          <UmlLegend />
+          <div className={styles.topRight}>
+            {deps && deps.cycles.length > 0 && (
+              <CyclePanel cycles={deps.cycles} classes={diagram.classes} active={focusedCycle?.issueId ?? null} onHover={setHoveredCycle} />
+            )}
+            <UmlLegend />
+          </div>
         </Panel>
       </ReactFlow>
+    </div>
+  );
+}
+
+/**
+ * Панель «Циклы (N)»: наведение выделяет классы цикла, клик → Issue CyclicDependency (панель «Проблемы» + код по
+ * span проблемы; на UML — подсветка цикла и камера к нему). Циклов нет — панели нет.
+ */
+function CyclePanel({
+  cycles,
+  classes,
+  active,
+  onHover,
+}: {
+  cycles: readonly DepCycle[];
+  classes: readonly UmlClass[];
+  active: string | null;
+  onHover: (c: DepCycle | null) => void;
+}) {
+  return (
+    <div className={`${styles.cycles} nowheel`} aria-label="Циклы зависимостей" data-testid="cycle-list">
+      <div className={styles.cyclesTitle}>Циклы ({cycles.length})</div>
+      {cycles.map((c) => (
+        <button
+          key={c.issueId}
+          type="button"
+          className={`${styles.cycleItem} nodrag nopan`}
+          aria-current={c.issueId === active || undefined}
+          onClick={() => goToCycleIssue(c.issueId)}
+          onMouseEnter={() => onHover(c)}
+          onMouseLeave={() => onHover(null)}
+          onFocus={() => onHover(c)}
+          onBlur={() => onHover(null)}
+          title="Открыть проблему «циклическая зависимость»"
+        >
+          <span className={styles.cycleSeverity}>
+            {SEVERITY_LABEL[c.severity]} · {c.classes.length} кл.
+          </span>
+          <span>{cycleLabel(c, classes)}</span>
+        </button>
+      ))}
     </div>
   );
 }
@@ -300,6 +394,12 @@ function LegendBody() {
           <path d="M 4 6 L 38 6" className={`${styles.edgePath} ${styles.heuristic}`} markerStart="url(#jb-dg-diamond-base)" />
         </svg>
         эвристика (по полям)
+      </span>
+      <span className={styles.legendItem}>
+        <svg width="42" height="12" aria-hidden="true">
+          <path d="M 4 6 L 38 6" className={`${styles.edgePath} ${styles.edgeCycle}`} markerEnd="url(#jb-dg-arrow-cycle)" />
+        </svg>
+        цикл зависимостей
       </span>
     </div>
   );

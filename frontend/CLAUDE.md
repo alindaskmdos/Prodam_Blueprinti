@@ -15,7 +15,7 @@ React + TypeScript (Vite), React Flow (xyflow) + ELK.js, Monaco Editor, MSW дл
 | `analysis-panel` | вкладки Проблемы / Предупреждения / Метрики |
 | `tests-panel` | IO-тесты, JUnit в Monaco, результаты, diff |
 | `upload` | загрузка файлов/архивов/папки, предупреждения загрузки, экспорт |
-| `diagrams` | UML, граф зависимостей классов (если успеем) |
+| `diagrams` | UML с циклами зависимостей |
 | `console` | терминал xterm.js (если успеем) |
 | `debug` | пошаговое воспроизведение (если успеем) |
 | `command-palette` | Ctrl+K: поиск и команды (если успеем) |

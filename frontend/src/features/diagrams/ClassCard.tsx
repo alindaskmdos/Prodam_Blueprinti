@@ -22,6 +22,8 @@ export type CardState = 'normal' | 'dim' | 'active' | 'match';
 export interface ClassCardData extends Record<string, unknown> {
   cls: UmlClass;
   state: CardState;
+  /** Класс входит в цикл зависимостей (GET dependencies): красная рамка. */
+  inCycle: boolean;
   /** Подробность карточки: свёрнута (по умолчанию) / развёрнута / с private. */
   level: CardLevel;
   /** Класс выбран (общий выбор класса project-tree). */
@@ -79,7 +81,7 @@ const STATE_CLASS: Record<CardState, string | undefined> = {
  * поля `name`, методы `name()` (кликабельны → схема метода), private — по кнопке «показать».
  */
 export function ClassCard({ data }: NodeProps<ClassCardNode>) {
-  const { cls, state, level, selected, flying, nameFit, onClassClick, onMemberClick, onLevel } = data;
+  const { cls, state, inCycle, level, selected, flying, nameFit, onClassClick, onMemberClick, onLevel } = data;
   const icon = KIND_ICON[cls.kind];
   const expandable = hasMembers(cls);
   const open = expandable && level !== 'compact';
@@ -92,6 +94,7 @@ export function ClassCard({ data }: NodeProps<ClassCardNode>) {
     selected ? styles.cardSelected : '',
     flying ? styles.cardFlying : '',
     scaled ? styles.cardScaled : '',
+    inCycle ? styles.cardCycle : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -109,6 +112,7 @@ export function ClassCard({ data }: NodeProps<ClassCardNode>) {
       className={className}
       data-testid="uml-class"
       data-class-id={cls.id}
+      data-in-cycle={inCycle || undefined}
       style={{ ['--kind' as string]: icon.color, ...(scaled ? { ['--name-scale' as string]: scale } : {}) }}
     >
       <Handle type="target" position={Position.Top} className={styles.handle} isConnectable={false} />

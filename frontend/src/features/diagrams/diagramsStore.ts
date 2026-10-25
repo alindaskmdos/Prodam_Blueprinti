@@ -22,7 +22,7 @@ export type DiagramKind = keyof DiagramsState;
 
 const empty = { key: null, projectId: null, status: 'idle' as const, data: null, message: null };
 
-/** Диаграммы открытого проекта (UML — FE-16, граф зависимостей — FE-18): кэш по версии проекта. */
+/** Диаграммы открытого проекта (UML — FE-16, граф зависимостей для циклов в UML — FE-18/FE-48): кэш по версии проекта. */
 export const useDiagramsStore = create<DiagramsState>()(() => ({ uml: { ...empty }, deps: { ...empty } }));
 
 function request(kind: DiagramKind, client: ApiClient, projectId: string) {

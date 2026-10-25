@@ -11,7 +11,7 @@ export interface CodeTargetInput {
   /** Файл выбранного метода (из дерева проекта); метода нет или файл не найден — null. */
   methodPath: string | null;
   selectedMethodId: string | null;
-  /** Выбранный класс/поле (дерево, UML, граф зависимостей, палитра). */
+  /** Выбранный класс/поле (дерево, UML, палитра). */
   structure: StructureTarget | null;
   /** Выбранная проблема (из анализа): methodId и span. */
   issue: { methodId?: string | null; span: LineSpan } | null;

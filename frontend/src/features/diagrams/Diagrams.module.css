@@ -1,4 +1,4 @@
-/* Диаграммы (UML, граф зависимостей) — Graphite. Размеры карточки = CARD в umlGraph.ts. */
+/* Диаграммы (UML с циклами зависимостей) — Graphite. Размеры карточки = CARD в umlGraph.ts. */
 
 .canvas {
   position: relative;
@@ -91,6 +91,19 @@
   border-color: var(--jb-accent);
   border-top-color: var(--kind);
   animation: jb-dg-fly 520ms var(--jb-ease-out) both;
+}
+
+/* Класс в цикле зависимостей: красная рамка всегда (полоса kind сверху остаётся). */
+.cardCycle,
+.cardCycle:hover {
+  border-color: var(--jb-severity-high);
+  border-top-color: var(--kind);
+  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.6), 0 8px 24px rgba(248, 113, 113, 0.18);
+}
+
+.cardCycle.cardMatch,
+.cardCycle.cardActive {
+  box-shadow: 0 0 0 2px var(--jb-severity-high), 0 10px 30px rgba(248, 113, 113, 0.35);
 }
 
 @keyframes jb-dg-fly {
@@ -549,60 +562,14 @@
   border-radius: 8px;
 }
 
-/* ---------- Граф зависимостей ---------- */
+/* ---------- Циклы зависимостей (GET dependencies) ---------- */
 
-.depNode {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 12px;
-  border-radius: 10px;
-  background: #141a22;
-  border: 1px solid var(--jb-border-strong);
-  border-top: 3px solid var(--kind);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
-  cursor: pointer;
-  outline: none;
-  color: var(--jb-text);
-  transition: opacity 180ms, box-shadow var(--jb-dur-hover), border-color var(--jb-dur-hover);
-  animation: jb-rise var(--jb-dur-rise) var(--jb-ease-out) both;
-}
-
-.depNode:hover {
-  border-color: #4a5568;
-  border-top-color: var(--kind);
-}
-
-.depNode:focus-visible {
-  box-shadow: 0 0 0 2px var(--jb-accent);
-}
-
-.depCycle {
-  border-color: var(--jb-severity-high);
-  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.6), 0 8px 24px rgba(248, 113, 113, 0.18);
-}
-
-.depText {
+/* Правый верхний угол: «Циклы (N)» и под ними «Обозначения» — столбиком, не налезают друг на друга. */
+.topRight {
   display: flex;
   flex-direction: column;
-  min-width: 0;
-}
-
-.depName {
-  font: 600 13px/17px var(--jb-font-ui);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.depPkg {
-  font: 11px/14px var(--jb-font-code);
-  color: var(--jb-text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  align-items: flex-end;
+  gap: 8px;
 }
 
 .cycles {
@@ -643,7 +610,8 @@
 }
 
 .cycleItem:hover,
-.cycleItem:focus-visible {
+.cycleItem:focus-visible,
+.cycleItem[aria-current='true'] {
   background: rgba(58, 30, 34, 0.9);
   border-color: var(--jb-severity-high);
   outline: none;
@@ -658,8 +626,3 @@
   color: #ffb4ac;
 }
 
-.noCycles {
-  font: 12px var(--jb-font-ui);
-  color: var(--jb-success);
-  padding: 2px 4px;
-}

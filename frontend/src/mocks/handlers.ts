@@ -221,6 +221,12 @@ export const scenarios = {
   ),
   /** Граф зависимостей с циклом Cart ↔ Pricing (dependencies.cycle.json) и его Issue CyclicDependency (analysis.cycle.json). */
   dependenciesCycle: http.get(`${API}/projects/:projectId/dependencies`, () => HttpResponse.json(fixtures.dependenciesCycle)),
+  /**
+   * UML тех же классов (FE-48): фикстуры UML для dependencies.cycle.json нет — собирается из её узлов.
+   * Cart → Pricing — ассоциация (ребро цикла совпадает со структурной связью), Pricing → Cart — зависимость
+   * (по умолчанию скрыта, но как ребро цикла видна), Cart → Item — агрегация вне цикла.
+   */
+  umlCycle: http.get(`${API}/projects/:projectId/uml`, () => HttpResponse.json(cycleUml())),
   analysisCycle: http.get(`${API}/projects/:projectId/analysis`, () => HttpResponse.json(fixtures.analysisCycle)),
   // Для 404 фикстуры нет — ответ по схеме Error контракта.
   analysisNotFound: http.get(`${API}/projects/:projectId/analysis`, () =>
@@ -316,3 +322,48 @@ const loadWarnings: Schemas['LoadWarning'][] = [
   { code: 'IGNORED_FILE', file: 'pom.xml', message: 'pom.xml не нужен — работаем с исходниками.' },
   { code: 'UNPARSED_FILE', file: 'src/com/demo/Nested.java', message: 'Файл загружен текстом, без схемы.' },
 ];
+
+/** UML классов dependencies.cycle.json (сценарий umlCycle): классы из узлов графа, связи — по его рёбрам. */
+export function cycleUml(): Schemas['UmlDiagram'] {
+  const g = fixtures.dependenciesCycle;
+  const [cart = '', pricing = '', item = ''] = g.nodes.map((n) => n.id);
+  const classes: Schemas['UmlClass'][] = g.nodes.map((n) => ({
+    id: n.id,
+    name: n.name,
+    kind: n.kind ?? 'class',
+    package: n.package,
+    path: n.path,
+    span: { file: n.path, startLine: 1, endLine: 40 },
+    modifiers: ['public'],
+    fields:
+      n.id === cart
+        ? [
+            { name: 'items', type: 'List<Item>', modifiers: ['private', 'final'] },
+            { name: 'pricing', type: 'Pricing', modifiers: ['private', 'final'] },
+          ]
+        : [],
+    constructors: [],
+    methods: [],
+  }));
+  return {
+    version: g.version,
+    classes,
+    relations: [
+      { from: cart, to: pricing, kind: 'association', heuristic: false, multiplicity: '1', via: 'pricing' },
+      { from: pricing, to: cart, kind: 'dependency', heuristic: false, via: 'total' },
+      { from: cart, to: item, kind: 'aggregation', heuristic: true, multiplicity: '*', via: 'items' },
+    ],
+  };
+}
+
+/**
+ * Сценарии для ручной проверки в браузере (`VITE_USE_MOCKS=true`): `?scenarios=dependenciesCycle,umlCycle`
+ * — перед обычными обработчиками. Неизвестные имена пропускаются.
+ */
+export function scenarioHandlers(search: string) {
+  const names = new URLSearchParams(search).get('scenarios')?.split(',') ?? [];
+  return names.flatMap((name) => {
+    const h = (scenarios as Record<string, (typeof handlers)[number] | (typeof handlers)[number][]>)[name.trim()];
+    return h ? [h].flat() : [];
+  });
+}

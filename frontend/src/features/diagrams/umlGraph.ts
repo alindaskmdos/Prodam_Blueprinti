@@ -1,4 +1,5 @@
 import type { Schemas } from '../api';
+import { NO_CYCLES, pairKey, type CycleInfo } from './cycles';
 import type { LayoutEdge, LayoutNode } from './diagramLayout';
 
 export type UmlClass = Schemas['UmlClass'];
@@ -225,10 +226,12 @@ export interface UmlEdgeModel {
   from: string;
   to: string;
   relation: UmlRelation;
+  /** Ребро цикла зависимостей (GET dependencies, `inCycle`): рисуется красным. */
+  inCycle: boolean;
 }
 
 export interface UmlGraphModel {
-  nodes: (LayoutNode & { cls: UmlClass; level: CardLevel })[];
+  nodes: (LayoutNode & { cls: UmlClass; level: CardLevel; inCycle: boolean })[];
   edges: (UmlEdgeModel & LayoutEdge)[];
 }
 
@@ -238,25 +241,39 @@ export interface UmlGraphModel {
  * обратным ребром: родитель — выше потомка, как принято в UML. Связи одного вида между теми же классами
  * (from->to:kind) — одно ребро, поля `via` объединяются; from === to — самосвязь (рисуется петлёй).
  * `levels` — развёрнутые карточки (нет в карте — свёрнута): от уровня зависит размер карточки в раскладке.
+ * `cycles` — циклы GET dependencies: классы и связи цикла помечены `inCycle`; ребру цикла без UML-связи
+ * (UML и граф зависимостей считаются отдельно) соответствует добавленная связь `dependency`.
  */
-export function umlToGraph(diagram: Schemas['UmlDiagram'], levels: ReadonlyMap<string, CardLevel> = new Map()): UmlGraphModel {
+export function umlToGraph(
+  diagram: Schemas['UmlDiagram'],
+  levels: ReadonlyMap<string, CardLevel> = new Map(),
+  cycles: CycleInfo = NO_CYCLES,
+): UmlGraphModel {
   const ids = new Set(diagram.classes.map((c) => c.id));
   const nodes = diagram.classes.map((cls) => {
     const level = levels.get(cls.id) ?? 'compact';
-    return { id: cls.id, cls, level, ...cardSize(cls, level) };
+    return { id: cls.id, cls, level, inCycle: cycles.classes.has(cls.id), ...cardSize(cls, level) };
   });
   const byId = new Map<string, UmlGraphModel['edges'][number]>();
-  for (const r of diagram.relations) {
-    if (!ids.has(r.from) || !ids.has(r.to)) continue;
+  const add = (r: UmlRelation) => {
+    if (!ids.has(r.from) || !ids.has(r.to)) return;
     const id = `${r.from}->${r.to}:${r.kind}`;
     const seen = byId.get(id);
     if (seen) {
       const via = [...new Set([...(seen.relation.via?.split(', ') ?? []), ...(r.via ? [r.via] : [])])].join(', ');
       if (via) seen.relation = { ...seen.relation, via };
-      continue;
+      return;
     }
     const up = r.kind === 'extends' || r.kind === 'implements';
-    byId.set(id, { id, from: r.from, to: r.to, relation: r, source: up ? r.to : r.from, target: up ? r.from : r.to, reversed: up });
+    const inCycle = r.from !== r.to && cycles.edges.has(pairKey(r.from, r.to));
+    byId.set(id, { id, from: r.from, to: r.to, relation: r, inCycle, source: up ? r.to : r.from, target: up ? r.from : r.to, reversed: up });
+  };
+  diagram.relations.forEach(add);
+  const covered = new Set([...byId.values()].map((e) => pairKey(e.from, e.to)));
+  for (const key of cycles.edges) {
+    if (covered.has(key)) continue;
+    const [from = '', to = ''] = key.split('->');
+    add({ from, to, kind: 'dependency', heuristic: false });
   }
   return { nodes, edges: [...byId.values()] };
 }
@@ -266,15 +283,20 @@ export function isStructural(kind: RelationKind): boolean {
   return kind !== 'dependency';
 }
 
+/** Ребро видно без переключателя «Все связи»: структурная связь или любая связь цикла зависимостей. */
+export function alwaysShown(e: Pick<UmlEdgeModel, 'relation' | 'inCycle'>): boolean {
+  return e.inCycle || isStructural(e.relation.kind);
+}
+
 /**
- * Модель для раскладки ELK: без зависимостей, если они скрыты, — скрытые рёбра не раздувают раскладку
+ * Модель для раскладки ELK: без зависимостей (кроме рёбер циклов), если они скрыты, — скрытые рёбра не раздувают раскладку
  * (зависимость наведённой карточки рисуется прямой между карточками). `full` — вся модель для отрисовки.
  */
 export function layoutModel(
   model: UmlGraphModel,
   showDependencies: boolean,
 ): UmlGraphModel & { full: UmlGraphModel; showDependencies: boolean } {
-  const edges = showDependencies ? model.edges : model.edges.filter((e) => isStructural(e.relation.kind));
+  const edges = showDependencies ? model.edges : model.edges.filter(alwaysShown);
   return { nodes: model.nodes, edges, full: model, showDependencies };
 }
 

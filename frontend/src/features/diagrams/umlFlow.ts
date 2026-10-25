@@ -2,7 +2,7 @@ import type { ClassCardData, ClassCardNode, CardState } from './ClassCard';
 import type { DiagramLayout } from './diagramLayout';
 import type { DiagramEdge } from './edges';
 import { multiplicitySpot, selfLoopPoints, straightRoute, type Box, type EdgeTone } from './edgeGeometry';
-import { hubSources, isStructural, nameFit, neighborsOf, RELATION_STYLE, type UmlGraphModel } from './umlGraph';
+import { alwaysShown, hubSources, nameFit, neighborsOf, RELATION_STYLE, type UmlGraphModel } from './umlGraph';
 
 export interface UmlInteraction {
   /** Наведённый класс: его связи подсвечены, остальное приглушено. */
@@ -11,7 +11,7 @@ export interface UmlInteraction {
   matches: Set<string> | null;
   selectedId: string | null;
   flyingId: string | null;
-  /** Переключатель «Зависимости»: false — зависимости видны только у наведённой карточки. */
+  /** Переключатель «Все связи»: false — зависимости (кроме рёбер циклов) видны только у наведённой карточки. */
   showDependencies: boolean;
   onClassClick: ClassCardData['onClassClick'];
   onMemberClick: ClassCardData['onMemberClick'];
@@ -21,11 +21,12 @@ export interface UmlInteraction {
 /**
  * Модель + раскладка + состояние наведения/поиска → ноды и рёбра React Flow. Чистая функция.
  * Зависимости при выключенном `showDependencies` рисуются только у наведённой карточки (прямой, если их нет в
- * раскладке). Кратность — только у связей наведённой или выбранной карточки.
+ * раскладке); рёбра циклов видны всегда и красные (`cycle`), как и карточки классов цикла. Кратность — только у
+ * связей наведённой или выбранной карточки.
  */
 export function umlFlow(model: UmlGraphModel, layout: DiagramLayout, ui: UmlInteraction): { nodes: ClassCardNode[]; edges: DiagramEdge[] } {
   const touches = (e: { from: string; to: string }, id: string | null) => id !== null && (e.from === id || e.to === id);
-  const visible = model.edges.filter((e) => ui.showDependencies || isStructural(e.relation.kind) || touches(e, ui.hovered));
+  const visible = model.edges.filter((e) => ui.showDependencies || alwaysShown(e) || touches(e, ui.hovered));
   const near = ui.hovered ? neighborsOf(visible, ui.hovered) : null;
   const fit = nameFit(model.nodes);
   const nodeState = (id: string): CardState => {
@@ -49,6 +50,7 @@ export function umlFlow(model: UmlGraphModel, layout: DiagramLayout, ui: UmlInte
     data: {
       cls: n.cls,
       state: nodeState(n.id),
+      inCycle: n.inCycle,
       level: n.level,
       selected: n.id === ui.selectedId,
       flying: n.id === ui.flyingId,
@@ -67,7 +69,7 @@ export function umlFlow(model: UmlGraphModel, layout: DiagramLayout, ui: UmlInte
     let tone: EdgeTone = 'base';
     if (ui.hovered) tone = e.from === ui.hovered || e.to === ui.hovered ? 'active' : 'dim';
     else if (ui.matches) tone = ui.matches.has(e.from) || ui.matches.has(e.to) ? 'base' : 'dim';
-    else if (e.relation.kind === 'dependency' && hubs.has(e.from)) tone = 'faint';
+    else if (e.relation.kind === 'dependency' && !e.inCycle && hubs.has(e.from)) tone = 'faint';
     let points = layout.routes.get(e.id) ?? null;
     // Ребра нет в раскладке (скрытая зависимость у наведённой карточки) — прямая, под карточками (zIndex 0).
     const straight = !points && e.from !== e.to;
@@ -90,18 +92,19 @@ export function umlFlow(model: UmlGraphModel, layout: DiagramLayout, ui: UmlInte
       type: 'diagram',
       selectable: false,
       focusable: false,
-      zIndex: tone === 'active' && !straight ? 1 : 0,
+      zIndex: (tone === 'active' || (e.inCycle && tone !== 'dim')) && !straight ? 1 : 0,
       data: {
         points,
         dashed: style.dashed,
         end: style.end,
         start: style.start,
         tone,
+        ...(e.inCycle ? { cycle: true } : {}),
         ...(e.relation.heuristic ? { heuristic: true } : {}),
         ...(e.relation.multiplicity && (touches(e, ui.hovered) || touches(e, ui.selectedId))
           ? { multiplicity: e.relation.multiplicity, multiplicityAt: points ? multiplicitySpot(points, boxes) : null }
           : {}),
-        title: `${style.label}${via}${e.relation.heuristic ? ' — эвристика' : ''}`,
+        title: `${style.label}${via}${e.relation.heuristic ? ' — эвристика' : ''}${e.inCycle ? ' — ребро цикла зависимостей' : ''}`,
       },
     };
   });

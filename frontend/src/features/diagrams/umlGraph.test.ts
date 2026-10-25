@@ -1,9 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import umlJson from '@contract/fixtures/uml.demo.json';
+import cycleJson from '@contract/fixtures/dependencies.cycle.json';
+import { cycleUml } from '../../mocks/handlers';
 import type { Schemas } from '../api';
+import { cycleInfo, cycleLabel } from './cycles';
 import { fromElk, layoutDiagram, toElk } from './diagramLayout';
-import { multiplicitySpot, nearEnd, polylinePath, selfLoopPoints, straightRoute } from './edgeGeometry';
+import { markerId, multiplicitySpot, nearEnd, polylinePath, selfLoopPoints, straightRoute } from './edgeGeometry';
 import { flyTarget } from './navigation';
 import { anchorOnTop } from './startView';
 import { umlFlow } from './umlFlow';
@@ -485,5 +488,94 @@ describe('раскладка и геометрия рёбер', () => {
     const edges = [...'abcdef'].map((to) => ({ from: 'Main', to }));
     expect(hubSources(edges)).toEqual(new Set(['Main']));
     expect(hubSources([...edges.slice(0, 5), { from: 'Main', to: 'Main' }])).toEqual(new Set());
+  });
+});
+
+describe('циклы зависимостей в UML (GET dependencies, FE-48)', () => {
+  const graph = cycleJson as unknown as Schemas['DependencyGraph'];
+  const CART = 'com.shop.Cart';
+  const PRICING = 'com.shop.Pricing';
+  const ITEM = 'com.shop.Item';
+  const diagram = cycleUml();
+  const cycles = cycleInfo(graph);
+  const model = umlToGraph(diagram, new Map(), cycles);
+  const ui: Parameters<typeof umlFlow>[2] = {
+    hovered: null,
+    matches: null,
+    selectedId: null,
+    flyingId: null,
+    showDependencies: false,
+    onClassClick: () => undefined,
+    onMemberClick: () => undefined,
+    onLevel: () => undefined,
+  };
+  const layout = {
+    positions: new Map([
+      [CART, { x: 0, y: 0 }],
+      [PRICING, { x: 0, y: 200 }],
+      [ITEM, { x: 300, y: 0 }],
+    ]),
+    routes: new Map<string, { x: number; y: number }[]>(),
+  };
+
+  it('cycleInfo: классы и рёбра циклов; нет графа или циклов — пусто; подпись цикла', () => {
+    expect([...cycles.classes]).toEqual([CART, PRICING]);
+    expect([...cycles.edges]).toEqual([`${CART}->${PRICING}`, `${PRICING}->${CART}`]);
+    expect(cycleInfo(null).classes.size).toBe(0);
+    expect(cycleInfo({ ...graph, cycles: [] }).edges.size).toBe(0);
+    const c = graph.cycles[0];
+    if (!c) throw new Error('нет цикла');
+    expect(cycleLabel(c, diagram.classes)).toBe('Cart → Pricing → Cart');
+    expect(cycleLabel(c, [])).toBe('Cart → Pricing → Cart');
+  });
+
+  it('классы и связи цикла помечены; без циклов — ничего не помечено', () => {
+    expect(model.nodes.map((n) => [n.id, n.inCycle])).toEqual([
+      [CART, true],
+      [PRICING, true],
+      [ITEM, false],
+    ]);
+    expect(Object.fromEntries(model.edges.map((e) => [e.id, e.inCycle]))).toEqual({
+      [`${CART}->${PRICING}:association`]: true,
+      [`${PRICING}->${CART}:dependency`]: true,
+      [`${CART}->${ITEM}:aggregation`]: false,
+    });
+    const plain = umlToGraph(diagram);
+    expect(plain.nodes.some((n) => n.inCycle) || plain.edges.some((e) => e.inCycle)).toBe(false);
+  });
+
+  it('ребро-зависимость цикла видно и идёт в раскладку ELK при выключенных «Все связи»', () => {
+    const ids = layoutModel(model, false).edges.map((e) => e.id);
+    expect(ids).toContain(`${PRICING}->${CART}:dependency`);
+    expect(ids).toHaveLength(3);
+    // Без цикла та же зависимость скрыта и в раскладку не входит.
+    expect(layoutModel(umlToGraph(diagram), false).edges.map((e) => e.id)).not.toContain(`${PRICING}->${CART}:dependency`);
+    expect(umlFlow(model, layout, ui).edges.map((e) => e.id)).toContain(`${PRICING}->${CART}:dependency`);
+  });
+
+  it('рёбра цикла красные (cycle) при любом тоне, маркер цикла; карточки цикла — inCycle', () => {
+    const flow = umlFlow(model, layout, ui);
+    const byId = new Map(flow.edges.map((e) => [e.id, e]));
+    const assoc = byId.get(`${CART}->${PRICING}:association`);
+    expect(assoc?.data).toMatchObject({ cycle: true, tone: 'base', end: 'arrow', dashed: false });
+    expect(assoc?.data?.title).toContain('цикла зависимостей');
+    expect(byId.get(`${PRICING}->${CART}:dependency`)?.data).toMatchObject({ cycle: true, dashed: true });
+    expect(byId.get(`${CART}->${ITEM}:aggregation`)?.data?.cycle).toBeUndefined();
+    expect(flow.nodes.map((n) => n.data.inCycle)).toEqual([true, true, false]);
+    expect(markerId('arrow', 'dim', true)).toBe('jb-dg-arrow-cycle');
+    expect(markerId('arrow', 'dim')).toBe('jb-dg-arrow-base');
+    // Наведение на Item: рёбра цикла приглушены, но остаются красными.
+    const hovered = umlFlow(model, layout, { ...ui, hovered: ITEM });
+    expect(hovered.edges.find((e) => e.id === `${PRICING}->${CART}:dependency`)?.data).toMatchObject({ cycle: true, tone: 'dim' });
+  });
+
+  it('ребро цикла без UML-связи → добавленная зависимость; к классу вне UML — нет', () => {
+    const noDep = { ...diagram, relations: diagram.relations.filter((r) => r.kind !== 'dependency') };
+    const g = umlToGraph(noDep, new Map(), cycles);
+    const added = g.edges.find((e) => e.id === `${PRICING}->${CART}:dependency`);
+    expect(added).toMatchObject({ from: PRICING, to: CART, inCycle: true, relation: { kind: 'dependency', heuristic: false } });
+    expect(g.edges).toHaveLength(3);
+    const foreign = umlToGraph(diagram, new Map(), { classes: new Set(), edges: new Set([`${CART}->com.x.Nope`]) });
+    expect(foreign.edges).toHaveLength(3);
   });
 });

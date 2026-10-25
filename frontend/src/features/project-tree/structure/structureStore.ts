@@ -58,7 +58,7 @@ useAppStore.subscribe((s, prev) => {
 });
 
 /**
- * Единый выбор класса/поля (дерево, UML, граф зависимостей, палитра): форма во вкладке «Свойства», вкладка
+ * Единый выбор класса/поля (дерево, UML, палитра): форма во вкладке «Свойства», вкладка
  * «Код Java» открывает файл класса и прокручивает к span класса/поля (`app/codeTarget.ts`); выбранная
  * проблема снимается, чтобы код показывал класс, а не её строки.
  */
@@ -74,7 +74,7 @@ export function selectStructure(selection: StructureSelection | null): void {
 }
 
 /**
- * Общий API выбора класса (UML/граф зависимостей и др.): FQN (`pkg.Outer.Inner`, = UmlClass.id) → класс
+ * Общий API выбора класса (UML и др.): FQN (`pkg.Outer.Inner`, = UmlClass.id) → класс
  * выбран в дереве, его форма открыта во вкладке «Свойства». Класса нет в дереве — false.
  */
 export function selectClass(fqn: string): boolean {

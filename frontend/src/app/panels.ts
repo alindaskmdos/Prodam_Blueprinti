@@ -1,14 +1,14 @@
 import type { ComponentType } from 'react';
 import { MetricsTab, ProblemsTab, WarningsTab } from '../features/analysis-panel';
 import { TestsPanel } from '../features/tests-panel';
-import { DependenciesTab, UmlTab } from '../features/diagrams';
+import { UmlTab } from '../features/diagrams';
 import { STRUCTURE_PANEL_ID, StructurePanel } from '../features/project-tree';
 import { ConsolePanel } from './ConsolePanel';
 import { SelectedMethodCode } from './methodViews';
 
 /**
  * Зона экрана, где живёт вкладка: правая панель (анализ), нижняя (код / консоль / тесты) или центральная
- * (`canvas`: вкладки после встроенной «схемы метода» — UML, граф зависимостей).
+ * (`canvas`: вкладки после встроенной «схемы метода» — UML с циклами зависимостей).
  */
 export type PanelArea = 'right' | 'bottom' | 'canvas';
 
@@ -35,7 +35,6 @@ export const panels: readonly PanelDef[] = [
   { id: 'bottom.tests', title: 'Результат тестов', area: 'bottom', component: TestsPanel },
   // Диаграммы — ленивый чанк (features/diagrams/lazyTabs.tsx), основной бандл не растёт.
   { id: 'canvas.uml', title: 'UML', area: 'canvas', component: UmlTab },
-  { id: 'canvas.deps', title: 'Зависимости', area: 'canvas', component: DependenciesTab },
 ];
 
 export function panelsIn(area: PanelArea, list: readonly PanelDef[] = panels): PanelDef[] {
